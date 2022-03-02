@@ -1,0 +1,6 @@
+apiVersion: serving.yatai.ai/v1alpha1
+kind: BentoDeployment
+metadata:
+  name: bentodeployment-sample
+spec:
+  # Add fields here

@@ -44,9 +44,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/bentoml/yatai-schemas/schemasv1"
 	"github.com/huandu/xstrings"
 	"github.com/pkg/errors"
+
+	"github.com/bentoml/yatai-schemas/schemasv1"
 
 	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/api/v1alpha1"
 	"github.com/bentoml/yatai-deployment-operator/common/consts"
@@ -101,6 +102,17 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
+	status := r.generateStatus(bentoDeployment)
+
+	if !reflect.DeepEqual(status, bentoDeployment.Status) {
+		bentoDeployment.Status = status
+		err = r.Status().Update(ctx, bentoDeployment)
+		if err != nil {
+			logs.Error(err, "Failed to update status.")
+			return
+		}
+	}
+
 	yataiEndpoint := os.Getenv(consts.EnvYataiEndpoint)
 	yataiApiToken := os.Getenv(consts.EnvYataiApiToken)
 	yataiClient := yataiclient.NewYataiClient(yataiEndpoint, yataiApiToken)
@@ -148,21 +160,6 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	err = r.createOrUpdateIngresses(ctx, bentoDeployment, bento)
 	if err != nil {
 		return
-	}
-
-	status, err := r.generateStatus(ctx, bentoDeployment, bento)
-	if err != nil {
-		logs.Error(err, "Failed to generate status.")
-		return
-	}
-
-	if !reflect.DeepEqual(status, bentoDeployment.Status) {
-		bentoDeployment.Status = status
-		err = r.Status().Update(ctx, bentoDeployment)
-		if err != nil {
-			logs.Error(err, "Failed to update status.")
-			return
-		}
 	}
 
 	logs.Info("Finished reconciling.")
@@ -239,7 +236,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (err error) {
 	logs := log.FromContext(ctx)
 
-	hpa, err := r.generateHPA(ctx, bentoDeployment, bento)
+	hpa, err := r.generateHPA(bentoDeployment, bento)
 	if err != nil {
 		return
 	}
@@ -305,7 +302,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 func (r *BentoDeploymentReconciler) createOrUpdateService(ctx context.Context, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (err error) {
 	logs := log.FromContext(ctx)
 
-	service, err := r.generateService(ctx, bentoDeployment, bento)
+	service, err := r.generateService(bentoDeployment, bento)
 	if err != nil {
 		return
 	}
@@ -436,35 +433,32 @@ func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context,
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateStatus(ctx context.Context, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (servingv1alpha1.BentoDeploymentStatus, error) {
-	labels, err := r.getKubeLabels(ctx, bentoDeployment, bento)
-	if err != nil {
-		return servingv1alpha1.BentoDeploymentStatus{}, err
-	}
+func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alpha1.BentoDeployment) servingv1alpha1.BentoDeploymentStatus {
+	labels := r.getKubeLabels(bentoDeployment)
 	status := servingv1alpha1.BentoDeploymentStatus{
 		PodSelector: labels,
 	}
-	return status, nil
+	return status
 }
 
 func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha1.BentoDeployment) string {
 	return bentoDeployment.Name
 }
 
-func (r *BentoDeploymentReconciler) getKubeLabels(ctx context.Context, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (map[string]string, error) {
+func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alpha1.BentoDeployment) map[string]string {
 	labels := map[string]string{
 		consts.KubeLabelYataiDeployment: bentoDeployment.Name,
 		consts.KubeLabelCreator:         consts.KubeCreator,
 	}
-	return labels, nil
+	return labels
 }
 
-func (r *BentoDeploymentReconciler) getKubeAnnotations(ctx context.Context, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (map[string]string, error) {
+func (r *BentoDeploymentReconciler) getKubeAnnotations(bento *schemasv1.BentoFullSchema) map[string]string {
 	annotations := map[string]string{
 		consts.KubeAnnotationBentoRepository: bento.Repository.Name,
 		consts.KubeAnnotationBentoVersion:    bento.Version,
 	}
-	return annotations, nil
+	return annotations
 }
 
 func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, yataiClient *yataiclient.YataiClient, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (kubeDeployment *appsv1.Deployment, err error) {
@@ -475,15 +469,9 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, yata
 		return
 	}
 
-	labels, err := r.getKubeLabels(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+	labels := r.getKubeLabels(bentoDeployment)
 
-	annotations, err := r.getKubeAnnotations(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+	annotations := r.getKubeAnnotations(bento)
 
 	kubeName := r.getKubeName(bentoDeployment)
 
@@ -519,21 +507,15 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, yata
 		},
 	}
 
-	ctrl.SetControllerReference(bentoDeployment, kubeDeployment, r.Scheme)
+	err = ctrl.SetControllerReference(bentoDeployment, kubeDeployment, r.Scheme)
 
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateHPA(ctx context.Context, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (hpa *autoscalingv2beta2.HorizontalPodAutoscaler, err error) {
-	labels, err := r.getKubeLabels(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (hpa *autoscalingv2beta2.HorizontalPodAutoscaler, err error) {
+	labels := r.getKubeLabels(bentoDeployment)
 
-	annotations, err := r.getKubeAnnotations(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+	annotations := r.getKubeAnnotations(bento)
 
 	kubeName := r.getKubeName(bentoDeployment)
 
@@ -580,21 +562,15 @@ func (r *BentoDeploymentReconciler) generateHPA(ctx context.Context, bentoDeploy
 		},
 	}
 
-	ctrl.SetControllerReference(bentoDeployment, kubeHpa, r.Scheme)
+	err = ctrl.SetControllerReference(bentoDeployment, kubeHpa, r.Scheme)
 
 	return kubeHpa, err
 }
 
 func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context, yataiClient *yataiclient.YataiClient, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (podTemplateSpec *corev1.PodTemplateSpec, err error) {
-	podLabels, err := r.getKubeLabels(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+	podLabels := r.getKubeLabels(bentoDeployment)
 
-	annotations, err := r.getKubeAnnotations(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+	annotations := r.getKubeAnnotations(bento)
 
 	kubeName := r.getKubeName(bentoDeployment)
 
@@ -751,7 +727,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateService(ctx context.Context, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (kubeService *corev1.Service, err error) {
+func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (kubeService *corev1.Service, err error) {
 	kubeName := r.getKubeName(bentoDeployment)
 
 	targetPort := consts.BentoServicePort
@@ -780,15 +756,9 @@ func (r *BentoDeploymentReconciler) generateService(ctx context.Context, bentoDe
 		},
 	}
 
-	labels, err := r.getKubeLabels(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+	labels := r.getKubeLabels(bentoDeployment)
 
-	annotations, err := r.getKubeAnnotations(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+	annotations := r.getKubeAnnotations(bento)
 
 	kubeNs := bentoDeployment.Namespace
 
@@ -802,7 +772,7 @@ func (r *BentoDeploymentReconciler) generateService(ctx context.Context, bentoDe
 		Spec: spec,
 	}
 
-	ctrl.SetControllerReference(bentoDeployment, kubeService, r.Scheme)
+	err = ctrl.SetControllerReference(bentoDeployment, kubeService, r.Scheme)
 
 	return
 }
@@ -863,10 +833,7 @@ func (r *BentoDeploymentReconciler) generateIngresses(ctx context.Context, bento
 		return
 	}
 
-	annotations, err := r.getKubeAnnotations(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+	annotations := r.getKubeAnnotations(bento)
 
 	tag := fmt.Sprintf("%s:%s", bento.Repository.Name, bento.Version)
 
@@ -877,10 +844,7 @@ more_set_headers "X-Yatai-Bento: %s";
 
 	annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
 
-	labels, err := r.getKubeLabels(ctx, bentoDeployment, bento)
-	if err != nil {
-		return
-	}
+	labels := r.getKubeLabels(bentoDeployment)
 
 	pathType := networkingv1.PathTypeImplementationSpecific
 
@@ -921,11 +885,11 @@ more_set_headers "X-Yatai-Bento: %s";
 		},
 	}
 
-	ctrl.SetControllerReference(bentoDeployment, interIng, r.Scheme)
+	err = ctrl.SetControllerReference(bentoDeployment, interIng, r.Scheme)
 
 	ings := []*networkingv1.Ingress{interIng}
 
-	return ings, nil
+	return ings, err
 }
 
 // SetupWithManager sets up the controller with the Manager.

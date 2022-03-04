@@ -684,7 +684,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 			imageName_ = model.InClusterImageName
 		}
 		modelRepository := model.Repository
-		pvName := fmt.Sprintf("pv-%s", model.Version)
+		pvName := fmt.Sprintf("pv-%s-%s", strings.ToLower(strings.ReplaceAll(modelRepository.Name, "_", "-")), model.Version)
 		sourcePath := fmt.Sprintf("/models/%s/%s", modelRepository.Name, model.Version)
 		destDirPath := fmt.Sprintf("./models/%s", modelRepository.Name)
 		destPath := filepath.Join(destDirPath, model.Version)

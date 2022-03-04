@@ -6,9 +6,9 @@ const (
 	DefaultETCDDialKeepaliveTimeSeconds    = 30
 	DefaultETCDDialKeepaliveTimeoutSeconds = 10
 
-	AppNameMaxLength     = 20
-	AppCompNameMaxLength = 20
-	AppCompMaxReplicas   = 10
+	HPADefaultMaxReplicas = 10
+
+	HPACPUDefaultAverageUtilization = 80
 
 	YataiDebugImg             = "yatai.io/yatai-infras/debug"
 	YataiKubectlNamespace     = "default"
@@ -19,8 +19,8 @@ const (
 	// nolint: gosec
 	YataiApiTokenHeaderName = "X-YATAI-API-TOKEN"
 
-	BentoServicePort       = 3000
-	BentoServicePortEnvKey = "PORT"
+	BentoServicePort        = 3000
+	BentoServicePortEnvName = "PORT"
 
 	NoneStr = "None"
 

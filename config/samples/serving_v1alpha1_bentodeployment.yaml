@@ -1,6 +1,11 @@
 apiVersion: serving.yatai.ai/v1alpha1
 kind: BentoDeployment
 metadata:
-  name: bentodeployment-sample
+  name: test233
 spec:
-  # Add fields here
+  bentoTag: iris_classifier:ilmfgze35gwshlg6
+  resources:
+    limits:
+      cpu: 1000m
+    requests:
+      cpu: 500m

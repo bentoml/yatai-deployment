@@ -17,25 +17,44 @@ limitations under the License.
 package v1alpha1
 
 import (
+	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type BentoDeploymentRunnerSpec struct {
+	Name        string                         `json:"name,omitempty"`
+	Autoscaling BentoDeploymentAutoscalingSpec `json:"autoscaling,omitempty"`
+	Resources   corev1.ResourceRequirements    `json:"resources,omitempty"`
+}
+
+type BentoDeploymentAutoscalingSpec struct {
+	MinReplicas *int32                          `json:"minReplicas,omitempty"`
+	MaxReplicas int32                           `json:"maxReplicas"`
+	Metrics     []autoscalingv2beta2.MetricSpec `json:"metrics,omitempty"`
+}
+
 // BentoDeploymentSpec defines the desired state of BentoDeployment
 type BentoDeploymentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of BentoDeployment. Edit bentodeployment_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	BentoTag    string                         `json:"bentoTag,omitempty"`
+	Autoscaling BentoDeploymentAutoscalingSpec `json:"autoscaling,omitempty"`
+	Resources   corev1.ResourceRequirements    `json:"resources,omitempty"`
+	Env         []corev1.EnvVar                `json:"env,omitempty"`
+
+	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
 }
 
 // BentoDeploymentStatus defines the observed state of BentoDeployment
 type BentoDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	PodSelector map[string]string `json:"podSelector,omitempty"`
 }
 
 //+kubebuilder:object:root=true

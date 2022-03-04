@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bentoml/yatai-schemas/modelschemas"
+	"github.com/bentoml/yatai-schemas/schemasv1"
+
 	"github.com/bentoml/yatai-deployment-operator/common/consts"
 	"github.com/bentoml/yatai-deployment-operator/common/reqcli"
 	"github.com/bentoml/yatai-deployment-operator/common/utils"
-	"github.com/bentoml/yatai-schemas/schemasv1"
 )
 
 type YataiClient struct {
@@ -30,18 +32,35 @@ func (c *YataiClient) getJsonReqBuilder() *reqcli.JsonRequestBuilder {
 
 func (c *YataiClient) GetBento(ctx context.Context, bentoRepositoryName, bentoVersion string) (bento *schemasv1.BentoFullSchema, err error) {
 	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/bento_repositories/%s/bentos/%s", bentoRepositoryName, bentoVersion))
+	bento = &schemasv1.BentoFullSchema{}
 	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(bento).Do(ctx)
 	return
 }
 
 func (c *YataiClient) GetBentoRepository(ctx context.Context, bentoRepositoryName string) (bentoRepository *schemasv1.BentoRepositorySchema, err error) {
 	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/bento_repositories/%s", bentoRepositoryName))
+	bentoRepository = &schemasv1.BentoRepositorySchema{}
 	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(bentoRepository).Do(ctx)
 	return
 }
 
-func (c *YataiClient) CreateDeployment(ctx context.Context, clusterName string, schema *schemasv1.CreateDeploymentSchema) (deployment schemasv1.DeploymentSchema, err error) {
+func (c *YataiClient) CreateDeployment(ctx context.Context, clusterName string, schema *schemasv1.CreateDeploymentSchema) (deployment *schemasv1.DeploymentSchema, err error) {
 	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/clusters/%s/deployments", clusterName))
+	deployment = &schemasv1.DeploymentSchema{}
 	_, err = c.getJsonReqBuilder().Method("POST").Url(url_).Payload(schema).Result(deployment).Do(ctx)
+	return
+}
+
+func (c *YataiClient) GetDockerRegistry(ctx context.Context) (registry *modelschemas.DockerRegistrySchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, "/api/v1/current_org/docker_registry")
+	registry = &modelschemas.DockerRegistrySchema{}
+	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(registry).Do(ctx)
+	return
+}
+
+func (c *YataiClient) GetMajorCluster(ctx context.Context) (cluster *schemasv1.ClusterFullSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, "/api/v1/current_org/major_cluster")
+	cluster = &schemasv1.ClusterFullSchema{}
+	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(cluster).Do(ctx)
 	return
 }

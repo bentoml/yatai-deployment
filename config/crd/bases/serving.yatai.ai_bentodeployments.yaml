@@ -100,10 +100,6 @@ spec:
                         type: string
                       memory:
                         type: string
-                    required:
-                    - cpu
-                    - gpu
-                    - memory
                     type: object
                   requests:
                     properties:
@@ -113,14 +109,7 @@ spec:
                         type: string
                       memory:
                         type: string
-                    required:
-                    - cpu
-                    - gpu
-                    - memory
                     type: object
-                required:
-                - limits
-                - requests
                 type: object
               runners:
                 items:
@@ -669,6 +658,8 @@ spec:
                       type: object
                   type: object
                 type: array
+            required:
+            - bento_tag
             type: object
           status:
             description: BentoDeploymentStatus defines the observed state of BentoDeployment

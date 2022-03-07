@@ -176,7 +176,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	if modified {
 		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetYataiDeployment", "Fetching yatai deployment %s", bentoDeployment.Name)
-		_, err = yataiClient.GetDeployment(ctx, clusterName, bentoDeployment.Name)
+		_, err = yataiClient.GetDeployment(ctx, clusterName, bentoDeployment.Namespace, bentoDeployment.Name)
 		isNotFound := err != nil && strings.Contains(strings.ToLower(err.Error()), "not found")
 		if err != nil && !isNotFound {
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetYataiDeployment", "Failed to fetch yatai deployment %s: %s", bentoDeployment.Name, err)
@@ -226,7 +226,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "CreateYataiDeployment", "Created yatai deployment %s", bentoDeployment.Name)
 		} else {
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "UpdateYataiDeployment", "Updating yatai deployment %s", bentoDeployment.Name)
-			_, err = yataiClient.UpdateDeployment(ctx, clusterName, bentoDeployment.Name, updateSchema)
+			_, err = yataiClient.UpdateDeployment(ctx, clusterName, bentoDeployment.Namespace, bentoDeployment.Name, updateSchema)
 			if err != nil {
 				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "UpdateYataiDeployment", "Failed to update yatai deployment %s: %s", bentoDeployment.Name, err)
 				return
@@ -288,6 +288,24 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 			if err != nil {
 				logs.Error(err, "Failed to update BentoDeployment status.")
 				return
+			}
+			clusterName := getClusterName()
+			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetYataiDeployment", "Fetching yatai deployment %s", bentoDeployment.Name)
+			_, err = yataiClient.GetDeployment(ctx, clusterName, bentoDeployment.Namespace, bentoDeployment.Name)
+			isNotFound := err != nil && strings.Contains(strings.ToLower(err.Error()), "not found")
+			if err != nil && !isNotFound {
+				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetYataiDeployment", "Failed to fetch yatai deployment %s: %s", bentoDeployment.Name, err)
+				return
+			}
+			err = nil
+			if !isNotFound {
+				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "SyncYataiDeploymentStatus", "Syncing yatai deployment %s status: %s", bentoDeployment.Name, err)
+				_, err = yataiClient.SyncDeploymentStatus(ctx, clusterName, bentoDeployment.Namespace, bentoDeployment.Name)
+				if err != nil {
+					r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "SyncYataiDeploymentStatus", "Failed to sync yatai deployment %s status: %s", bentoDeployment.Name, err)
+					return
+				}
+				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "SyncYataiDeploymentStatus", "Synced yatai deployment %s status", bentoDeployment.Name)
 			}
 		}
 
@@ -586,7 +604,10 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, yata
 		},
 	}
 
-	replicas := bentoDeployment.Spec.Autoscaling.MinReplicas
+	replicas := utils.Int32Ptr(2)
+	if bentoDeployment.Spec.Autoscaling != nil {
+		replicas = bentoDeployment.Spec.Autoscaling.MinReplicas
+	}
 
 	kubeDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -621,15 +642,15 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha1
 
 	kubeNs := bentoDeployment.Namespace
 
-	maxReplicas := bentoDeployment.Spec.Autoscaling.MaxReplicas
-	if maxReplicas == nil {
-		maxReplicas = utils.Int32Ptr(consts.HPADefaultMaxReplicas)
+	maxReplicas := utils.Int32Ptr(consts.HPADefaultMaxReplicas)
+	if bentoDeployment.Spec.Autoscaling != nil && bentoDeployment.Spec.Autoscaling.MaxReplicas != nil {
+		maxReplicas = bentoDeployment.Spec.Autoscaling.MaxReplicas
 	}
 
 	hpaConf := bentoDeployment.Spec.Autoscaling
 
 	var metrics []autoscalingv2beta2.MetricSpec
-	if hpaConf.QPS != nil && *hpaConf.QPS > 0 {
+	if hpaConf != nil && hpaConf.QPS != nil && *hpaConf.QPS > 0 {
 		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
 			Type: autoscalingv2beta2.PodsMetricSourceType,
 			Pods: &autoscalingv2beta2.PodsMetricSource{
@@ -644,7 +665,7 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha1
 		})
 	}
 
-	if hpaConf.CPU != nil && *hpaConf.CPU > 0 {
+	if hpaConf != nil && hpaConf.CPU != nil && *hpaConf.CPU > 0 {
 		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
 			Type: autoscalingv2beta2.ResourceMetricSourceType,
 			Resource: &autoscalingv2beta2.ResourceMetricSource{
@@ -657,7 +678,7 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha1
 		})
 	}
 
-	if hpaConf.Memory != nil && *hpaConf.Memory != "" {
+	if hpaConf != nil && hpaConf.Memory != nil && *hpaConf.Memory != "" {
 		var quantity resource.Quantity
 		quantity, err = resource.ParseQuantity(*hpaConf.Memory)
 		if err != nil {
@@ -692,6 +713,11 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha1
 		}
 	}
 
+	minReplicas := utils.Int32Ptr(2)
+	if hpaConf != nil && hpaConf.MinReplicas != nil {
+		minReplicas = hpaConf.MinReplicas
+	}
+
 	kubeHpa := &autoscalingv2beta2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,
@@ -700,7 +726,7 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha1
 			Annotations: annotations,
 		},
 		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
-			MinReplicas: bentoDeployment.Spec.Autoscaling.MinReplicas,
+			MinReplicas: minReplicas,
 			MaxReplicas: *maxReplicas,
 			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
 				APIVersion: "apps/v1",

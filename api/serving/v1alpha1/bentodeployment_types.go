@@ -44,7 +44,7 @@ type BentoDeploymentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	BentoTag string `json:"bento_tag,omitempty"`
+	BentoTag string `json:"bento_tag"`
 
 	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
 	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`

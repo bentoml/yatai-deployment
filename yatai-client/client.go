@@ -44,10 +44,24 @@ func (c *YataiClient) GetBentoRepository(ctx context.Context, bentoRepositoryNam
 	return
 }
 
+func (c *YataiClient) GetDeployment(ctx context.Context, clusterName, deploymentName string) (deployment *schemasv1.DeploymentSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/clusters/%s/deployments/%s", clusterName, deploymentName))
+	deployment = &schemasv1.DeploymentSchema{}
+	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(deployment).Do(ctx)
+	return
+}
+
 func (c *YataiClient) CreateDeployment(ctx context.Context, clusterName string, schema *schemasv1.CreateDeploymentSchema) (deployment *schemasv1.DeploymentSchema, err error) {
 	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/clusters/%s/deployments", clusterName))
 	deployment = &schemasv1.DeploymentSchema{}
 	_, err = c.getJsonReqBuilder().Method("POST").Url(url_).Payload(schema).Result(deployment).Do(ctx)
+	return
+}
+
+func (c *YataiClient) UpdateDeployment(ctx context.Context, clusterName, deploymentName string, schema *schemasv1.UpdateDeploymentSchema) (deployment *schemasv1.DeploymentSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/clusters/%s/deployments/%s", clusterName, deploymentName))
+	deployment = &schemasv1.DeploymentSchema{}
+	_, err = c.getJsonReqBuilder().Method("PATCH").Url(url_).Payload(schema).Result(deployment).Do(ctx)
 	return
 }
 

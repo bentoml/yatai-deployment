@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/bentoml/yatai-schemas/modelschemas"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,10 +43,11 @@ type BentoDeploymentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	BentoTag    string                         `json:"bentoTag,omitempty"`
-	Autoscaling BentoDeploymentAutoscalingSpec `json:"autoscaling,omitempty"`
-	Resources   corev1.ResourceRequirements    `json:"resources,omitempty"`
-	Env         []corev1.EnvVar                `json:"env,omitempty"`
+	BentoTag string `json:"bento_tag,omitempty"`
+
+	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
+	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
+	Envs        *[]*modelschemas.LabelItemSchema        `json:"envs,omitempty"`
 
 	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
 }
@@ -55,6 +57,10 @@ type BentoDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	PodSelector map[string]string `json:"podSelector,omitempty"`
+
+	// +optional
+	PrinterReady string `json:"printerReady,omitempty"`
+
 	// Total number of non-terminated pods targeted by this deployment (their labels match the selector).
 	// +optional
 	Replicas int32 `json:"replicas,omitempty"`
@@ -81,6 +87,11 @@ type BentoDeploymentStatus struct {
 //+genclient
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Bento",type="string",JSONPath=".spec.bentoTag",description="BentoTag"
+//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.printerReady",description="Ready"
+//+kubebuilder:printcolumn:name="MinReplicas",type="integer",JSONPath=".spec.autoscaling.minReplicas",description="MinReplicas"
+//+kubebuilder:printcolumn:name="MaxReplicas",type="integer",JSONPath=".spec.autoscaling.maxReplicas",description="MaxReplicas"
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // BentoDeployment is the Schema for the bentodeployments API
 type BentoDeployment struct {

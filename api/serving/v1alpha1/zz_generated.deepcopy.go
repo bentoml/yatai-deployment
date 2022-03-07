@@ -143,16 +143,12 @@ func (in *BentoDeploymentSpec) DeepCopyInto(out *BentoDeploymentSpec) {
 	}
 	if in.Envs != nil {
 		in, out := &in.Envs, &out.Envs
-		*out = new([]*modelschemas.LabelItemSchema)
+		*out = new([]modelschemas.LabelItemSchema)
 		if **in != nil {
 			in, out := *in, *out
-			*out = make([]*modelschemas.LabelItemSchema, len(*in))
+			*out = make([]modelschemas.LabelItemSchema, len(*in))
 			for i := range *in {
-				if (*in)[i] != nil {
-					in, out := &(*in)[i], &(*out)[i]
-					*out = new(modelschemas.LabelItemSchema)
-					**out = **in
-				}
+				(*in)[i].DeepCopyInto(&(*out)[i])
 			}
 		}
 	}

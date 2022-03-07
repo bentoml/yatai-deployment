@@ -161,6 +161,8 @@ github.com/bentoml/yatai-schemas v0.0.0-20220307205429-35ae78c9e575 h1:HFGJ+p0ON
 github.com/bentoml/yatai-schemas v0.0.0-20220307205429-35ae78c9e575/go.mod h1:OT5T7rrtdjJIkJpUazp1fQBbAVzl55YXyUJNVRLqskw=
 github.com/bentoml/yatai-schemas v0.0.0-20220307210317-c494ab7fe2cc h1:9t1GFV6QMiHdOGTckVes002pKSgTHKbX5yQ9LenUsg4=
 github.com/bentoml/yatai-schemas v0.0.0-20220307210317-c494ab7fe2cc/go.mod h1:OT5T7rrtdjJIkJpUazp1fQBbAVzl55YXyUJNVRLqskw=
+github.com/bentoml/yatai-schemas v0.0.0-20220307210838-ac690fd96475 h1:E4FqzyvgVZaBD/CbOykUU82iMranH6jr8AsYTegJ774=
+github.com/bentoml/yatai-schemas v0.0.0-20220307210838-ac690fd96475/go.mod h1:OT5T7rrtdjJIkJpUazp1fQBbAVzl55YXyUJNVRLqskw=
 github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=

@@ -184,6 +184,17 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		err = nil
 
+		envs := make([]*modelschemas.LabelItemSchema, 0)
+
+		if bentoDeployment.Spec.Envs != nil {
+			for _, env := range *bentoDeployment.Spec.Envs {
+				envs = append(envs, &modelschemas.LabelItemSchema{
+					Key:   env.Key,
+					Value: env.Value,
+				})
+			}
+		}
+
 		deploymentTargets := make([]*schemasv1.CreateDeploymentTargetSchema, 0, 1)
 		deploymentTargets = append(deploymentTargets, &schemasv1.CreateDeploymentTargetSchema{
 			DeploymentTargetTypeSchema: schemasv1.DeploymentTargetTypeSchema{
@@ -195,7 +206,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				KubeResourceUid: string(bentoDeployment.UID),
 				Resources:       bentoDeployment.Spec.Resources,
 				HPAConf:         bentoDeployment.Spec.Autoscaling,
-				Envs:            bentoDeployment.Spec.Envs,
+				Envs:            &envs,
 			},
 		})
 		updateSchema := &schemasv1.UpdateDeploymentSchema{

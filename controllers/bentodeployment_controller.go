@@ -1122,7 +1122,7 @@ func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context,
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s-yatai-%s.apps.yatai.dev", bentoDeployment.Name, strings.ReplaceAll(ip, ".", "-")), nil
+	return fmt.Sprintf("%s-%s-yatai-%s.apps.yatai.dev", bentoDeployment.Name, bentoDeployment.Namespace, strings.ReplaceAll(ip, ".", "-")), nil
 }
 
 func (r *BentoDeploymentReconciler) generateIngresses(ctx context.Context, bentoDeployment *servingv1alpha1.BentoDeployment, bento *schemasv1.BentoFullSchema) (ingresses []*networkingv1.Ingress, err error) {

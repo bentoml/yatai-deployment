@@ -1,7 +1,7 @@
 apiVersion: serving.yatai.ai/v1alpha1
 kind: BentoDeployment
 metadata:
-  name: demo233
+  name: demo
 spec:
   bento_tag: iris_classifier:nxapohu4codzplg6
   resources:

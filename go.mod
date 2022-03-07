@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
-	github.com/bentoml/yatai-schemas v0.0.0-20220303103433-9bce8b0e632e
+	github.com/bentoml/yatai-schemas v0.0.0-20220307144714-92c4ab7a1dbd
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/huandu/xstrings v1.3.2
 	github.com/onsi/ginkgo v1.16.5
@@ -16,6 +16,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	k8s.io/api v0.23.4
 	k8s.io/apimachinery v0.23.4
-	k8s.io/client-go v0.23.1
+	k8s.io/client-go v0.23.4
+	k8s.io/code-generator v0.23.4 // indirect
 	sigs.k8s.io/controller-runtime v0.11.0
 )

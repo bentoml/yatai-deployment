@@ -51,10 +51,10 @@ func (c *YataiClient) CreateDeployment(ctx context.Context, clusterName string, 
 	return
 }
 
-func (c *YataiClient) GetDockerRegistry(ctx context.Context) (registry *modelschemas.DockerRegistrySchema, err error) {
-	url_ := utils.UrlJoin(c.endpoint, "/api/v1/current_org/docker_registry")
-	registry = &modelschemas.DockerRegistrySchema{}
-	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(registry).Do(ctx)
+func (c *YataiClient) GetDockerRegistryRef(ctx context.Context, clusterName string) (registryRef *modelschemas.DockerRegistryRefSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/clusters/%s/docker_registry_ref", clusterName))
+	registryRef = &modelschemas.DockerRegistryRefSchema{}
+	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(registryRef).Do(ctx)
 	return
 }
 

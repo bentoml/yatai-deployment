@@ -55,8 +55,30 @@ type BentoDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	PodSelector map[string]string `json:"podSelector,omitempty"`
+	// Total number of non-terminated pods targeted by this deployment (their labels match the selector).
+	// +optional
+	Replicas int32 `json:"replicas,omitempty"`
+
+	// Total number of non-terminated pods targeted by this deployment that have the desired template spec.
+	// +optional
+	UpdatedReplicas int32 `json:"updatedReplicas,omitempty"`
+
+	// readyReplicas is the number of pods targeted by this Deployment with a Ready Condition.
+	// +optional
+	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
+
+	// Total number of available pods (ready for at least minReadySeconds) targeted by this deployment.
+	// +optional
+	AvailableReplicas int32 `json:"availableReplicas,omitempty"`
+
+	// Total number of unavailable pods targeted by this deployment. This is the total number of
+	// pods that are still required for the deployment to have 100% available capacity. They may
+	// either be pods that are running but not yet available or pods that still have not been created.
+	// +optional
+	UnavailableReplicas int32 `json:"unavailableReplicas,omitempty"`
 }
 
+//+genclient
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 

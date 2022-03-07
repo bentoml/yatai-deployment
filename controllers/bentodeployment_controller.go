@@ -51,7 +51,7 @@ import (
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 
-	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/api/v1alpha1"
+	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/api/serving/v1alpha1"
 	"github.com/bentoml/yatai-deployment-operator/common/consts"
 	"github.com/bentoml/yatai-deployment-operator/common/utils"
 	yataiclient "github.com/bentoml/yatai-deployment-operator/yatai-client"

@@ -78,6 +78,7 @@ type BentoDeploymentStatus struct {
 	UnavailableReplicas int32 `json:"unavailableReplicas,omitempty"`
 }
 
+//+genclient
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 

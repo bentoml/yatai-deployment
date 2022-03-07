@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -47,6 +48,7 @@ import (
 	"github.com/huandu/xstrings"
 	"github.com/pkg/errors"
 
+	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 
 	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/api/v1alpha1"
@@ -100,17 +102,6 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		// Error reading the object - requeue the request.
 		logs.Error(err, "Failed to get BentoDeployment.")
 		return
-	}
-
-	status := r.generateStatus(bentoDeployment)
-
-	if !reflect.DeepEqual(status, bentoDeployment.Status) {
-		bentoDeployment.Status = status
-		err = r.Status().Update(ctx, bentoDeployment)
-		if err != nil {
-			logs.Error(err, "Failed to update status.")
-			return
-		}
 	}
 
 	yataiEndpoint := os.Getenv(consts.EnvYataiEndpoint)
@@ -203,6 +194,17 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "CreateDeployment", "Created Deployment %s", deploymentNamespacedName)
 	} else {
 		logs.Info("Deployment found.", deploymentLogKeysAndValues...)
+
+		status := r.generateStatus(bentoDeployment, oldDeployment)
+
+		if !reflect.DeepEqual(status, bentoDeployment.Status) {
+			bentoDeployment.Status = status
+			err = r.Status().Update(ctx, bentoDeployment)
+			if err != nil {
+				logs.Error(err, "Failed to update BentoDeployment status.")
+				return
+			}
+		}
 
 		var patchResult *patch.PatchResult
 		patchResult, err = patch.DefaultPatchMaker.Calculate(oldDeployment, deployment)
@@ -433,10 +435,15 @@ func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context,
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alpha1.BentoDeployment) servingv1alpha1.BentoDeploymentStatus {
+func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alpha1.BentoDeployment, deployment *appsv1.Deployment) servingv1alpha1.BentoDeploymentStatus {
 	labels := r.getKubeLabels(bentoDeployment)
 	status := servingv1alpha1.BentoDeploymentStatus{
-		PodSelector: labels,
+		PodSelector:         labels,
+		Replicas:            deployment.Status.Replicas,
+		ReadyReplicas:       deployment.Status.ReadyReplicas,
+		UpdatedReplicas:     deployment.Status.UpdatedReplicas,
+		AvailableReplicas:   deployment.Status.AvailableReplicas,
+		UnavailableReplicas: deployment.Status.UnavailableReplicas,
 	}
 	return status
 }
@@ -574,8 +581,32 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	kubeName := r.getKubeName(bentoDeployment)
 
-	dockerRegistry, err := yataiClient.GetDockerRegistry(ctx)
+	clusterName := os.Getenv(consts.EnvYataiClusterName)
+	if clusterName == "" {
+		clusterName = "default"
+	}
+
+	r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfigRef", "Fetching docker registry config ref")
+	dockerRegistryRef, err := yataiClient.GetDockerRegistryRef(ctx, clusterName)
 	if err != nil {
+		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistryConfigRef", "Failed to fetch docker registry config ref: %v", err)
+		return
+	}
+	r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfigRef", "Successfully fetched docker registry config ref")
+
+	secret := &corev1.Secret{}
+
+	err = r.Get(ctx, types.NamespacedName{Name: dockerRegistryRef.Name, Namespace: dockerRegistryRef.Namespace}, secret)
+	if err != nil {
+		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistryConfig", "Failed to get docker registry config from secret %s/%s: %v", dockerRegistryRef.Namespace, dockerRegistryRef.Name, err)
+		return
+	}
+	r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfig", "Successfully fetched docker registry config from secret")
+
+	dockerRegistry := modelschemas.DockerRegistrySchema{}
+	err = json.Unmarshal(secret.Data[dockerRegistryRef.Key], &dockerRegistry)
+	if err != nil {
+		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "UnmarshalDockerRegistryConfig", "Failed to unmarshal docker registry config from secret %s/%s: %v", dockerRegistryRef.Namespace, dockerRegistryRef.Name, err)
 		return
 	}
 
@@ -584,7 +615,6 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		return
 	}
 
-	clusterName := os.Getenv(consts.EnvYataiClusterName)
 	inCluster := clusterName == majorCluster.Name
 
 	imageName := bento.ImageName

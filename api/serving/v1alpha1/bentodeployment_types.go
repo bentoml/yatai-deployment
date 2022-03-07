@@ -17,10 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/bentoml/yatai-schemas/modelschemas"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/bentoml/yatai-schemas/modelschemas"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!

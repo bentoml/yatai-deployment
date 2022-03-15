@@ -10,10 +10,10 @@ const (
 
 	HPACPUDefaultAverageUtilization = 80
 
-	YataiDebugImg             = "yatai.io/yatai-infras/debug"
+	YataiDebugImg             = "yatai.ai/yatai-infras/debug"
 	YataiKubectlNamespace     = "default"
 	YataiKubectlContainerName = "main"
-	YataiKubectlImage         = "yatai.io/yatai-infras/k8s"
+	YataiKubectlImage         = "yatai.ai/yatai-infras/k8s"
 
 	TracingContextKey = "tracing-context"
 	// nolint: gosec

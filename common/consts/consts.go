@@ -22,6 +22,8 @@ const (
 	BentoServicePort        = 3000
 	BentoServicePortEnvName = "PORT"
 
+	BentoServiceYataiVersionEnvName = "YATAI_VERSION"
+
 	NoneStr = "None"
 
 	AmazonS3Endpoint = "s3.amazonaws.com"

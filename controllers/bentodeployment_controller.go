@@ -797,6 +797,10 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	if err != nil {
 		return
 	}
+	version, err := yataiClient.GetVersion(ctx)
+	if err != nil {
+		return
+	}
 
 	inCluster := clusterName == majorCluster.Name
 
@@ -834,6 +838,13 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		envs = append(envs, corev1.EnvVar{
 			Name:  consts.BentoServicePortEnvName,
 			Value: fmt.Sprintf("%d", containerPort),
+		})
+	}
+
+	if _, ok := envsSeen[consts.BentoServiceYataiVersionEnvName]; !ok {
+		envs = append(envs, corev1.EnvVar{
+			Name:  consts.BentoServiceYataiVersionEnvName,
+			Value: fmt.Sprintf("%s-%s", version.Version, version.GitCommit),
 		})
 	}
 

@@ -24,12 +24,6 @@ func NewYataiClient(endpoint, apiToken string) *YataiClient {
 	}
 }
 
-type VersionSchema struct {
-	Version   string `json:"version"`
-	GitCommit string `json:"git_commit"`
-	BuildDate string `json:"build_date"`
-}
-
 func (c *YataiClient) getJsonReqBuilder() *reqcli.JsonRequestBuilder {
 	return reqcli.NewJsonRequestBuilder().Headers(map[string]string{
 		consts.YataiApiTokenHeaderName: c.apiToken,
@@ -92,9 +86,9 @@ func (c *YataiClient) GetMajorCluster(ctx context.Context) (cluster *schemasv1.C
 	return
 }
 
-func (c *YataiClient) GetVersion(ctx context.Context) (version *VersionSchema, err error) {
+func (c *YataiClient) GetVersion(ctx context.Context) (version *schemasv1.VersionSchema, err error) {
 	url_ := utils.UrlJoin(c.endpoint, "/api/v1/version")
-	version = &VersionSchema{}
+	version = &schemasv1.VersionSchema{}
 	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(version).Do(ctx)
 	return
 }

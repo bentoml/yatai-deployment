@@ -834,18 +834,18 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 	}
 
-	if _, ok := envsSeen[consts.BentoServicePortEnvName]; !ok {
-		envs = append(envs, corev1.EnvVar{
-			Name:  consts.BentoServicePortEnvName,
-			Value: fmt.Sprintf("%d", containerPort),
-		})
+	defaultEnvs := map[string]string{
+		consts.BentoServicePortEnvName:         fmt.Sprintf("%d", containerPort),
+		consts.BentoServiceYataiVersionEnvName: fmt.Sprintf("%s-%s", version.Version, version.GitCommit),
 	}
 
-	if _, ok := envsSeen[consts.BentoServiceYataiVersionEnvName]; !ok {
-		envs = append(envs, corev1.EnvVar{
-			Name:  consts.BentoServiceYataiVersionEnvName,
-			Value: fmt.Sprintf("%s-%s", version.Version, version.GitCommit),
-		})
+	for k, v := range defaultEnvs {
+		if _, ok := envsSeen[consts.BentoServicePortEnvName]; !ok {
+			envs = append(envs, corev1.EnvVar{
+				Name:  k,
+				Value: v,
+			})
+		}
 	}
 
 	livenessProbe := &corev1.Probe{

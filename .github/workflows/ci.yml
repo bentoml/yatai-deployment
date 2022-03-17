@@ -23,8 +23,12 @@ jobs:
           base: 'main'
           filters: |
             golang:
-              - "modelschemas/**"
-              - "schemasv1/**"
+              - "api/**"
+              - "common/**"
+              - "config/**"
+              - "controllers/**"
+              - "generated/**"
+              - "yatai-client/**"
 
   golint:
     runs-on: ubuntu-latest

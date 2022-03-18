@@ -85,3 +85,10 @@ func (c *YataiClient) GetMajorCluster(ctx context.Context) (cluster *schemasv1.C
 	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(cluster).Do(ctx)
 	return
 }
+
+func (c *YataiClient) GetVersion(ctx context.Context) (version *schemasv1.VersionSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, "/api/v1/version")
+	version = &schemasv1.VersionSchema{}
+	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(version).Do(ctx)
+	return
+}

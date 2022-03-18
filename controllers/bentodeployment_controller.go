@@ -797,6 +797,10 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	if err != nil {
 		return
 	}
+	version, err := yataiClient.GetVersion(ctx)
+	if err != nil {
+		return
+	}
 
 	inCluster := clusterName == majorCluster.Name
 
@@ -830,11 +834,18 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 	}
 
-	if _, ok := envsSeen[consts.BentoServicePortEnvName]; !ok {
-		envs = append(envs, corev1.EnvVar{
-			Name:  consts.BentoServicePortEnvName,
-			Value: fmt.Sprintf("%d", containerPort),
-		})
+	defaultEnvs := map[string]string{
+		consts.BentoServicePortEnvName:         fmt.Sprintf("%d", containerPort),
+		consts.BentoServiceYataiVersionEnvName: fmt.Sprintf("%s-%s", version.Version, version.GitCommit),
+	}
+
+	for k, v := range defaultEnvs {
+		if _, ok := envsSeen[consts.BentoServicePortEnvName]; !ok {
+			envs = append(envs, corev1.EnvVar{
+				Name:  k,
+				Value: v,
+			})
+		}
 	}
 
 	livenessProbe := &corev1.Probe{

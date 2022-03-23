@@ -88,10 +88,10 @@ type BentoDeploymentStatus struct {
 //+genclient
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Bento",type="string",JSONPath=".spec.bentoTag",description="BentoTag"
+//+kubebuilder:printcolumn:name="Bento",type="string",JSONPath=".spec.bento_tag",description="BentoTag"
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.printerReady",description="Ready"
-//+kubebuilder:printcolumn:name="MinReplicas",type="integer",JSONPath=".spec.autoscaling.minReplicas",description="MinReplicas"
-//+kubebuilder:printcolumn:name="MaxReplicas",type="integer",JSONPath=".spec.autoscaling.maxReplicas",description="MaxReplicas"
+//+kubebuilder:printcolumn:name="MinReplicas",type="integer",JSONPath=".spec.autoscaling.min_replicas",description="MinReplicas"
+//+kubebuilder:printcolumn:name="MaxReplicas",type="integer",JSONPath=".spec.autoscaling.max_replicas",description="MaxReplicas"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // BentoDeployment is the Schema for the bentodeployments API

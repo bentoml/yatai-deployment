@@ -18,7 +18,7 @@ spec:
   versions:
   - additionalPrinterColumns:
     - description: BentoTag
-      jsonPath: .spec.bentoTag
+      jsonPath: .spec.bento_tag
       name: Bento
       type: string
     - description: Ready
@@ -26,11 +26,11 @@ spec:
       name: Ready
       type: string
     - description: MinReplicas
-      jsonPath: .spec.autoscaling.minReplicas
+      jsonPath: .spec.autoscaling.min_replicas
       name: MinReplicas
       type: integer
     - description: MaxReplicas
-      jsonPath: .spec.autoscaling.maxReplicas
+      jsonPath: .spec.autoscaling.max_replicas
       name: MaxReplicas
       type: integer
     - jsonPath: .metadata.creationTimestamp

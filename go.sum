@@ -149,10 +149,6 @@ github.com/banzaicloud/k8s-objectmatcher v1.8.0/go.mod h1:p2LSNAjlECf07fbhDyebTk
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
-github.com/bentoml/yatai-schemas v0.0.0-20220307213134-2f2387a4e50a h1:wp1XZoSRUUEBvQuanWh7NPE+dHQyT0lzCGi87YGXPX8=
-github.com/bentoml/yatai-schemas v0.0.0-20220307213134-2f2387a4e50a/go.mod h1:OT5T7rrtdjJIkJpUazp1fQBbAVzl55YXyUJNVRLqskw=
-github.com/bentoml/yatai-schemas v0.0.0-20220316210746-36618d41c2a2 h1:NOPqktv1/mK/Hj+akuDGrapcbr187RoM6Rrb8218Zp4=
-github.com/bentoml/yatai-schemas v0.0.0-20220316210746-36618d41c2a2/go.mod h1:OT5T7rrtdjJIkJpUazp1fQBbAVzl55YXyUJNVRLqskw=
 github.com/bentoml/yatai-schemas v0.0.0-20220406133032-edbc4b2a9ea2 h1:FG5IIl/H6RJaaWOoX3+EaTKMSYuqcknQApx5m1nnxwY=
 github.com/bentoml/yatai-schemas v0.0.0-20220406133032-edbc4b2a9ea2/go.mod h1:OT5T7rrtdjJIkJpUazp1fQBbAVzl55YXyUJNVRLqskw=
 github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=

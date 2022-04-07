@@ -30,6 +30,7 @@ type BentoDeploymentRunnerSpec struct {
 	Name        string                                  `json:"name,omitempty"`
 	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
 	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
+	Envs        *[]modelschemas.LabelItemSchema         `json:"envs,omitempty"`
 }
 
 type BentoDeploymentAutoscalingSpec struct {

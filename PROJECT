@@ -10,10 +10,21 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
-  controller: true
   domain: yatai.ai
   group: serving
   kind: BentoDeployment
   path: github.com/bentoml/yatai-deployment-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: yatai.ai
+  group: serving
+  kind: BentoDeployment
+  path: github.com/bentoml/yatai-deployment-operator/api/v1alpha2
+  version: v1alpha2
+  webhooks:
+    conversion: true
+    webhookVersion: v1
 version: "3"

@@ -825,6 +825,18 @@ spec:
                           format: int64
                           type: integer
                       type: object
+                    envs:
+                      items:
+                        properties:
+                          key:
+                            type: string
+                          value:
+                            type: string
+                        required:
+                        - key
+                        - value
+                        type: object
+                      type: array
                     name:
                       type: string
                     resources:

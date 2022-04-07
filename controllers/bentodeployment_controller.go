@@ -52,7 +52,7 @@ import (
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 
-	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/api/serving/v1alpha2"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/api/v1alpha2"
 	"github.com/bentoml/yatai-deployment-operator/common/consts"
 	"github.com/bentoml/yatai-deployment-operator/common/utils"
 	yataiclient "github.com/bentoml/yatai-deployment-operator/yatai-client"
@@ -266,8 +266,10 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 		envs := make([]*modelschemas.LabelItemSchema, 0)
 
-		if bentoDeployment.Spec.Envs != nil {
-			for _, env := range *bentoDeployment.Spec.Envs {
+		specEnvs := bentoDeployment.Spec.Envs
+
+		if specEnvs != nil {
+			for _, env := range *specEnvs {
 				envs = append(envs, &modelschemas.LabelItemSchema{
 					Key:   env.Key,
 					Value: env.Value,
@@ -892,10 +894,22 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	var envs []corev1.EnvVar
 	envsSeen := make(map[string]struct{})
 
-	if bentoDeployment.Spec.Envs != nil {
-		envs = make([]corev1.EnvVar, 0, len(*bentoDeployment.Spec.Envs)+1)
+	var specEnvs *[]modelschemas.LabelItemSchema
+	if runnerName != nil {
+		for _, runner := range bentoDeployment.Spec.Runners {
+			if runner.Name == *runnerName {
+				specEnvs = runner.Envs
+				break
+			}
+		}
+	} else {
+		specEnvs = bentoDeployment.Spec.Envs
+	}
 
-		for _, env := range *bentoDeployment.Spec.Envs {
+	if specEnvs != nil {
+		envs = make([]corev1.EnvVar, 0, len(*specEnvs)+1)
+
+		for _, env := range *specEnvs {
 			if _, ok := envsSeen[env.Key]; ok {
 				continue
 			}
@@ -1143,8 +1157,21 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 	kubeName := r.getKubeName(bentoDeployment, bento, runnerName)
 
 	targetPort := consts.BentoServicePort
-	if bentoDeployment.Spec.Envs != nil {
-		for _, env := range *bentoDeployment.Spec.Envs {
+
+	var specEnvs *[]modelschemas.LabelItemSchema
+	if runnerName != nil {
+		for _, runner := range bentoDeployment.Spec.Runners {
+			if runner.Name == *runnerName {
+				specEnvs = runner.Envs
+				break
+			}
+		}
+	} else {
+		specEnvs = bentoDeployment.Spec.Envs
+	}
+
+	if specEnvs != nil {
+		for _, env := range *specEnvs {
 			if env.Key == consts.BentoServicePortEnvName {
 				port_, err := strconv.Atoi(env.Value)
 				if err != nil {

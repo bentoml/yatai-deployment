@@ -704,6 +704,210 @@ spec:
             type: object
         type: object
     served: true
+    storage: false
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: BentoTag
+      jsonPath: .spec.bento_tag
+      name: Bento
+      type: string
+    - description: Ready
+      jsonPath: .status.printerReady
+      name: Ready
+      type: string
+    - description: MinReplicas
+      jsonPath: .spec.autoscaling.min_replicas
+      name: MinReplicas
+      type: integer
+    - description: MaxReplicas
+      jsonPath: .spec.autoscaling.max_replicas
+      name: MaxReplicas
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: BentoDeployment is the Schema for the bentodeployments API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: BentoDeploymentSpec defines the desired state of BentoDeployment
+            properties:
+              autoscaling:
+                properties:
+                  cpu:
+                    format: int32
+                    type: integer
+                  gpu:
+                    format: int32
+                    type: integer
+                  max_replicas:
+                    format: int32
+                    type: integer
+                  memory:
+                    type: string
+                  min_replicas:
+                    format: int32
+                    type: integer
+                  qps:
+                    format: int64
+                    type: integer
+                type: object
+              bento_tag:
+                type: string
+              envs:
+                items:
+                  properties:
+                    key:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
+              resources:
+                properties:
+                  limits:
+                    properties:
+                      cpu:
+                        type: string
+                      gpu:
+                        type: string
+                      memory:
+                        type: string
+                    type: object
+                  requests:
+                    properties:
+                      cpu:
+                        type: string
+                      gpu:
+                        type: string
+                      memory:
+                        type: string
+                    type: object
+                type: object
+              runners:
+                items:
+                  properties:
+                    autoscaling:
+                      properties:
+                        cpu:
+                          format: int32
+                          type: integer
+                        gpu:
+                          format: int32
+                          type: integer
+                        max_replicas:
+                          format: int32
+                          type: integer
+                        memory:
+                          type: string
+                        min_replicas:
+                          format: int32
+                          type: integer
+                        qps:
+                          format: int64
+                          type: integer
+                      type: object
+                    envs:
+                      items:
+                        properties:
+                          key:
+                            type: string
+                          value:
+                            type: string
+                        required:
+                        - key
+                        - value
+                        type: object
+                      type: array
+                    name:
+                      type: string
+                    resources:
+                      properties:
+                        limits:
+                          properties:
+                            cpu:
+                              type: string
+                            gpu:
+                              type: string
+                            memory:
+                              type: string
+                          type: object
+                        requests:
+                          properties:
+                            cpu:
+                              type: string
+                            gpu:
+                              type: string
+                            memory:
+                              type: string
+                          type: object
+                      type: object
+                  type: object
+                type: array
+            required:
+            - bento_tag
+            type: object
+          status:
+            description: BentoDeploymentStatus defines the observed state of BentoDeployment
+            properties:
+              availableReplicas:
+                description: Total number of available pods (ready for at least minReadySeconds)
+                  targeted by this deployment.
+                format: int32
+                type: integer
+              podSelector:
+                additionalProperties:
+                  type: string
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: object
+              printerReady:
+                type: string
+              readyReplicas:
+                description: readyReplicas is the number of pods targeted by this
+                  Deployment with a Ready Condition.
+                format: int32
+                type: integer
+              replicas:
+                description: Total number of non-terminated pods targeted by this
+                  deployment (their labels match the selector).
+                format: int32
+                type: integer
+              unavailableReplicas:
+                description: Total number of unavailable pods targeted by this deployment.
+                  This is the total number of pods that are still required for the
+                  deployment to have 100% available capacity. They may either be pods
+                  that are running but not yet available or pods that still have not
+                  been created.
+                format: int32
+                type: integer
+              updatedReplicas:
+                description: Total number of non-terminated pods targeted by this
+                  deployment that have the desired template spec.
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
     storage: true
     subresources:
       status: {}

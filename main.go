@@ -31,7 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/api/serving/v1alpha1"
+	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/api/v1alpha1"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/api/v1alpha2"
 	"github.com/bentoml/yatai-deployment-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -45,6 +46,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(servingv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(servingv1alpha2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -85,6 +87,13 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BentoDeployment")
 		os.Exit(1)
+	}
+
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err = (&servingv1alpha2.BentoDeployment{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "BentoDeployment")
+			os.Exit(1)
+		}
 	}
 	//+kubebuilder:scaffold:builder
 

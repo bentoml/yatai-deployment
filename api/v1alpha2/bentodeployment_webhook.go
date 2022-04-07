@@ -18,11 +18,11 @@ package v1alpha2
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	// logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // log is for logging in this package.
-var bentodeploymentlog = logf.Log.WithName("bentodeployment-resource")
+// var bentodeploymentlog = logf.Log.WithName("bentodeployment-resource")
 
 func (r *BentoDeployment) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).

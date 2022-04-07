@@ -211,7 +211,6 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				modified = true
 			}
 		}
-
 	}
 
 	// create or update api-server deployment
@@ -334,7 +333,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context, yataiClient *yataiclient.YataiClient, bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, dockerRegistry modelschemas.DockerRegistrySchema, majorCluster *schemasv1.ClusterFullSchema, version *schemasv1.VersionSchema, runnerName *string) (modified bool, err error) {
 	logs := log.FromContext(ctx)
 
-	deployment, err := r.generateDeployment(ctx, yataiClient, bentoDeployment, bento, dockerRegistry, majorCluster, version, runnerName)
+	deployment, err := r.generateDeployment(bentoDeployment, bento, dockerRegistry, majorCluster, version, runnerName)
 	if err != nil {
 		return
 	}
@@ -678,10 +677,10 @@ func (r *BentoDeploymentReconciler) getKubeAnnotations(bento *schemasv1.BentoFul
 	return annotations
 }
 
-func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, yataiClient *yataiclient.YataiClient, bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, dockerRegistry modelschemas.DockerRegistrySchema, majorCluster *schemasv1.ClusterFullSchema, version *schemasv1.VersionSchema, runnerName *string) (kubeDeployment *appsv1.Deployment, err error) {
+func (r *BentoDeploymentReconciler) generateDeployment(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, dockerRegistry modelschemas.DockerRegistrySchema, majorCluster *schemasv1.ClusterFullSchema, version *schemasv1.VersionSchema, runnerName *string) (kubeDeployment *appsv1.Deployment, err error) {
 	kubeNs := bentoDeployment.Namespace
 
-	podTemplateSpec, err := r.generatePodTemplateSpec(ctx, yataiClient, bentoDeployment, bento, dockerRegistry, majorCluster, version, runnerName)
+	podTemplateSpec, err := r.generatePodTemplateSpec(bentoDeployment, bento, dockerRegistry, majorCluster, version, runnerName)
 	if err != nil {
 		return
 	}
@@ -873,8 +872,7 @@ func getClusterName() string {
 	return clusterName
 }
 
-func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context, yataiClient *yataiclient.YataiClient, bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, dockerRegistry modelschemas.DockerRegistrySchema, majorCluster *schemasv1.ClusterFullSchema, version *schemasv1.VersionSchema, runnerName *string) (podTemplateSpec *corev1.PodTemplateSpec, err error) {
-
+func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, dockerRegistry modelschemas.DockerRegistrySchema, majorCluster *schemasv1.ClusterFullSchema, version *schemasv1.VersionSchema, runnerName *string) (podTemplateSpec *corev1.PodTemplateSpec, err error) {
 	podLabels := r.getKubeLabels(bentoDeployment, runnerName)
 
 	annotations := r.getKubeAnnotations(bento)

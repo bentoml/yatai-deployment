@@ -1,0 +1,11 @@
+apiVersion: serving.yatai.ai/v1alpha2
+kind: BentoDeployment
+metadata:
+  name: demo
+spec:
+  bento_tag: iris_classifier:nxapohu4codzplg6
+  resources:
+    limits:
+      cpu: 1000m
+    requests:
+      cpu: 500m

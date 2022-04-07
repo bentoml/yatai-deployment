@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/bentoml/yatai-schemas/modelschemas"
@@ -27,9 +28,9 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 type BentoDeploymentRunnerSpec struct {
-	Name        string                                  `json:"name,omitempty"`
-	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
-	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
+	Name        string                         `json:"name,omitempty"`
+	Autoscaling BentoDeploymentAutoscalingSpec `json:"autoscaling,omitempty"`
+	Resources   corev1.ResourceRequirements    `json:"resources,omitempty"`
 }
 
 type BentoDeploymentAutoscalingSpec struct {

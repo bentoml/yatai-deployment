@@ -21,20 +21,20 @@ import (
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned/typed/serving/v1alpha2"
+	v1alpha1 "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned/typed/serving/v1alpha1"
 )
 
-type FakeServingV1alpha2 struct {
+type FakeServingV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeServingV1alpha2) BentoDeployments(namespace string) v1alpha2.BentoDeploymentInterface {
+func (c *FakeServingV1alpha1) BentoDeployments(namespace string) v1alpha1.BentoDeploymentInterface {
 	return &FakeBentoDeployments{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeServingV1alpha2) RESTClient() rest.Interface {
+func (c *FakeServingV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/api/serving/v1alpha2"
+	v1alpha2 "github.com/bentoml/yatai-deployment-operator/api/v1alpha2"
 )
 
 // BentoDeploymentLister helps list BentoDeployments.

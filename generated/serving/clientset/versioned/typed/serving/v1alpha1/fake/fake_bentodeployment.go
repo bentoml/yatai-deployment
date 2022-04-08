@@ -27,7 +27,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
 
-	v1alpha1 "github.com/bentoml/yatai-deployment-operator/api/serving/v1alpha1"
+	v1alpha1 "github.com/bentoml/yatai-deployment-operator/api/v1alpha1"
 )
 
 // FakeBentoDeployments implements BentoDeploymentInterface

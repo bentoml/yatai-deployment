@@ -45,7 +45,13 @@ for VERSION in ${VERSIONS}; do
   echo "Generating clientset for ${GROUP_VERSION} done."
 done
 
+echo "Generating clientset for ${GROUP} done."
+
+echo "Cleanup..."
+
 rm -rf ./generated && mv ./${MODULE}/generated .
+
+find ./generated/ -type f -not -path '*/\.*' -exec sed -i 's/github.com\/bentoml\/yatai-deployment-operator\/api\/serving\//github.com\/bentoml\/yatai-deployment-operator\/api\//g' {} \;
 
 rm -rf ./github.com
 

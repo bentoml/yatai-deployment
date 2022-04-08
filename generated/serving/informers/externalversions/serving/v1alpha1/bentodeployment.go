@@ -26,7 +26,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 
-	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/api/serving/v1alpha1"
+	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/api/v1alpha1"
 	versioned "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned"
 	internalinterfaces "github.com/bentoml/yatai-deployment-operator/generated/serving/informers/externalversions/internalinterfaces"
 	v1alpha1 "github.com/bentoml/yatai-deployment-operator/generated/serving/listers/serving/v1alpha1"

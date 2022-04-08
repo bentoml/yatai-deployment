@@ -8,6 +8,7 @@ import (
 
 func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1alpha2.BentoDeployment)
+	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.BentoTag = src.Spec.BentoTag
 	dst.Spec.Resources = src.Spec.Resources
 	dst.Spec.Autoscaling = src.Spec.Autoscaling
@@ -17,6 +18,7 @@ func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
 
 func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1alpha2.BentoDeployment)
+	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.BentoTag = src.Spec.BentoTag
 	dst.Spec.Resources = src.Spec.Resources
 	dst.Spec.Autoscaling = src.Spec.Autoscaling

@@ -1017,12 +1017,10 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 	} else {
 		if bento.Manifest != nil && len(bento.Manifest.Runners) > 0 {
 			// python -m bentoml._internal.server.cli.api_server  iris_classifier:ohzovcfvvseu3lg6  tcp://127.0.0.1:8000 --runner-map '{"iris_clf": "tcp://127.0.0.1:8001"}' --working-dir .
-			runnerMap := make(map[string]string)
-			if bento.Manifest != nil {
-				for _, runner := range bento.Manifest.Runners {
-					runnerServiceName := r.getKubeName(bentoDeployment, bento, &runner.Name)
-					runnerMap[runner.Name] = fmt.Sprintf("tcp://%s:%d", runnerServiceName, consts.BentoServicePort)
-				}
+			runnerMap := make(map[string]string, len(bento.Manifest.Runners))
+			for _, runner := range bento.Manifest.Runners {
+				runnerServiceName := r.getKubeName(bentoDeployment, bento, &runner.Name)
+				runnerMap[runner.Name] = fmt.Sprintf("tcp://%s:%d", runnerServiceName, consts.BentoServicePort)
 			}
 			runnerMapStr, err := json.Marshal(runnerMap)
 			if err != nil {

@@ -1007,16 +1007,12 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 		vms = append(vms, vm)
 	}
 
-	args = append(args, "mkdir", "-p", fmt.Sprintf("$BENTOML_HOME/bentos/%s", bento.Repository.Name), ";", "ln", "-sf", "$BENTO_PATH", fmt.Sprintf("$BENTOML_HOME/bentos/%s/%s", bento.Repository.Name, bento.Version), ";")
-
-	bentoTag := fmt.Sprintf("%s:%s", bento.Repository.Name, bento.Version)
-
 	if runnerName != nil {
 		// python -m bentoml._internal.server.cli.runner iris_classifier:ohzovcfvvseu3lg6 iris_clf tcp://127.0.0.1:8001 --working-dir .
-		args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.runner", bentoTag, *runnerName, fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--working-dir", ".")
+		args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.runner", ".", *runnerName, fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--working-dir", ".")
 	} else {
 		if bento.Manifest != nil && len(bento.Manifest.Runners) > 0 {
-			// python -m bentoml._internal.server.cli.api_server  iris_classifier:ohzovcfvvseu3lg6  tcp://127.0.0.1:8000 --runner-map '{"iris_clf": "tcp://127.0.0.1:8001"}' --working-dir .
+			// python -m bentoml._internal.server.cli.api_server  iris_classifier:ohzovcfvvseu3lg6 tcp://127.0.0.1:8000 --runner-map '{"iris_clf": "tcp://127.0.0.1:8001"}' --working-dir .
 			runnerMap := make(map[string]string, len(bento.Manifest.Runners))
 			for _, runner := range bento.Manifest.Runners {
 				runnerServiceName := r.getKubeName(bentoDeployment, bento, &runner.Name)
@@ -1026,7 +1022,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to marshal runner map")
 			}
-			args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.api_server", bentoTag, fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--runner-map", fmt.Sprintf("'%s'", string(runnerMapStr)), "--working-dir", ".")
+			args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.api_server", ".", fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--runner-map", fmt.Sprintf("'%s'", string(runnerMapStr)), "--working-dir", ".")
 		} else {
 			args = append(args, "./env/docker/entrypoint.sh", "bentoml", "serve", ".", "--production")
 		}

@@ -10,7 +10,7 @@ set -o pipefail
 # corresponding to go mod init <module>
 MODULE=github.com/bentoml/yatai-deployment-operator
 # api package
-APIS_PKG=api
+APIS_PKG=apis
 # generated output package
 OUTPUT_PKG=generated/serving
 # group-version such as foo:v1alpha1
@@ -21,9 +21,9 @@ GROUP_VERSION=${GROUP}:${VERSION}
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 CODEGEN_PKG=${CODEGEN_PKG:-${GOPATH}/pkg/mod/k8s.io/code-generator@v0.23.4}
 
-mkdir -p ./${APIS_PKG}/${GROUP}/
+# mkdir -p ./${APIS_PKG}/${GROUP}/
 
-ln -sf $PWD/${APIS_PKG}/${VERSION}/ ./${APIS_PKG}/${GROUP}/${VERSION}
+# ln -sf $PWD/${APIS_PKG}/${VERSION}/ ./${APIS_PKG}/${GROUP}/${VERSION}
 
 rm -rf ${OUTPUT_PKG}/{clientset,informers,listers}
 
@@ -48,8 +48,8 @@ echo "Cleanup..."
 
 rm -rf ./generated && mv ./${MODULE}/generated .
 
-find ./generated/ -type f -not -path '*/\.*' -exec sed -i 's/github.com\/bentoml\/yatai-deployment-operator\/api\/serving\//github.com\/bentoml\/yatai-deployment-operator\/api\//g' {} \;
+# find ./generated/ -type f -not -path '*/\.*' -exec sed -i 's/github.com\/bentoml\/yatai-deployment-operator\/api\/serving\//github.com\/bentoml\/yatai-deployment-operator\/api\//g' {} \;
 
 rm -rf ./github.com
 
-rm -rf ./${APIS_PKG}/${GROUP}
+# rm -rf ./${APIS_PKG}/${GROUP}

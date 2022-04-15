@@ -3,7 +3,7 @@ package v1alpha1
 import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
-	"github.com/bentoml/yatai-deployment-operator/api/v1alpha2"
+	"github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
 )
 
 func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {

@@ -22,7 +22,7 @@ import (
 
 	rest "k8s.io/client-go/rest"
 
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/api/v1alpha2"
+	v1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
 	"github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned/scheme"
 )
 

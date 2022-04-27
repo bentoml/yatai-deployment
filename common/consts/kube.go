@@ -33,6 +33,7 @@ const (
 	KubeLabelYataiDeploymentId         = "yatai.ai/deployment-id"
 	KubeLabelYataiDeploymentTargetType = "yatai.ai/deployment-target-type"
 	KubeLabelYataiBentoRunner          = "yatai.ai/bento-runner"
+	KubeLabelYataiIsBentoApiServer     = "yatai.ai/is-bento-api-server"
 	KubeLabelCreator                   = "creator"
 	// nolint: gosec
 	KubeLabelYataiDeployToken = "yatai.ai/deploy-token"

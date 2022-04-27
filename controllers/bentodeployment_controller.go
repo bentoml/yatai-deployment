@@ -276,6 +276,22 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			}
 		}
 
+		runners := make(map[string]modelschemas.DeploymentTargetRunnerConfig, 0)
+		for _, runner := range bentoDeployment.Spec.Runners {
+			envs_ := make([]*modelschemas.LabelItemSchema, 0)
+			if runner.Envs != nil {
+				for _, env := range *runner.Envs {
+					env := env
+					envs_ = append(envs_, &env)
+				}
+			}
+			runners[runner.Name] = modelschemas.DeploymentTargetRunnerConfig{
+				Resources: runner.Resources,
+				HPAConf:   runner.Autoscaling,
+				Envs:      &envs_,
+			}
+		}
+
 		deploymentTargets := make([]*schemasv1.CreateDeploymentTargetSchema, 0, 1)
 		deploymentTargets = append(deploymentTargets, &schemasv1.CreateDeploymentTargetSchema{
 			DeploymentTargetTypeSchema: schemasv1.DeploymentTargetTypeSchema{
@@ -288,6 +304,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				Resources:       bentoDeployment.Spec.Resources,
 				HPAConf:         bentoDeployment.Spec.Autoscaling,
 				Envs:            &envs,
+				Runners:         runners,
 			},
 		})
 		updateSchema := &schemasv1.UpdateDeploymentSchema{
@@ -665,6 +682,8 @@ func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alph
 	}
 	if runnerName != nil {
 		labels[consts.KubeLabelYataiBentoRunner] = *runnerName
+	} else {
+		labels[consts.KubeLabelYataiIsBentoApiServer] = "true"
 	}
 	return labels
 }

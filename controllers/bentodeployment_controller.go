@@ -305,6 +305,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				HPAConf:         bentoDeployment.Spec.Autoscaling,
 				Envs:            &envs,
 				Runners:         runners,
+				EnableIngress:   &bentoDeployment.Spec.Ingress.Enabled,
 			},
 		})
 		updateSchema := &schemasv1.UpdateDeploymentSchema{

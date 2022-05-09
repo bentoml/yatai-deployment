@@ -602,8 +602,15 @@ func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context,
 			logs.Error(err, "Failed to get Ingress.", ingressLogKeysAndValues...)
 			return
 		}
+		err = nil
 
 		if oldIngressIsNotFound {
+			if !bentoDeployment.Spec.Ingress.Enabled {
+				logs.Info("Ingress not enabled. Skipping.", ingressLogKeysAndValues...)
+				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetIngress", "Skipping Ingress %s", ingressNamespacedName)
+				continue
+			}
+
 			logs.Info("Ingress not found. Creating a new one.", ingressLogKeysAndValues...)
 
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "CreateIngress", "Creating a new Ingress %s", ingressNamespacedName)
@@ -618,6 +625,21 @@ func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context,
 			modified = true
 		} else {
 			logs.Info("Ingress found.", ingressLogKeysAndValues...)
+
+			if !bentoDeployment.Spec.Ingress.Enabled {
+				logs.Info("Ingress not enabled. Deleting.", ingressLogKeysAndValues...)
+				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "DeleteIngress", "Deleting Ingress %s", ingressNamespacedName)
+				err = r.Delete(ctx, ingress)
+				if err != nil {
+					logs.Error(err, "Failed to delete Ingress.", ingressLogKeysAndValues...)
+					r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "DeleteIngress", "Failed to delete Ingress %s: %s", ingressNamespacedName, err)
+					return
+				}
+				logs.Info("Ingress deleted.", ingressLogKeysAndValues...)
+				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "DeleteIngress", "Deleted Ingress %s", ingressNamespacedName)
+				modified = true
+				continue
+			}
 
 			var patchResult *patch.PatchResult
 			patchResult, err = patch.DefaultPatchMaker.Calculate(oldIngress, ingress)

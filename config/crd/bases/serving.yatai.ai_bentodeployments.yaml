@@ -781,6 +781,11 @@ spec:
                   - value
                   type: object
                 type: array
+              ingress:
+                properties:
+                  enabled:
+                    type: boolean
+                type: object
               resources:
                 properties:
                   limits:

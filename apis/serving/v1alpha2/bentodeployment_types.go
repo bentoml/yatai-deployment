@@ -39,6 +39,10 @@ type BentoDeploymentAutoscalingSpec struct {
 	Metrics     []autoscalingv2beta2.MetricSpec `json:"metrics,omitempty"`
 }
 
+type BentoDeploymentIngressSpec struct {
+	Enabled bool `json:"enabled,omitempty"`
+}
+
 // BentoDeploymentSpec defines the desired state of BentoDeployment
 type BentoDeploymentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -51,6 +55,8 @@ type BentoDeploymentSpec struct {
 	Envs        *[]modelschemas.LabelItemSchema         `json:"envs,omitempty"`
 
 	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
+
+	Ingress BentoDeploymentIngressSpec `json:"ingress,omitempty"`
 }
 
 // BentoDeploymentStatus defines the observed state of BentoDeployment

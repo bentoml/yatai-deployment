@@ -642,6 +642,9 @@ func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context,
 				continue
 			}
 
+			// Keep host unchanged
+			ingress.Spec.Rules[0].Host = oldIngress.Spec.Rules[0].Host
+
 			var patchResult *patch.PatchResult
 			patchResult, err = patch.DefaultPatchMaker.Calculate(oldIngress, ingress)
 			if err != nil {

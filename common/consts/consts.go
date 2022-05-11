@@ -22,7 +22,11 @@ const (
 	BentoServicePort        = 3000
 	BentoServicePortEnvName = "PORT"
 
-	BentoServiceYataiVersionEnvName = "YATAI_VERSION"
+	// tracking envars
+	BentoServiceYataiVersionEnvName       = "YATAI_T_VERSION"
+	BentoServiceYataiOrgUIDEnvName        = "YATAI_T_ORG_UID"
+	BentoServiceYataiDeploymentUIDEnvName = "YATAI_T_DEPLOYMENT_UID"
+	BentoServiceYataiClusterUIDEnvName    = "YATAI_T_CLUSTER_UID"
 
 	NoneStr = "None"
 

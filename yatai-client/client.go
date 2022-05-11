@@ -92,3 +92,17 @@ func (c *YataiClient) GetVersion(ctx context.Context) (version *schemasv1.Versio
 	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(version).Do(ctx)
 	return
 }
+
+func (c *YataiClient) GetOrganization(ctx context.Context) (organization *schemasv1.OrganizationFullSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, "/api/v1/current_org")
+	organization = &schemasv1.OrganizationFullSchema{}
+	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(organization).Do(ctx)
+	return
+}
+
+func (c *YataiClient) GetCluster(ctx context.Context, clusterName string) (cluster *schemasv1.ClusterFullSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/clusters/%s", clusterName))
+	cluster = &schemasv1.ClusterFullSchema{}
+	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(cluster).Do(ctx)
+	return
+}

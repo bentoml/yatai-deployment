@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -160,4 +161,11 @@ func RenderTemplate(dicts map[string]string, toRenderTmpl string) (string, error
 		return "", err
 	}
 	return output.String(), nil
+}
+
+func GetEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }

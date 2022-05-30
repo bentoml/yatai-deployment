@@ -58,10 +58,17 @@ const (
 	KubeLabelHelmHeritage = "heritage"
 	KubeLabelHelmRelease  = "release"
 
-	KubeAnnotationBentoRepository   = "yatai.ai/bento-repository"
-	KubeAnnotationBentoVersion      = "yatai.ai/bento-version"
-	KubeAnnotationYataiDeploymentId = "yatai.ai/deployment-id"
-	KubeAnnotationHelmReleaseName   = "meta.helm.sh/release-name"
+	KubeAnnotationBentoRepository     = "yatai.ai/bento-repository"
+	KubeAnnotationBentoVersion        = "yatai.ai/bento-version"
+	KubeAnnotationYataiDeploymentId   = "yatai.ai/deployment-id"
+	KubeAnnotationServiceMesh         = "yatai.ai/service-mesh"
+	KubeAnnotationIstioRetries        = "yatai.ai/istio-retries"
+	KubeAnnotationIstioRetriesTimeout = "yatai.ai/istio-retries-timeout"
+	KubeAnnotationIstioHost           = "yatai.ai/istio-host"
+	KubeAnnotationIstioGateway        = "yatai.ai/istio-gateway"
+	KubeAnnotationIstioSubset         = "yatai.ai/istio-subset"
+
+	KubeAnnotationHelmReleaseName = "meta.helm.sh/release-name"
 
 	KubeAnnotationPrometheusScrape = "prometheus.io/scrape"
 	KubeAnnotationPrometheusPort   = "prometheus.io/port"

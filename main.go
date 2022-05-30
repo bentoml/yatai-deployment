@@ -31,8 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	istio "istio.io/client-go/pkg/apis/networking/v1alpha3"
+
 	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha1"
 	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
+	servingv1alpha3 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha3"
+	"github.com/bentoml/yatai-deployment-operator/common/consts"
 	"github.com/bentoml/yatai-deployment-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -47,6 +51,10 @@ func init() {
 
 	utilruntime.Must(servingv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servingv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(servingv1alpha3.AddToScheme(scheme))
+	if os.Getenv(consts.EnvIstioEnabled) == "true" {
+		utilruntime.Must(istio.AddToScheme(scheme))
+	}
 	//+kubebuilder:scaffold:scheme
 }
 

@@ -1022,12 +1022,34 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 		},
 	}
 
+	var runnerInfo *modelschemas.BentoRunnerSchema
+	if runnerName != nil && bento.Manifest != nil && bento.Manifest.Runners != nil {
+		for _, r := range bento.Manifest.Runners {
+			r := r
+			if r.Name == *runnerName {
+				runnerInfo = &r
+				break
+			}
+		}
+	}
+
 	containers := make([]corev1.Container, 0, 1)
 
 	vs := make([]corev1.Volume, 0)
 	vms := make([]corev1.VolumeMount, 0)
 
 	models_ := bento.Models
+
+	mountedModelNames := make(map[string]struct{}, len(models_))
+	if runnerInfo != nil && runnerInfo.Models != nil {
+		for _, m := range runnerInfo.Models {
+			mountedModelNames[m] = struct{}{}
+		}
+	} else {
+		for _, m := range models_ {
+			mountedModelNames[fmt.Sprintf("%s:%s", m.Repository.Name, m.Version)] = struct{}{}
+		}
+	}
 
 	args := make([]string, 0)
 	imageTlsVerify := "false"
@@ -1036,6 +1058,10 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 	}
 
 	for _, model := range models_ {
+		if _, ok := mountedModelNames[fmt.Sprintf("%s:%s", model.Repository.Name, model.Version)]; !ok {
+			continue
+		}
+
 		imageName_ := model.ImageName
 		if inCluster {
 			imageName_ = model.InClusterImageName

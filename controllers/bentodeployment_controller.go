@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	goversion "github.com/hashicorp/go-version"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -1092,9 +1093,30 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 		vms = append(vms, vm)
 	}
 
+	isOldVersion := false
+	if bento.Manifest != nil && bento.Manifest.BentomlVersion != "" {
+		var currentVersion *goversion.Version
+		currentVersion, err = goversion.NewVersion(bento.Manifest.BentomlVersion)
+		if err != nil {
+			err = errors.Wrapf(err, "invalid bentoml version %s", bento.Manifest.BentomlVersion)
+			return
+		}
+		var targetVersion *goversion.Version
+		targetVersion, err = goversion.NewVersion("1.0.0a7")
+		if err != nil {
+			err = errors.Wrapf(err, "invalid target version %s", bento.Manifest.BentomlVersion)
+			return
+		}
+		isOldVersion = currentVersion.LessThanOrEqual(targetVersion)
+	}
+
 	if runnerName != nil {
 		// python -m bentoml._internal.server.cli.runner iris_classifier:ohzovcfvvseu3lg6 iris_clf tcp://127.0.0.1:8001 --working-dir .
-		args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.runner", ".", *runnerName, fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--working-dir", ".")
+		if isOldVersion {
+			args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.runner", ".", *runnerName, fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--working-dir", ".")
+		} else {
+			args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.runner", ".", "--runner-name", *runnerName, "--bind", fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--working-dir", ".")
+		}
 	} else {
 		if bento.Manifest != nil && len(bento.Manifest.Runners) > 0 {
 			// python -m bentoml._internal.server.cli.api_server  iris_classifier:ohzovcfvvseu3lg6 tcp://127.0.0.1:8000 --runner-map '{"iris_clf": "tcp://127.0.0.1:8001"}' --working-dir .
@@ -1107,7 +1129,11 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to marshal runner map")
 			}
-			args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.api_server", ".", fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--runner-map", fmt.Sprintf("'%s'", string(runnerMapStr)), "--working-dir", ".")
+			if isOldVersion {
+				args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.api_server", ".", fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--runner-map", fmt.Sprintf("'%s'", string(runnerMapStr)), "--working-dir", ".")
+			} else {
+				args = append(args, "./env/docker/entrypoint.sh", "python", "-m", "bentoml._internal.server.cli.api_server", ".", "--bind", fmt.Sprintf("tcp://0.0.0.0:%d", containerPort), "--runner-map", fmt.Sprintf("'%s'", string(runnerMapStr)), "--working-dir", ".")
+			}
 		} else {
 			args = append(args, "./env/docker/entrypoint.sh", "bentoml", "serve", ".", "--production")
 		}

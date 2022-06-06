@@ -23,7 +23,7 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
+	v1alpha3 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha3"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -52,9 +52,9 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=serving.yatai.ai, Version=v1alpha2
-	case v1alpha2.SchemeGroupVersion.WithResource("bentodeployments"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha2().BentoDeployments().Informer()}, nil
+	// Group=serving.yatai.ai, Version=v1alpha3
+	case v1alpha3.SchemeGroupVersion.WithResource("bentodeployments"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha3().BentoDeployments().Informer()}, nil
 
 	}
 

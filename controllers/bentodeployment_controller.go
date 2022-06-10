@@ -301,16 +301,18 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			BentoRepository: bento.Repository.Name,
 			Bento:           bento.Name,
 			Config: &modelschemas.DeploymentTargetConfig{
-				KubeResourceUid: string(bentoDeployment.UID),
-				Resources:       bentoDeployment.Spec.Resources,
-				HPAConf:         bentoDeployment.Spec.Autoscaling,
-				Envs:            &envs,
-				Runners:         runners,
-				EnableIngress:   &bentoDeployment.Spec.Ingress.Enabled,
+				KubeResourceUid:     string(bentoDeployment.UID),
+				KubeResourceVersion: bentoDeployment.ResourceVersion,
+				Resources:           bentoDeployment.Spec.Resources,
+				HPAConf:             bentoDeployment.Spec.Autoscaling,
+				Envs:                &envs,
+				Runners:             runners,
+				EnableIngress:       &bentoDeployment.Spec.Ingress.Enabled,
 			},
 		})
 		updateSchema := &schemasv1.UpdateDeploymentSchema{
-			Targets: deploymentTargets,
+			Targets:     deploymentTargets,
+			DoNotDeploy: true,
 		}
 		if isNotFound {
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "CreateYataiDeployment", "Creating yatai deployment %s", bentoDeployment.Name)
@@ -345,7 +347,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	logs.Info("Finished reconciling.")
-	r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "Update", "Updated")
+	r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "Update", "All resources updated!")
 	return
 }
 
@@ -398,7 +400,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 	} else {
 		logs.Info("Deployment found.", deploymentLogKeysAndValues...)
 
-		status := r.generateStatus(bentoDeployment, oldDeployment)
+		status := r.generateStatus(bentoDeployment)
 
 		if !reflect.DeepEqual(status, bentoDeployment.Status) {
 			bentoDeployment.Status = status
@@ -504,7 +506,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 		}
 
 		if !patchResult.IsEmpty() {
-			logs.Info("HPA spec is different. Updating HPA.", hpaLogKeysAndValues...)
+			logs.Info(fmt.Sprintf("HPA spec is different. Updating HPA. The patch result is: %s", patchResult.String()), hpaLogKeysAndValues...)
 
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "UpdateHPA", "Updating HPA %s", hpaNamespacedName)
 			err = r.Update(ctx, hpa)
@@ -688,16 +690,10 @@ func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context,
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alpha2.BentoDeployment, deployment *appsv1.Deployment) servingv1alpha2.BentoDeploymentStatus {
+func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alpha2.BentoDeployment) servingv1alpha2.BentoDeploymentStatus {
 	labels := r.getKubeLabels(bentoDeployment, nil)
 	status := servingv1alpha2.BentoDeploymentStatus{
-		PodSelector:         labels,
-		Replicas:            deployment.Status.Replicas,
-		ReadyReplicas:       deployment.Status.ReadyReplicas,
-		UpdatedReplicas:     deployment.Status.UpdatedReplicas,
-		AvailableReplicas:   deployment.Status.AvailableReplicas,
-		UnavailableReplicas: deployment.Status.UnavailableReplicas,
-		PrinterReady:        fmt.Sprintf("%d/%d", deployment.Status.ReadyReplicas, deployment.Status.Replicas),
+		PodSelector: labels,
 	}
 	return status
 }
@@ -982,20 +978,32 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 		}
 	}
 
-	defaultEnvs := map[string]string{
-		consts.BentoServicePortEnvName:               fmt.Sprintf("%d", containerPort),
-		consts.BentoServiceYataiVersionEnvName:       fmt.Sprintf("%s-%s", version.Version, version.GitCommit),
-		consts.BentoServiceYataiOrgUIDEnvName:        organization.Uid,
-		consts.BentoServiceYataiDeploymentUIDEnvName: string(bentoDeployment.UID),
-		consts.BentoServiceYataiClusterUIDEnvName:    cluster.Uid,
+	defaultEnvs := []corev1.EnvVar{
+		{
+			Name:  consts.BentoServicePortEnvName,
+			Value: fmt.Sprintf("%d", containerPort),
+		},
+		{
+			Name:  consts.BentoServiceYataiVersionEnvName,
+			Value: fmt.Sprintf("%s-%s", version.Version, version.GitCommit),
+		},
+		{
+			Name:  consts.BentoServiceYataiOrgUIDEnvName,
+			Value: organization.Uid,
+		},
+		{
+			Name:  consts.BentoServiceYataiDeploymentUIDEnvName,
+			Value: string(bentoDeployment.UID),
+		},
+		{
+			Name:  consts.BentoServiceYataiClusterUIDEnvName,
+			Value: cluster.Uid,
+		},
 	}
 
-	for k, v := range defaultEnvs {
-		if _, ok := envsSeen[consts.BentoServicePortEnvName]; !ok {
-			envs = append(envs, corev1.EnvVar{
-				Name:  k,
-				Value: v,
-			})
+	for _, env := range defaultEnvs {
+		if _, ok := envsSeen[env.Name]; !ok {
+			envs = append(envs, env)
 		}
 	}
 

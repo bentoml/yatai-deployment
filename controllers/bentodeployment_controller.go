@@ -17,6 +17,9 @@ limitations under the License.
 package controllers
 
 import (
+	// nolint: gosec
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -25,6 +28,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	goversion "github.com/hashicorp/go-version"
 	appsv1 "k8s.io/api/apps/v1"
@@ -497,6 +501,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 	} else {
 		logs.Info("HPA found.", hpaLogKeysAndValues...)
 
+		oldHPA.Status = hpa.Status
 		var patchResult *patch.PatchResult
 		patchResult, err = patch.DefaultPatchMaker.Calculate(oldHPA, hpa)
 		if err != nil {
@@ -577,7 +582,10 @@ func (r *BentoDeploymentReconciler) createOrUpdateService(ctx context.Context, b
 			logs.Info("Service spec is different. Updating Service.", serviceLogKeysAndValues...)
 
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "UpdateService", "Updating Service %s", serviceNamespacedName)
-			err = r.Update(ctx, service)
+			oldService.Annotations = service.Annotations
+			oldService.Labels = service.Labels
+			oldService.Spec = service.Spec
+			err = r.Update(ctx, oldService)
 			if err != nil {
 				logs.Error(err, "Failed to update Service.", serviceLogKeysAndValues...)
 				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "UpdateService", "Failed to update Service %s: %s", serviceNamespacedName, err)
@@ -696,6 +704,17 @@ func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alp
 		PodSelector: labels,
 	}
 	return status
+}
+
+func hash(text string) string {
+	// nolint: gosec
+	hasher := md5.New()
+	hasher.Write([]byte(text))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func (r *BentoDeploymentReconciler) getRunnerServiceName(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName string) string {
+	return fmt.Sprintf("%s-runner-%s", bentoDeployment.Name, hash(fmt.Sprintf("%s:%s-%s", bento.Repository.Name, bento.Version, runnerName)))
 }
 
 func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) string {
@@ -927,6 +946,10 @@ func getClusterName() string {
 
 func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, dockerRegistry modelschemas.DockerRegistrySchema, majorCluster *schemasv1.ClusterFullSchema, version *schemasv1.VersionSchema, runnerName *string, organization *schemasv1.OrganizationFullSchema, cluster *schemasv1.ClusterFullSchema) (podTemplateSpec *corev1.PodTemplateSpec, err error) {
 	podLabels := r.getKubeLabels(bentoDeployment, runnerName)
+	if runnerName != nil {
+		podLabels[consts.KubeLabelBentoRepository] = bento.Repository.Name
+		podLabels[consts.KubeLabelBentoVersion] = bento.Version
+	}
 
 	annotations := r.getKubeAnnotations(bento)
 
@@ -1022,7 +1045,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 	readinessProbe := &corev1.Probe{
 		InitialDelaySeconds: 5,
 		TimeoutSeconds:      5,
-		FailureThreshold:    6,
+		FailureThreshold:    12,
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/readyz",
@@ -1127,12 +1150,59 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 		}
 	} else {
 		if bento.Manifest != nil && len(bento.Manifest.Runners) > 0 {
+			readinessProbeUrls := make([]string, 0)
+			livenessProbeUrls := make([]string, 0)
+			readinessProbeUrls = append(readinessProbeUrls, fmt.Sprintf("http://localhost:%d/readyz", containerPort))
+			livenessProbeUrls = append(livenessProbeUrls, fmt.Sprintf("http://localhost:%d/healthz", containerPort))
 			// python -m bentoml._internal.server.cli.api_server  iris_classifier:ohzovcfvvseu3lg6 tcp://127.0.0.1:8000 --runner-map '{"iris_clf": "tcp://127.0.0.1:8001"}' --working-dir .
 			runnerMap := make(map[string]string, len(bento.Manifest.Runners))
 			for _, runner := range bento.Manifest.Runners {
-				runnerServiceName := r.getKubeName(bentoDeployment, bento, &runner.Name)
+				runnerServiceName := r.getRunnerServiceName(bentoDeployment, bento, runner.Name)
 				runnerMap[runner.Name] = fmt.Sprintf("tcp://%s:%d", runnerServiceName, consts.BentoServicePort)
+				readinessProbeUrls = append(readinessProbeUrls, fmt.Sprintf("http://%s:%d/readyz", runnerServiceName, consts.BentoServicePort))
+				livenessProbeUrls = append(livenessProbeUrls, fmt.Sprintf("http://%s:%d/healthz", runnerServiceName, consts.BentoServicePort))
 			}
+
+			livenessProbePythonCommandPieces := make([]string, 0, len(bento.Manifest.Runners)+1)
+			for _, url_ := range livenessProbeUrls {
+				livenessProbePythonCommandPieces = append(livenessProbePythonCommandPieces, fmt.Sprintf("urlopen('%s')", url_))
+			}
+
+			readinessProbePythonCommandPieces := make([]string, 0, len(bento.Manifest.Runners)+1)
+			for _, url_ := range readinessProbeUrls {
+				readinessProbePythonCommandPieces = append(readinessProbePythonCommandPieces, fmt.Sprintf("urlopen('%s')", url_))
+			}
+
+			livenessProbe = &corev1.Probe{
+				InitialDelaySeconds: 5,
+				TimeoutSeconds:      5,
+				FailureThreshold:    6,
+				ProbeHandler: corev1.ProbeHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{
+							"python",
+							"-c",
+							fmt.Sprintf(`"from urllib.request import urlopen; %s"`, strings.Join(livenessProbePythonCommandPieces, "; ")),
+						},
+					},
+				},
+			}
+
+			readinessProbe = &corev1.Probe{
+				InitialDelaySeconds: 5,
+				TimeoutSeconds:      5,
+				FailureThreshold:    36,
+				ProbeHandler: corev1.ProbeHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{
+							"python",
+							"-c",
+							fmt.Sprintf(`"from urllib.request import urlopen; %s"`, strings.Join(readinessProbePythonCommandPieces, "; ")),
+						},
+					},
+				},
+			}
+
 			runnerMapStr, err := json.Marshal(runnerMap)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to marshal runner map")
@@ -1270,6 +1340,9 @@ func getResourcesConfig(resources *modelschemas.DeploymentTargetResources) (core
 
 func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (kubeService *corev1.Service, err error) {
 	kubeName := r.getKubeName(bentoDeployment, bento, runnerName)
+	if runnerName != nil {
+		kubeName = r.getRunnerServiceName(bentoDeployment, bento, *runnerName)
+	}
 
 	targetPort := consts.BentoServicePort
 
@@ -1298,10 +1371,21 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 		}
 	}
 
+	labels := r.getKubeLabels(bentoDeployment, runnerName)
+
+	selector := make(map[string]string)
+
+	for k, v := range labels {
+		selector[k] = v
+	}
+
+	if runnerName != nil {
+		selector[consts.KubeLabelBentoRepository] = bento.Repository.Name
+		selector[consts.KubeLabelBentoVersion] = bento.Version
+	}
+
 	spec := corev1.ServiceSpec{
-		Selector: map[string]string{
-			consts.KubeLabelYataiSelector: kubeName,
-		},
+		Selector: selector,
 		Ports: []corev1.ServicePort{
 			{
 				Name:       "http-default",
@@ -1311,8 +1395,6 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 			},
 		},
 	}
-
-	labels := r.getKubeLabels(bentoDeployment, runnerName)
 
 	annotations := r.getKubeAnnotations(bento)
 
@@ -1448,8 +1530,67 @@ more_set_headers "X-Yatai-Bento: %s";
 	return ings, err
 }
 
+func (r *BentoDeploymentReconciler) doCleanUpAbandonedRunnerServices() error {
+	logs := log.Log.WithValues("func", "doCleanUpAbandonedRunnerServices")
+	logs.Info("start cleaning up abandoned runner services")
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*10)
+	defer cancel()
+
+	serviceList := &corev1.ServiceList{}
+	serviceListOpts := []client.ListOption{
+		client.HasLabels{consts.KubeLabelYataiBentoRunner},
+	}
+	err := r.List(ctx, serviceList, serviceListOpts...)
+	if err != nil {
+		return errors.Wrap(err, "list services")
+	}
+	for _, service := range serviceList.Items {
+		service := service
+		podList := &corev1.PodList{}
+		podListOpts := []client.ListOption{
+			client.InNamespace(service.Namespace),
+			client.MatchingLabels(service.Spec.Selector),
+		}
+		err := r.List(ctx, podList, podListOpts...)
+		if err != nil {
+			return errors.Wrap(err, "list pods")
+		}
+		if len(podList.Items) > 0 {
+			continue
+		}
+		createdAt := service.ObjectMeta.CreationTimestamp
+		if time.Since(createdAt.Time) < time.Minute*3 {
+			continue
+		}
+		logs.Info("deleting abandoned runner service", "name", service.Name, "namespace", service.Namespace)
+		err = r.Delete(ctx, &service)
+		if err != nil {
+			return errors.Wrapf(err, "delete service %s", service.Name)
+		}
+	}
+	logs.Info("finished cleaning up abandoned runner services")
+	return nil
+}
+
+func (r *BentoDeploymentReconciler) cleanUpAbandonedRunnerServices() {
+	logs := log.Log.WithValues("func", "cleanUpAbandonedRunnerServices")
+	err := r.doCleanUpAbandonedRunnerServices()
+	if err != nil {
+		logs.Error(err, "cleanUpAbandonedRunnerServices")
+	}
+	ticker := time.NewTicker(time.Second * 30)
+	for range ticker.C {
+		err := r.doCleanUpAbandonedRunnerServices()
+		if err != nil {
+			logs.Error(err, "cleanUpAbandonedRunnerServices")
+		}
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	go r.cleanUpAbandonedRunnerServices()
+
 	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&servingv1alpha2.BentoDeployment{}).

@@ -987,7 +987,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 			if _, ok := envsSeen[env.Key]; ok {
 				continue
 			}
-			if env.Key == consts.BentoServicePortEnvName {
+			if env.Key == consts.EnvBentoServicePort {
 				containerPort, err = strconv.Atoi(env.Value)
 				if err != nil {
 					return nil, errors.Wrapf(err, "invalid port value %s", env.Value)
@@ -1003,24 +1003,32 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 
 	defaultEnvs := []corev1.EnvVar{
 		{
-			Name:  consts.BentoServicePortEnvName,
+			Name:  consts.EnvBentoServicePort,
 			Value: fmt.Sprintf("%d", containerPort),
 		},
 		{
-			Name:  consts.BentoServiceYataiVersionEnvName,
+			Name:  consts.EnvYataiVersion,
 			Value: fmt.Sprintf("%s-%s", version.Version, version.GitCommit),
 		},
 		{
-			Name:  consts.BentoServiceYataiOrgUIDEnvName,
+			Name:  consts.EnvYataiOrgUID,
 			Value: organization.Uid,
 		},
 		{
-			Name:  consts.BentoServiceYataiDeploymentUIDEnvName,
+			Name:  consts.EnvYataiDeploymentUID,
 			Value: string(bentoDeployment.UID),
 		},
 		{
-			Name:  consts.BentoServiceYataiClusterUIDEnvName,
+			Name:  consts.EnvYataiClusterUID,
 			Value: cluster.Uid,
+		},
+		{
+			Name:  consts.EnvYataiBentoDeploymentName,
+			Value: bentoDeployment.Name,
+		},
+		{
+			Name:  consts.EnvYataiBentoDeploymentNamespace,
+			Value: bentoDeployment.Namespace,
 		},
 	}
 
@@ -1360,7 +1368,7 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 
 	if specEnvs != nil {
 		for _, env := range *specEnvs {
-			if env.Key == consts.BentoServicePortEnvName {
+			if env.Key == consts.EnvBentoServicePort {
 				port_, err := strconv.Atoi(env.Value)
 				if err != nil {
 					return nil, errors.Wrapf(err, "convert port %s to int", env.Value)

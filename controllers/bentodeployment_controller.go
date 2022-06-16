@@ -1107,13 +1107,13 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 			imageName_ = model.InClusterImageName
 		}
 		modelRepository := model.Repository
-		pvName := fmt.Sprintf("pv-%s-%s", strings.ToLower(strings.ReplaceAll(modelRepository.Name, "_", "-")), model.Version)
+		volumeName := fmt.Sprintf("model-%s", hash(fmt.Sprintf("%s:%s", modelRepository.Name, model.Version)))
 		sourcePath := fmt.Sprintf("/models/%s/%s", modelRepository.Name, model.Version)
 		destDirPath := fmt.Sprintf("./models/%s", modelRepository.Name)
 		destPath := filepath.Join(destDirPath, model.Version)
 		args = append(args, "mkdir", "-p", destDirPath, ";", "ln", "-sf", filepath.Join(sourcePath, "model"), destPath, ";", "echo", "-n", fmt.Sprintf("'%s'", model.Version), ">", filepath.Join(destDirPath, "latest"), ";")
 		v := corev1.Volume{
-			Name: pvName,
+			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				CSI: &corev1.CSIVolumeSource{
 					Driver: consts.KubeCSIDriverImage,
@@ -1126,7 +1126,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(bentoDeployment *ser
 		}
 		vs = append(vs, v)
 		vm := corev1.VolumeMount{
-			Name:      pvName,
+			Name:      volumeName,
 			MountPath: sourcePath,
 		}
 		vms = append(vms, vm)

@@ -19,6 +19,7 @@ package controllers
 import (
 	// nolint: gosec
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -164,6 +165,13 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 	r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfig", "Successfully unmarshaled docker registry config from secret")
+
+	_, err = r.makeSureDockerRegcred(ctx, dockerRegistry, bentoDeployment.Namespace)
+	if err != nil {
+		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "MakeSureDockerRegcred", "Failed to make sure docker registry credentials: %v", err)
+		return
+	}
+	r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "MakeSureDockerRegcred", "Successfully made sure docker registry credentials")
 
 	r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetMajorCluster", "Fetching major cluster")
 	majorCluster, err := yataiClient.GetMajorCluster(ctx)
@@ -1014,6 +1022,59 @@ func getClusterName() string {
 	return clusterName
 }
 
+func (r *BentoDeploymentReconciler) makeSureDockerRegcred(ctx context.Context, dockerRegistry modelschemas.DockerRegistrySchema, namespace string) (secret *corev1.Secret, err error) {
+	if dockerRegistry.Username == "" {
+		return
+	}
+	secret = &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{Name: consts.KubeSecretNameRegcred, Namespace: namespace}, secret)
+	isNotFound := k8serrors.IsNotFound(err)
+	if err != nil && !isNotFound {
+		return
+	}
+	dockerConfig := struct {
+		Auths map[string]struct {
+			Auth string `json:"auth"`
+		} `json:"auths"`
+	}{
+		Auths: map[string]struct {
+			Auth string `json:"auth"`
+		}{
+			dockerRegistry.Server: {
+				Auth: base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", dockerRegistry.Username, dockerRegistry.Password))),
+			},
+		},
+	}
+	var dockerConfigContent []byte
+	dockerConfigContent, err = json.Marshal(&dockerConfig)
+	if err != nil {
+		return
+	}
+	if isNotFound {
+		secret = &corev1.Secret{
+			Type: corev1.SecretTypeDockerConfigJson,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      consts.KubeSecretNameRegcred,
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				".dockerconfigjson": dockerConfigContent,
+			},
+		}
+		err = r.Create(ctx, secret)
+		if err != nil {
+			return
+		}
+	} else {
+		secret.Data[".dockerconfigjson"] = dockerConfigContent
+		err = r.Update(ctx, secret)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
 type generatePodTemplateSpecOption struct {
 	bentoDeployment *servingv1alpha2.BentoDeployment
 	bento           *schemasv1.BentoFullSchema
@@ -1193,15 +1254,20 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(opt generatePodTempl
 		destDirPath := fmt.Sprintf("./models/%s", modelRepository.Name)
 		destPath := filepath.Join(destDirPath, model.Version)
 		args = append(args, "mkdir", "-p", destDirPath, ";", "ln", "-sf", filepath.Join(sourcePath, "model"), destPath, ";", "echo", "-n", fmt.Sprintf("'%s'", model.Version), ">", filepath.Join(destDirPath, "latest"), ";")
+		volumeAttrs := map[string]string{
+			"image":     imageName_,
+			"tlsVerify": imageTlsVerify,
+		}
+		if opt.dockerRegistry.Username != "" {
+			volumeAttrs["secret"] = consts.KubeSecretNameRegcred
+			volumeAttrs["secretNamespace"] = opt.bentoDeployment.Namespace
+		}
 		v := corev1.Volume{
 			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				CSI: &corev1.CSIVolumeSource{
-					Driver: consts.KubeCSIDriverImage,
-					VolumeAttributes: map[string]string{
-						"image":     imageName_,
-						"tlsVerify": imageTlsVerify,
-					},
+					Driver:           consts.KubeCSIDriverImage,
+					VolumeAttributes: volumeAttrs,
 				},
 			},
 		}

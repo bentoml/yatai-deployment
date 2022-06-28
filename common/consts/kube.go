@@ -113,7 +113,8 @@ const (
 	KubeLabelMcdESEnable  = "mcd-es-enable"
 	KubeLabelMcdESSaveDay = "mcd-es-save-day"
 
-	KubeCSIDriverImage = "image.csi.k8s.io"
+	KubeImageCSIDriver          = "image.csi.k8s.io"
+	KubeImageCSIDriverWarmMetal = "csi-image.warm-metal.tech"
 
 	KubeDefaultMcdResourceQuotaName = "mcd"
 

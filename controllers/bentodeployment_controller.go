@@ -36,6 +36,7 @@ import (
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -411,15 +412,43 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 		return
 	}
 
+	var imageCSIDriverName string
+
+	csiDrivers := storagev1.CSIDriverList{}
+
+	err = r.List(ctx, &csiDrivers)
+	if err != nil {
+		return
+	}
+
+	for _, csiDriver := range csiDrivers.Items {
+		if csiDriver.Name == consts.KubeImageCSIDriverWarmMetal {
+			imageCSIDriverName = csiDriver.Name
+			break
+		}
+	}
+
+	for _, csiDriver := range csiDrivers.Items {
+		if csiDriver.Name == consts.KubeImageCSIDriver {
+			break
+		}
+	}
+
+	if imageCSIDriverName == "" {
+		err = fmt.Errorf("image CSI driver not found")
+		return
+	}
+
 	deployment, err := r.generateDeployment(generateDeploymentOption{
-		bentoDeployment: opt.bentoDeployment,
-		bento:           opt.bento,
-		dockerRegistry:  opt.dockerRegistry,
-		majorCluster:    opt.majorCluster,
-		version:         opt.version,
-		runnerName:      opt.runnerName,
-		organization:    organization_,
-		cluster:         cluster_,
+		bentoDeployment:    opt.bentoDeployment,
+		bento:              opt.bento,
+		dockerRegistry:     opt.dockerRegistry,
+		majorCluster:       opt.majorCluster,
+		version:            opt.version,
+		runnerName:         opt.runnerName,
+		organization:       organization_,
+		cluster:            cluster_,
+		imageCSIDriverName: imageCSIDriverName,
 	})
 	if err != nil {
 		return
@@ -807,14 +836,15 @@ func (r *BentoDeploymentReconciler) getKubeAnnotations(bento *schemasv1.BentoFul
 }
 
 type generateDeploymentOption struct {
-	bentoDeployment *servingv1alpha2.BentoDeployment
-	bento           *schemasv1.BentoFullSchema
-	dockerRegistry  modelschemas.DockerRegistrySchema
-	majorCluster    *schemasv1.ClusterFullSchema
-	version         *schemasv1.VersionSchema
-	runnerName      *string
-	organization    *schemasv1.OrganizationFullSchema
-	cluster         *schemasv1.ClusterFullSchema
+	bentoDeployment    *servingv1alpha2.BentoDeployment
+	bento              *schemasv1.BentoFullSchema
+	dockerRegistry     modelschemas.DockerRegistrySchema
+	majorCluster       *schemasv1.ClusterFullSchema
+	version            *schemasv1.VersionSchema
+	runnerName         *string
+	organization       *schemasv1.OrganizationFullSchema
+	cluster            *schemasv1.ClusterFullSchema
+	imageCSIDriverName string
 }
 
 func (r *BentoDeploymentReconciler) generateDeployment(opt generateDeploymentOption) (kubeDeployment *appsv1.Deployment, err error) {
@@ -822,14 +852,15 @@ func (r *BentoDeploymentReconciler) generateDeployment(opt generateDeploymentOpt
 
 	// nolint: gosimple
 	podTemplateSpec, err := r.generatePodTemplateSpec(generatePodTemplateSpecOption{
-		bentoDeployment: opt.bentoDeployment,
-		bento:           opt.bento,
-		dockerRegistry:  opt.dockerRegistry,
-		majorCluster:    opt.majorCluster,
-		version:         opt.version,
-		runnerName:      opt.runnerName,
-		organization:    opt.organization,
-		cluster:         opt.cluster,
+		bentoDeployment:    opt.bentoDeployment,
+		bento:              opt.bento,
+		dockerRegistry:     opt.dockerRegistry,
+		majorCluster:       opt.majorCluster,
+		version:            opt.version,
+		runnerName:         opt.runnerName,
+		organization:       opt.organization,
+		cluster:            opt.cluster,
+		imageCSIDriverName: opt.imageCSIDriverName,
 	})
 	if err != nil {
 		return
@@ -1076,14 +1107,15 @@ func (r *BentoDeploymentReconciler) makeSureDockerRegcred(ctx context.Context, d
 }
 
 type generatePodTemplateSpecOption struct {
-	bentoDeployment *servingv1alpha2.BentoDeployment
-	bento           *schemasv1.BentoFullSchema
-	dockerRegistry  modelschemas.DockerRegistrySchema
-	majorCluster    *schemasv1.ClusterFullSchema
-	version         *schemasv1.VersionSchema
-	runnerName      *string
-	organization    *schemasv1.OrganizationFullSchema
-	cluster         *schemasv1.ClusterFullSchema
+	bentoDeployment    *servingv1alpha2.BentoDeployment
+	bento              *schemasv1.BentoFullSchema
+	dockerRegistry     modelschemas.DockerRegistrySchema
+	majorCluster       *schemasv1.ClusterFullSchema
+	version            *schemasv1.VersionSchema
+	runnerName         *string
+	organization       *schemasv1.OrganizationFullSchema
+	cluster            *schemasv1.ClusterFullSchema
+	imageCSIDriverName string
 }
 
 func (r *BentoDeploymentReconciler) generatePodTemplateSpec(opt generatePodTemplateSpecOption) (podTemplateSpec *corev1.PodTemplateSpec, err error) {
@@ -1229,8 +1261,10 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(opt generatePodTempl
 		destPath := filepath.Join(destDirPath, model.Version)
 		args = append(args, "mkdir", "-p", destDirPath, ";", "ln", "-sf", filepath.Join(sourcePath, "model"), destPath, ";", "echo", "-n", fmt.Sprintf("'%s'", model.Version), ">", filepath.Join(destDirPath, "latest"), ";")
 		volumeAttrs := map[string]string{
-			"image":     imageName_,
-			"tlsVerify": imageTlsVerify,
+			"image": imageName_,
+		}
+		if opt.imageCSIDriverName == consts.KubeImageCSIDriver {
+			volumeAttrs["tlsVerify"] = imageTlsVerify
 		}
 		if opt.dockerRegistry.Username != "" {
 			volumeAttrs["secret"] = consts.KubeSecretNameRegcred
@@ -1240,7 +1274,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(opt generatePodTempl
 			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				CSI: &corev1.CSIVolumeSource{
-					Driver:           consts.KubeCSIDriverImage,
+					Driver:           opt.imageCSIDriverName,
 					VolumeAttributes: volumeAttrs,
 				},
 			},

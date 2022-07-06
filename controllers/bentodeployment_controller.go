@@ -431,6 +431,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 
 	for _, csiDriver := range csiDrivers.Items {
 		if csiDriver.Name == consts.KubeImageCSIDriver {
+			imageCSIDriverName = csiDriver.Name
 			break
 		}
 	}

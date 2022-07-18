@@ -23,7 +23,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -42,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 
 	"context"
@@ -49,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -59,9 +60,11 @@ import (
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 
+	"github.com/bentoml/yatai-common/consts"
+	"github.com/bentoml/yatai-common/system"
+	"github.com/bentoml/yatai-common/utils"
+
 	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
-	"github.com/bentoml/yatai-deployment-operator/common/consts"
-	"github.com/bentoml/yatai-deployment-operator/common/utils"
 	yataiclient "github.com/bentoml/yatai-deployment-operator/yatai-client"
 )
 
@@ -423,14 +426,14 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 	}
 
 	for _, csiDriver := range csiDrivers.Items {
-		if csiDriver.Name == consts.KubeImageCSIDriverWarmMetal {
+		if csiDriver.Name == consts.KubeImageCSIDriver {
 			imageCSIDriverName = csiDriver.Name
 			break
 		}
 	}
 
 	for _, csiDriver := range csiDrivers.Items {
-		if csiDriver.Name == consts.KubeImageCSIDriver {
+		if csiDriver.Name == consts.KubeImageCSIDriverWarmMetal {
 			imageCSIDriverName = csiDriver.Name
 			break
 		}
@@ -1129,16 +1132,9 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(opt generatePodTempl
 
 	annotations := r.getKubeAnnotations(opt.bento)
 
-	clusterName := getClusterName()
-
 	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName)
 
-	inCluster := clusterName == opt.majorCluster.Name
-
 	imageName := opt.bento.ImageName
-	if inCluster {
-		imageName = opt.bento.InClusterImageName
-	}
 
 	containerPort := consts.BentoServicePort
 	var envs []corev1.EnvVar
@@ -1253,9 +1249,6 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(opt generatePodTempl
 
 	for _, model := range models_ {
 		imageName_ := model.ImageName
-		if inCluster {
-			imageName_ = model.InClusterImageName
-		}
 		modelRepository := model.Repository
 		volumeName := fmt.Sprintf("model-%s", hash(fmt.Sprintf("%s:%s", modelRepository.Name, model.Version)))
 		sourcePath := fmt.Sprintf("/models/%s/%s", modelRepository.Name, model.Version)
@@ -1580,52 +1573,22 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 	return
 }
 
-func (r *BentoDeploymentReconciler) getIngressIp(ctx context.Context) (string, error) {
-	var ip string
-	if ip == "" {
-		svcName := "yatai-ingress-controller-ingress-nginx-controller"
-		svc := &corev1.Service{}
-		err := r.Get(ctx, types.NamespacedName{Name: svcName, Namespace: consts.KubeNamespaceYataiComponents}, svc)
-		if err != nil {
-			return "", errors.Wrap(err, "get ingress service")
-		}
-		if len(svc.Status.LoadBalancer.Ingress) == 0 {
-			return "", errors.Errorf("the external ip of service %s on namespace %s is empty!", svcName, consts.KubeNamespaceYataiComponents)
-		}
-
-		ing := svc.Status.LoadBalancer.Ingress[0]
-
-		ip = ing.IP
-		if ip == "" {
-			ip = ing.Hostname
-		}
-	}
-	if ip == "" {
-		return "", errors.Errorf("please specify the ingress ip or hostname")
-	}
-	if net.ParseIP(ip) == nil {
-		addr, err := net.LookupIP(ip)
-		if err != nil {
-			return "", errors.Wrapf(err, "lookup ip from ingress hostname %s", ip)
-		}
-		if len(addr) == 0 {
-			return "", errors.Errorf("cannot lookup ip from ingress hostname %s", ip)
-		}
-		ip = addr[0].String()
-	}
-	return ip, nil
-}
-
 func (r *BentoDeploymentReconciler) generateIngressHost(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment) (string, error) {
 	return r.generateDefaultHostname(ctx, bentoDeployment)
 }
 
 func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment) (string, error) {
-	ip, err := r.getIngressIp(ctx)
+	restConfig := config.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "create kubernetes clientset")
 	}
-	return fmt.Sprintf("%s-%s-yatai-%s.apps.yatai.dev", bentoDeployment.Name, bentoDeployment.Namespace, strings.ReplaceAll(ip, ".", "-")), nil
+
+	domainSuffix, err := system.GetDomainSuffix(ctx, clientset)
+	if err != nil {
+		return "", errors.Wrapf(err, "get domain suffix")
+	}
+	return fmt.Sprintf("%s-%s.%s", bentoDeployment.Name, bentoDeployment.Namespace, domainSuffix), nil
 }
 
 func (r *BentoDeploymentReconciler) generateIngresses(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema) (ingresses []*networkingv1.Ingress, err error) {
@@ -1653,6 +1616,19 @@ more_set_headers "X-Yatai-Bento: %s";
 
 	kubeNs := bentoDeployment.Namespace
 
+	restConfig := config.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		err = errors.Wrapf(err, "create kubernetes clientset")
+		return
+	}
+
+	ingressClassName, err := system.GetIngressClassName(ctx, clientset)
+	if err != nil {
+		err = errors.Wrapf(err, "get ingress class name")
+		return
+	}
+
 	interIng := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,
@@ -1661,7 +1637,7 @@ more_set_headers "X-Yatai-Bento: %s";
 			Annotations: annotations,
 		},
 		Spec: networkingv1.IngressSpec{
-			IngressClassName: utils.StringPtr(consts.KubeIngressClassName),
+			IngressClassName: &ingressClassName,
 			Rules: []networkingv1.IngressRule{
 				{
 					Host: internalHost,

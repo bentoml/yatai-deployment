@@ -159,6 +159,10 @@ github.com/banzaicloud/k8s-objectmatcher v1.8.0/go.mod h1:p2LSNAjlECf07fbhDyebTk
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
+github.com/bentoml/yatai-common v0.0.0-20220718154717-f371e80e584f h1:eS9N2jjeG97nJZCBPfiv7YMPwHvhtFB8x60NKwZHmLo=
+github.com/bentoml/yatai-common v0.0.0-20220718154717-f371e80e584f/go.mod h1:evYb3j9/fzKsKFxU5l3DD/erGc0aEYPRlKTjXlnX1do=
+github.com/bentoml/yatai-common v0.0.0-20220726055933-03c35eb2a939 h1:OV4LTR5ZZ5iaLZEAp4R+bG5+/lGtmkHM+gEeUa6haho=
+github.com/bentoml/yatai-common v0.0.0-20220726055933-03c35eb2a939/go.mod h1:evYb3j9/fzKsKFxU5l3DD/erGc0aEYPRlKTjXlnX1do=
 github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987 h1:gPYq0p6dCo12QVYECaJ1uZ762A5/8cnhlXvk6Jy6Exc=
 github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987/go.mod h1:OT5T7rrtdjJIkJpUazp1fQBbAVzl55YXyUJNVRLqskw=
 github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
@@ -850,7 +854,6 @@ github.com/opencontainers/selinux v1.6.0/go.mod h1:VVGKuOLlE7v4PJyT6h7mNWvq1rzqi
 github.com/opencontainers/selinux v1.8.0/go.mod h1:RScLhm78qiWa2gbVCcGkC7tCGdgk3ogry1nUQF8Evvo=
 github.com/opencontainers/selinux v1.8.2/go.mod h1:MUIHuUEvKB1wtJjQdOyYRgOnLD2xAPP8dBsCoU0KuF8=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
-github.com/panjf2000/ants/v2 v2.4.8 h1:JgTbolX6K6RreZ4+bfctI0Ifs+3mrE5BIHudQxUDQ9k=
 github.com/panjf2000/ants/v2 v2.4.8/go.mod h1:f6F0NZVFsGCp5A7QW/Zj/m92atWwOkY0OIhFxRNFr4A=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=

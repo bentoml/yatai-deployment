@@ -7,9 +7,9 @@ import (
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 
-	"github.com/bentoml/yatai-deployment-operator/common/consts"
-	"github.com/bentoml/yatai-deployment-operator/common/reqcli"
-	"github.com/bentoml/yatai-deployment-operator/common/utils"
+	"github.com/bentoml/yatai-common/consts"
+	"github.com/bentoml/yatai-common/reqcli"
+	"github.com/bentoml/yatai-common/utils"
 )
 
 type YataiClient struct {

@@ -13,7 +13,6 @@ RUN go mod download
 COPY main.go main.go
 COPY apis/ apis/
 COPY controllers/ controllers/
-COPY common/ common/
 COPY yatai-client/ yatai-client/
 
 # Build

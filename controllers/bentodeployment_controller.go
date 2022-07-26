@@ -23,7 +23,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -63,6 +62,8 @@ import (
 	"github.com/bentoml/yatai-common/consts"
 	"github.com/bentoml/yatai-common/system"
 	"github.com/bentoml/yatai-common/utils"
+
+	commonconfig "github.com/bentoml/yatai-common/config"
 
 	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
 	yataiclient "github.com/bentoml/yatai-deployment-operator/yatai-client"
@@ -119,9 +120,22 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
-	yataiEndpoint := os.Getenv(consts.EnvYataiEndpoint)
-	yataiApiToken := os.Getenv(consts.EnvYataiApiToken)
-	yataiClient := yataiclient.NewYataiClient(yataiEndpoint, yataiApiToken)
+	restConfig := config.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		err = errors.Wrap(err, "create kubernetes clientset")
+		return
+	}
+
+	yataiConf, err := commonconfig.GetYataiConfig(ctx, clientset, consts.KubeNamespaceYataiDeploymentComponent, consts.KubeConfigMapNameYataiConfig, false)
+	if err != nil {
+		err = errors.Wrap(err, "get yatai config")
+		return
+	}
+
+	yataiEndpoint := yataiConf.Endpoint
+	yataiApiToken := yataiConf.ApiToken
+	yataiClient := yataiclient.NewYataiClient(yataiEndpoint, fmt.Sprintf("%s:%s", consts.YataiApiTokenPrefixYataiDeploymentOperator, yataiApiToken))
 
 	var bentoCache *schemasv1.BentoFullSchema
 	getBento := func() (*schemasv1.BentoFullSchema, error) {
@@ -144,7 +158,10 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
-	clusterName := getClusterName()
+	clusterName := yataiConf.ClusterName
+	if clusterName == "" {
+		clusterName = "default"
+	}
 
 	r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfigRef", "Fetching docker registry config ref")
 	dockerRegistryRef, err := yataiClient.GetDockerRegistryRef(ctx, clusterName)
@@ -201,6 +218,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			var modified_ bool
 			// create or update deployment
 			modified_, err = r.createOrUpdateDeployment(ctx, createOrUpdateDeploymentOption{
+				clusterName:     clusterName,
 				yataiClient:     yataiClient,
 				bentoDeployment: bentoDeployment,
 				bento:           bento,
@@ -245,6 +263,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// create or update api-server deployment
 	modified_, err := r.createOrUpdateDeployment(ctx, createOrUpdateDeploymentOption{
+		clusterName:     clusterName,
 		yataiClient:     yataiClient,
 		bentoDeployment: bentoDeployment,
 		bento:           bento,
@@ -400,6 +419,7 @@ type createOrUpdateDeploymentOption struct {
 	majorCluster    *schemasv1.ClusterFullSchema
 	version         *schemasv1.VersionSchema
 	runnerName      *string
+	clusterName     string
 }
 
 func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context, opt createOrUpdateDeploymentOption) (modified bool, err error) {
@@ -410,7 +430,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 		return
 	}
 
-	clusterName := getClusterName()
+	clusterName := opt.clusterName
 	cluster_, err := opt.yataiClient.GetCluster(ctx, clusterName)
 	if err != nil {
 		return
@@ -498,7 +518,6 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 				logs.Error(err, "Failed to update BentoDeployment status.")
 				return
 			}
-			clusterName := getClusterName()
 			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "GetYataiDeployment", "Fetching yatai deployment %s", opt.bentoDeployment.Name)
 			_, err = opt.yataiClient.GetDeployment(ctx, clusterName, opt.bentoDeployment.Namespace, opt.bentoDeployment.Name)
 			isNotFound := err != nil && strings.Contains(strings.ToLower(err.Error()), "not found")
@@ -1048,14 +1067,6 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha2
 	err = ctrl.SetControllerReference(bentoDeployment, kubeHpa, r.Scheme)
 
 	return kubeHpa, err
-}
-
-func getClusterName() string {
-	clusterName := os.Getenv(consts.EnvYataiClusterName)
-	if clusterName == "" {
-		clusterName = "default"
-	}
-	return clusterName
 }
 
 func (r *BentoDeploymentReconciler) makeSureDockerRegcred(ctx context.Context, dockerRegistry modelschemas.DockerRegistrySchema, namespace string) (secret *corev1.Secret, err error) {

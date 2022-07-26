@@ -106,3 +106,17 @@ func (c *YataiClient) GetCluster(ctx context.Context, clusterName string) (clust
 	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(cluster).Do(ctx)
 	return
 }
+
+func (c *YataiClient) PresignBentoDownloadUrl(ctx context.Context, bentoRepositoryName, version string) (bento *schemasv1.BentoSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/bento_repositories/%s/bentos/%s/presign_download_url", bentoRepositoryName, version))
+	bento = &schemasv1.BentoSchema{}
+	_, err = c.getJsonReqBuilder().Method("PATCH").Url(url_).Result(bento).Do(ctx)
+	return
+}
+
+func (c *YataiClient) PresignModelDownloadUrl(ctx context.Context, modelRepositoryName, version string) (model *schemasv1.ModelSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/model_repositories/%s/models/%s/presign_download_url", modelRepositoryName, version))
+	model = &schemasv1.ModelSchema{}
+	_, err = c.getJsonReqBuilder().Method("PATCH").Url(url_).Result(model).Do(ctx)
+	return
+}

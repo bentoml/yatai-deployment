@@ -8,9 +8,12 @@ require (
 	github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987
 	github.com/hashicorp/go-version v1.5.0
 	github.com/huandu/xstrings v1.3.2
+	github.com/iancoleman/strcase v0.2.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
 	github.com/pkg/errors v0.9.1
+	github.com/prune998/docker-registry-client v0.0.0-20200114164314-f8cd511a014c
+	github.com/sirupsen/logrus v1.8.1
 	k8s.io/api v0.24.0-beta.0
 	k8s.io/apimachinery v0.24.0-beta.0
 	k8s.io/client-go v0.24.0-beta.0
@@ -33,6 +36,8 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/docker/libtrust v0.0.0-20150114040149-fa567046d9b1 // indirect
 	github.com/emicklei/go-restful v2.15.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
@@ -58,6 +63,9 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.0.2 // indirect
+	github.com/panjf2000/ants/v2 v2.4.8 // indirect
 	github.com/prometheus/client_golang v1.12.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.33.0 // indirect

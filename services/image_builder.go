@@ -26,7 +26,7 @@ type imageBuilderService struct{}
 var ImageBuilderService = &imageBuilderService{}
 
 func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clientset, namespace string) (dockerConfigSecret *corev1.Secret, err error) {
-	dockerRegistry, err := commonconfig.GetDockerRegistryConfig(ctx, kubeCli)
+	dockerRegistry, err := commonconfig.GetDockerRegistryConfig(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "failed to get docker registry config")
 		return nil, err
@@ -163,7 +163,7 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		},
 	}
 
-	dockerRegistry, err := commonconfig.GetDockerRegistryConfig(ctx, kubeCli)
+	dockerRegistry, err := commonconfig.GetDockerRegistryConfig(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "failed to get docker registry config")
 		return
@@ -172,7 +172,7 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 	kubeName := opt.KubeName
 	imageName := opt.ImageName
 
-	dockerImageBuilder, err := commonconfig.GetDockerImageBuilderConfig(ctx, kubeCli)
+	dockerImageBuilder := commonconfig.GetDockerImageBuilderConfig()
 	if err != nil {
 		err = errors.Wrap(err, "failed to get docker image builder config")
 		return

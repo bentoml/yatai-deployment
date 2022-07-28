@@ -133,7 +133,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
-	yataiConf, err := commonconfig.GetYataiConfig(ctx, clientset, false)
+	yataiConf, err := commonconfig.GetYataiConfig(ctx, clientset, consts.KubeNamespaceYataiDeploymentComponent, false)
 	if err != nil {
 		err = errors.Wrap(err, "get yatai config")
 		return
@@ -141,7 +141,11 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	yataiEndpoint := yataiConf.Endpoint
 	yataiApiToken := yataiConf.ApiToken
-	yataiClient := yataiclient.NewYataiClient(yataiEndpoint, fmt.Sprintf("%s:%s", consts.YataiApiTokenPrefixYataiDeploymentOperator, yataiApiToken))
+	clusterName := yataiConf.ClusterName
+	if clusterName == "" {
+		clusterName = "default"
+	}
+	yataiClient := yataiclient.NewYataiClient(yataiEndpoint, fmt.Sprintf("%s:%s:%s", consts.YataiApiTokenPrefixYataiDeploymentOperator, clusterName, yataiApiToken))
 
 	var bentoCache *schemasv1.BentoFullSchema
 	getBento := func() (*schemasv1.BentoFullSchema, error) {
@@ -164,12 +168,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
-	clusterName := yataiConf.ClusterName
-	if clusterName == "" {
-		clusterName = "default"
-	}
-
-	dockerRegistryConfig, err := commonconfig.GetDockerRegistryConfig(ctx, clientset)
+	dockerRegistryConfig, err := commonconfig.GetDockerRegistryConfig(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "get docker registry")
 		return

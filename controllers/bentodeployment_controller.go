@@ -23,21 +23,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
 	goversion "github.com/hashicorp/go-version"
-	"github.com/iancoleman/strcase"
 	"github.com/prune998/docker-registry-client/registry"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,7 +94,6 @@ type BentoDeploymentReconciler struct {
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=storage.k8s.io,resources=csidrivers,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -126,26 +122,11 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
-	restConfig := config.GetConfigOrDie()
-	clientset, err := kubernetes.NewForConfig(restConfig)
+	yataiClient, clusterName, err := getYataiClient(ctx)
 	if err != nil {
-		err = errors.Wrap(err, "create kubernetes clientset")
+		err = errors.Wrap(err, "get yatai client")
 		return
 	}
-
-	yataiConf, err := commonconfig.GetYataiConfig(ctx, clientset, consts.KubeNamespaceYataiDeploymentComponent, false)
-	if err != nil {
-		err = errors.Wrap(err, "get yatai config")
-		return
-	}
-
-	yataiEndpoint := yataiConf.Endpoint
-	yataiApiToken := yataiConf.ApiToken
-	clusterName := yataiConf.ClusterName
-	if clusterName == "" {
-		clusterName = "default"
-	}
-	yataiClient := yataiclient.NewYataiClient(yataiEndpoint, fmt.Sprintf("%s:%s:%s", consts.YataiApiTokenPrefixYataiDeploymentOperator, clusterName, yataiApiToken))
 
 	var bentoCache *schemasv1.BentoFullSchema
 	getBento := func() (*schemasv1.BentoFullSchema, error) {
@@ -168,75 +149,10 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
-	dockerRegistryConfig, err := commonconfig.GetDockerRegistryConfig(ctx)
+	dockerRegistry, err := r.getDockerRegistry(ctx, bentoDeployment)
 	if err != nil {
 		err = errors.Wrap(err, "get docker registry")
 		return
-	}
-
-	dockerRegistry := modelschemas.DockerRegistrySchema{}
-	if dockerRegistryConfig.Server == "" {
-		// compatibility with the old yatai
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistry", "Docker registry is not configured. Using docker registry from yatai")
-		var dockerRegistryRef *modelschemas.DockerRegistryRefSchema
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfigRef", "Fetching docker registry config ref")
-		dockerRegistryRef, err = yataiClient.GetDockerRegistryRef(ctx, clusterName)
-		if err != nil {
-			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistryConfigRef", "Failed to fetch docker registry config ref: %v", err)
-			return
-		}
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfigRef", "Successfully fetched docker registry config ref")
-
-		secret := &corev1.Secret{}
-
-		err = r.Get(ctx, types.NamespacedName{Name: dockerRegistryRef.Name, Namespace: dockerRegistryRef.Namespace}, secret)
-		if err != nil {
-			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistryConfig", "Failed to get docker registry config from secret %s/%s: %v", dockerRegistryRef.Namespace, dockerRegistryRef.Name, err)
-			return
-		}
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfig", "Successfully fetched docker registry config from secret")
-
-		err = json.Unmarshal(secret.Data[dockerRegistryRef.Key], &dockerRegistry)
-		if err != nil {
-			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "UnmarshalDockerRegistryConfig", "Failed to unmarshal docker registry config from secret %s/%s: %v", dockerRegistryRef.Namespace, dockerRegistryRef.Name, err)
-			return
-		}
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfig", "Successfully unmarshaled docker registry config from secret")
-	} else {
-		bentoRepositoryName := "yatai-bentos"
-		modelRepositoryName := "yatai-models"
-		if dockerRegistryConfig.BentoRepositoryName != "" {
-			bentoRepositoryName = dockerRegistryConfig.BentoRepositoryName
-		}
-		if dockerRegistryConfig.ModelRepositoryName != "" {
-			modelRepositoryName = dockerRegistryConfig.ModelRepositoryName
-		}
-		bentoRepositoryURI := fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.Server, "/"), bentoRepositoryName)
-		modelRepositoryURI := fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.Server, "/"), modelRepositoryName)
-		if strings.Contains(dockerRegistryConfig.Server, "docker.io") {
-			bentoRepositoryURI = fmt.Sprintf("docker.io/%s", bentoRepositoryName)
-			modelRepositoryURI = fmt.Sprintf("docker.io/%s", modelRepositoryName)
-		}
-		bentoRepositoryInClusterURI := bentoRepositoryURI
-		modelRepositoryInClusterURI := modelRepositoryURI
-		if dockerRegistryConfig.InClusterServer != "" {
-			bentoRepositoryInClusterURI = fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.InClusterServer, "/"), bentoRepositoryName)
-			modelRepositoryInClusterURI = fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.InClusterServer, "/"), modelRepositoryName)
-			if strings.Contains(dockerRegistryConfig.InClusterServer, "docker.io") {
-				bentoRepositoryInClusterURI = fmt.Sprintf("docker.io/%s", bentoRepositoryName)
-				modelRepositoryInClusterURI = fmt.Sprintf("docker.io/%s", modelRepositoryName)
-			}
-		}
-		dockerRegistry = modelschemas.DockerRegistrySchema{
-			Server:                       dockerRegistryConfig.Server,
-			Username:                     dockerRegistryConfig.Username,
-			Password:                     dockerRegistryConfig.Password,
-			Secure:                       dockerRegistryConfig.Secure,
-			BentosRepositoryURI:          bentoRepositoryURI,
-			BentosRepositoryURIInCluster: bentoRepositoryInClusterURI,
-			ModelsRepositoryURI:          modelRepositoryURI,
-			ModelsRepositoryURIInCluster: modelRepositoryInClusterURI,
-		}
 	}
 
 	_, err = r.makeSureDockerRegcred(ctx, dockerRegistry, bentoDeployment.Namespace)
@@ -462,6 +378,110 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	return
 }
 
+func getYataiClient(ctx context.Context) (yataiClient *yataiclient.YataiClient, clusterName string, err error) {
+	restConfig := config.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		err = errors.Wrap(err, "create kubernetes clientset")
+		return
+	}
+
+	yataiConf, err := commonconfig.GetYataiConfig(ctx, clientset, consts.KubeNamespaceYataiDeploymentComponent, false)
+	if err != nil {
+		err = errors.Wrap(err, "get yatai config")
+		return
+	}
+
+	yataiEndpoint := yataiConf.Endpoint
+	yataiApiToken := yataiConf.ApiToken
+	clusterName = yataiConf.ClusterName
+	if clusterName == "" {
+		clusterName = "default"
+	}
+	yataiClient = yataiclient.NewYataiClient(yataiEndpoint, fmt.Sprintf("%s:%s:%s", consts.YataiApiTokenPrefixYataiDeploymentOperator, clusterName, yataiApiToken))
+	return
+}
+
+func (r *BentoDeploymentReconciler) getDockerRegistry(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment) (dockerRegistry modelschemas.DockerRegistrySchema, err error) {
+	dockerRegistryConfig, err := commonconfig.GetDockerRegistryConfig(ctx)
+	if err != nil {
+		err = errors.Wrap(err, "get docker registry")
+		return
+	}
+
+	if bentoDeployment != nil && dockerRegistryConfig.Server == "" {
+		// compatibility with the old yatai
+		var yataiClient *yataiclient.YataiClient
+		var clusterName string
+		yataiClient, clusterName, err = getYataiClient(ctx)
+		if err != nil {
+			err = errors.Wrap(err, "get yatai client")
+			return
+		}
+		r.Recorder.Event(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistry", "Docker registry is not configured. Using docker registry from yatai")
+		var dockerRegistryRef *modelschemas.DockerRegistryRefSchema
+		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfigRef", "Fetching docker registry config ref")
+		dockerRegistryRef, err = yataiClient.GetDockerRegistryRef(ctx, clusterName)
+		if err != nil {
+			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistryConfigRef", "Failed to fetch docker registry config ref: %v", err)
+			return
+		}
+		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfigRef", "Successfully fetched docker registry config ref")
+
+		secret := &corev1.Secret{}
+
+		err = r.Get(ctx, types.NamespacedName{Name: dockerRegistryRef.Name, Namespace: dockerRegistryRef.Namespace}, secret)
+		if err != nil {
+			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistryConfig", "Failed to get docker registry config from secret %s/%s: %v", dockerRegistryRef.Namespace, dockerRegistryRef.Name, err)
+			return
+		}
+		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfig", "Successfully fetched docker registry config from secret")
+
+		err = json.Unmarshal(secret.Data[dockerRegistryRef.Key], &dockerRegistry)
+		if err != nil {
+			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "UnmarshalDockerRegistryConfig", "Failed to unmarshal docker registry config from secret %s/%s: %v", dockerRegistryRef.Namespace, dockerRegistryRef.Name, err)
+			return
+		}
+		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfig", "Successfully unmarshaled docker registry config from secret")
+	} else {
+		bentoRepositoryName := "yatai-bentos"
+		modelRepositoryName := "yatai-models"
+		if dockerRegistryConfig.BentoRepositoryName != "" {
+			bentoRepositoryName = dockerRegistryConfig.BentoRepositoryName
+		}
+		if dockerRegistryConfig.ModelRepositoryName != "" {
+			modelRepositoryName = dockerRegistryConfig.ModelRepositoryName
+		}
+		bentoRepositoryURI := fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.Server, "/"), bentoRepositoryName)
+		modelRepositoryURI := fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.Server, "/"), modelRepositoryName)
+		if strings.Contains(dockerRegistryConfig.Server, "docker.io") {
+			bentoRepositoryURI = fmt.Sprintf("docker.io/%s", bentoRepositoryName)
+			modelRepositoryURI = fmt.Sprintf("docker.io/%s", modelRepositoryName)
+		}
+		bentoRepositoryInClusterURI := bentoRepositoryURI
+		modelRepositoryInClusterURI := modelRepositoryURI
+		if dockerRegistryConfig.InClusterServer != "" {
+			bentoRepositoryInClusterURI = fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.InClusterServer, "/"), bentoRepositoryName)
+			modelRepositoryInClusterURI = fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.InClusterServer, "/"), modelRepositoryName)
+			if strings.Contains(dockerRegistryConfig.InClusterServer, "docker.io") {
+				bentoRepositoryInClusterURI = fmt.Sprintf("docker.io/%s", bentoRepositoryName)
+				modelRepositoryInClusterURI = fmt.Sprintf("docker.io/%s", modelRepositoryName)
+			}
+		}
+		dockerRegistry = modelschemas.DockerRegistrySchema{
+			Server:                       dockerRegistryConfig.Server,
+			Username:                     dockerRegistryConfig.Username,
+			Password:                     dockerRegistryConfig.Password,
+			Secure:                       dockerRegistryConfig.Secure,
+			BentosRepositoryURI:          bentoRepositoryURI,
+			BentosRepositoryURIInCluster: bentoRepositoryInClusterURI,
+			ModelsRepositoryURI:          modelRepositoryURI,
+			ModelsRepositoryURIInCluster: modelRepositoryInClusterURI,
+		}
+	}
+	return
+}
+
 type createOrUpdateDeploymentOption struct {
 	yataiClient     *yataiclient.YataiClient
 	bentoDeployment *servingv1alpha2.BentoDeployment
@@ -487,44 +507,15 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 		return
 	}
 
-	var imageCSIDriverName string
-
-	csiDrivers := storagev1.CSIDriverList{}
-
-	err = r.List(ctx, &csiDrivers)
-	if err != nil {
-		return
-	}
-
-	for _, csiDriver := range csiDrivers.Items {
-		if csiDriver.Name == consts.KubeImageCSIDriver {
-			imageCSIDriverName = csiDriver.Name
-			break
-		}
-	}
-
-	for _, csiDriver := range csiDrivers.Items {
-		if csiDriver.Name == consts.KubeImageCSIDriverWarmMetal {
-			imageCSIDriverName = csiDriver.Name
-			break
-		}
-	}
-
-	if imageCSIDriverName == "" {
-		err = fmt.Errorf("image CSI driver not found")
-		return
-	}
-
 	deployment, err := r.generateDeployment(ctx, generateDeploymentOption{
-		bentoDeployment:    opt.bentoDeployment,
-		bento:              opt.bento,
-		dockerRegistry:     opt.dockerRegistry,
-		majorCluster:       opt.majorCluster,
-		version:            opt.version,
-		runnerName:         opt.runnerName,
-		organization:       organization_,
-		cluster:            cluster_,
-		imageCSIDriverName: imageCSIDriverName,
+		bentoDeployment: opt.bentoDeployment,
+		bento:           opt.bento,
+		dockerRegistry:  opt.dockerRegistry,
+		majorCluster:    opt.majorCluster,
+		version:         opt.version,
+		runnerName:      opt.runnerName,
+		organization:    organization_,
+		cluster:         cluster_,
 	})
 	if err != nil {
 		return
@@ -911,15 +902,14 @@ func (r *BentoDeploymentReconciler) getKubeAnnotations(bento *schemasv1.BentoFul
 }
 
 type generateDeploymentOption struct {
-	bentoDeployment    *servingv1alpha2.BentoDeployment
-	bento              *schemasv1.BentoFullSchema
-	dockerRegistry     modelschemas.DockerRegistrySchema
-	majorCluster       *schemasv1.ClusterFullSchema
-	version            *schemasv1.VersionSchema
-	runnerName         *string
-	organization       *schemasv1.OrganizationFullSchema
-	cluster            *schemasv1.ClusterFullSchema
-	imageCSIDriverName string
+	bentoDeployment *servingv1alpha2.BentoDeployment
+	bento           *schemasv1.BentoFullSchema
+	dockerRegistry  modelschemas.DockerRegistrySchema
+	majorCluster    *schemasv1.ClusterFullSchema
+	version         *schemasv1.VersionSchema
+	runnerName      *string
+	organization    *schemasv1.OrganizationFullSchema
+	cluster         *schemasv1.ClusterFullSchema
 }
 
 func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt generateDeploymentOption) (kubeDeployment *appsv1.Deployment, err error) {
@@ -927,15 +917,14 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 
 	// nolint: gosimple
 	podTemplateSpec, err := r.generatePodTemplateSpec(ctx, generatePodTemplateSpecOption{
-		bentoDeployment:    opt.bentoDeployment,
-		bento:              opt.bento,
-		dockerRegistry:     opt.dockerRegistry,
-		majorCluster:       opt.majorCluster,
-		version:            opt.version,
-		runnerName:         opt.runnerName,
-		organization:       opt.organization,
-		cluster:            opt.cluster,
-		imageCSIDriverName: opt.imageCSIDriverName,
+		bentoDeployment: opt.bentoDeployment,
+		bento:           opt.bento,
+		dockerRegistry:  opt.dockerRegistry,
+		majorCluster:    opt.majorCluster,
+		version:         opt.version,
+		runnerName:      opt.runnerName,
+		organization:    opt.organization,
+		cluster:         opt.cluster,
 	})
 	if err != nil {
 		return
@@ -1173,7 +1162,7 @@ func (r *BentoDeploymentReconciler) makeSureDockerRegcred(ctx context.Context, d
 	return
 }
 
-func checkImageExists(ctx context.Context, dockerRegistry modelschemas.DockerRegistrySchema, imageName string) (bool, error) {
+func checkImageExists(dockerRegistry modelschemas.DockerRegistrySchema, imageName string) (bool, error) {
 	server, _, imageName := xstrings.Partition(imageName, "/")
 	if dockerRegistry.Secure {
 		server = fmt.Sprintf("https://%s", server)
@@ -1199,7 +1188,7 @@ func checkImageExists(ctx context.Context, dockerRegistry modelschemas.DockerReg
 	return false, nil
 }
 
-func GetBentoImageName(dockerRegistry modelschemas.DockerRegistrySchema, bento *schemasv1.BentoFullSchema, inCluster bool) string {
+func GetBentoImageName(dockerRegistry modelschemas.DockerRegistrySchema, bento *schemasv1.BentoWithRepositorySchema, inCluster bool) string {
 	var imageName string
 	if inCluster {
 		imageName = fmt.Sprintf("%s:yatai.%s.%s", dockerRegistry.BentosRepositoryURIInCluster, bento.Repository.Name, bento.Version)
@@ -1220,11 +1209,13 @@ func GetModelImageName(dockerRegistry modelschemas.DockerRegistrySchema, model *
 }
 
 // wait image builder pod complete
-func (r *BentoDeploymentReconciler) waitImageBuilderPodComplete(ctx context.Context, namespace, podName string) error {
+func (r *BentoDeploymentReconciler) waitImageBuilderPodComplete(ctx context.Context, namespace, podName string) (modelschemas.ImageBuildStatus, error) {
 	// Interval to poll for objects.
 	pollInterval := 5 * time.Second
 	// How long to wait for objects.
 	waitTimeout := 60 * time.Minute
+
+	imageBuildStatus := modelschemas.ImageBuildStatusPending
 
 	// Wait for the image builder pod to be Complete.
 	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
@@ -1234,32 +1225,37 @@ func (r *BentoDeploymentReconciler) waitImageBuilderPodComplete(ctx context.Cont
 			return true, err_
 		}
 		if pod.Status.Phase == corev1.PodSucceeded {
+			imageBuildStatus = modelschemas.ImageBuildStatusSuccess
 			return true, nil
 		}
 		if pod.Status.Phase == corev1.PodFailed {
+			imageBuildStatus = modelschemas.ImageBuildStatusFailed
 			return true, errors.Errorf("pod %s in namespace %s failed", pod.Name, pod.Namespace)
 		}
 		if pod.Status.Phase == corev1.PodUnknown {
+			imageBuildStatus = modelschemas.ImageBuildStatusFailed
 			return true, errors.Errorf("pod %s in namespace %s is in unknown state", pod.Name, pod.Namespace)
+		}
+		if pod.Status.Phase == corev1.PodRunning {
+			imageBuildStatus = modelschemas.ImageBuildStatusBuilding
 		}
 		return false, nil
 	}); err != nil {
 		err = errors.Wrapf(err, "failed to wait for pod %s in namespace %s to be ready", podName, namespace)
-		return err
+		return imageBuildStatus, err
 	}
-	return nil
+	return imageBuildStatus, nil
 }
 
 type generatePodTemplateSpecOption struct {
-	bentoDeployment    *servingv1alpha2.BentoDeployment
-	bento              *schemasv1.BentoFullSchema
-	dockerRegistry     modelschemas.DockerRegistrySchema
-	majorCluster       *schemasv1.ClusterFullSchema
-	version            *schemasv1.VersionSchema
-	runnerName         *string
-	organization       *schemasv1.OrganizationFullSchema
-	cluster            *schemasv1.ClusterFullSchema
-	imageCSIDriverName string
+	bentoDeployment *servingv1alpha2.BentoDeployment
+	bento           *schemasv1.BentoFullSchema
+	dockerRegistry  modelschemas.DockerRegistrySchema
+	majorCluster    *schemasv1.ClusterFullSchema
+	version         *schemasv1.VersionSchema
+	runnerName      *string
+	organization    *schemasv1.OrganizationFullSchema
+	cluster         *schemasv1.ClusterFullSchema
 }
 
 func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context, opt generatePodTemplateSpecOption) (podTemplateSpec *corev1.PodTemplateSpec, err error) {
@@ -1272,8 +1268,6 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	annotations := r.getKubeAnnotations(opt.bento)
 
 	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName)
-
-	imageName := GetBentoImageName(opt.dockerRegistry, opt.bento, false)
 
 	containerPort := consts.BentoServicePort
 	var envs []corev1.EnvVar
@@ -1378,105 +1372,47 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	vs := make([]corev1.Volume, 0)
 	vms := make([]corev1.VolumeMount, 0)
 
-	models_ := opt.bento.Models
-
 	// prepare images
 	var eg errsgroup.Group
 	eg.Go(func() error {
-		inClusterImageName := GetBentoImageName(opt.dockerRegistry, opt.bento, true)
-		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "PreparingImage", "Preparing image %s", inClusterImageName)
-		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CheckImageExists", "Checking image %s exists", inClusterImageName)
-		imageExists, err := checkImageExists(ctx, opt.dockerRegistry, inClusterImageName)
+		bentoTag := fmt.Sprintf("%s:%s", opt.bento.Repository.Name, opt.bento.Version)
+		imageName := GetBentoImageName(opt.dockerRegistry, &opt.bento.BentoWithRepositorySchema, true)
+		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CheckImageExists", "Checking image %s exists", imageName)
+		imageExists, err := checkImageExists(opt.dockerRegistry, imageName)
 		if err != nil {
 			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "CheckImageExists", "Failed to check image %s exists: %v", imageName, err)
-			err = errors.Wrapf(err, "failed to check image %s exists", imageName)
+			err = errors.Wrapf(err, "failed to check image %s exists for bento %s", imageName, bentoTag)
 			return err
 		}
 		if imageExists {
 			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CheckImageExists", "Image %s exists", imageName)
 			return nil
 		}
-		kubeName := strings.ReplaceAll(strcase.ToKebab(fmt.Sprintf("yatai-bento-image-builder-%s-%s", opt.bento.Repository.Name, opt.bento.Version)), ".", "-")
-		labels := map[string]string{
-			consts.KubeLabelYataiBentoRepository: opt.bento.Repository.Name,
-			consts.KubeLabelYataiBento:           opt.bento.Version,
-		}
-		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CreateImageBuilderPod", "Creating image builder pod %s", kubeName)
+		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CheckImageExists", "Image %s does not exist", imageName)
+		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "BentoImageBuilder", "Bento image builder is starting")
 		pod, err := services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
-			KubeName:          kubeName,
-			ImageName:         inClusterImageName,
-			KubeLabels:        labels,
-			DockerFileContent: nil,
-			DockerFilePath:    utils.StringPtr("./env/docker/Dockerfile"),
+			ImageName: imageName,
+			Bento:     &opt.bento.BentoWithRepositorySchema,
 		})
 		if err != nil {
-			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "CreateImageBuilderPod", "Failed to create image builder pod: %v", err)
-			err = errors.Wrapf(err, "failed to create image builder pod")
+			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "BentoImageBuilder", "Failed to create image builder pod: %v", err)
+			err = errors.Wrapf(err, "failed to create image builder pod for bento %s", bentoTag)
 			return err
 		}
-		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "BentoImageBuilder", "Building image %s..., the image builder pod is %s in namespace %s", inClusterImageName, pod.Name, pod.Namespace)
+		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "BentoImageBuilder", "Building image %s..., the image builder pod is %s in namespace %s", imageName, pod.Name, pod.Namespace)
 
-		err = r.waitImageBuilderPodComplete(ctx, pod.Namespace, pod.Name)
+		_, err = r.waitImageBuilderPodComplete(ctx, pod.Namespace, pod.Name)
 
 		if err != nil {
-			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "BentoImageBuilder", "Failed to build image %s, the image builder pod is %s in namespace %s has an error: %s", inClusterImageName, pod.Name, pod.Namespace, err.Error())
-			err = errors.Wrapf(err, "failed to build image %s", inClusterImageName)
+			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "BentoImageBuilder", "Failed to build image %s, the image builder pod is %s in namespace %s has an error: %s", imageName, pod.Name, pod.Namespace, err.Error())
+			err = errors.Wrapf(err, "failed to build image %s for bento %s", imageName, bentoTag)
 			return err
 		}
 
-		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "BentoImageBuilder", "Image %s has been built successfully", inClusterImageName)
+		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "BentoImageBuilder", "Image %s has been built successfully", imageName)
 
 		return nil
 	})
-	for _, model := range models_ {
-		model := model
-		eg.Go(func() error {
-			inClusterModelName := GetModelImageName(opt.dockerRegistry, model, true)
-			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "PreparingModelImage", "Preparing model image %s", inClusterModelName)
-			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CheckModelImageExists", "Checking model image %s exists", inClusterModelName)
-			imageExists, err := checkImageExists(ctx, opt.dockerRegistry, inClusterModelName)
-			if err != nil {
-				r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "CheckModelImageExists", "Failed to check model image %s exists: %v", imageName, err)
-				err = errors.Wrapf(err, "failed to check image %s exists", imageName)
-				return err
-			}
-			if imageExists {
-				r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CheckModelImageExists", "Model image %s exists", imageName)
-				return nil
-			}
-			kubeName := strings.ReplaceAll(strcase.ToKebab(fmt.Sprintf("yatai-model-image-builder-%s-%s", model.Repository.Name, model.Version)), ".", "-")
-			labels := map[string]string{
-				consts.KubeLabelYataiModelRepository: model.Repository.Name,
-				consts.KubeLabelYataiModel:           model.Version,
-			}
-			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CreateModelImageBuilderPod", "Creating model image builder pod %s", kubeName)
-			dockerFileContent := `
-FROM scratch
-
-COPY . /model
-`
-			pod, err := services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
-				KubeName:          kubeName,
-				ImageName:         inClusterModelName,
-				KubeLabels:        labels,
-				DockerFileContent: &dockerFileContent,
-			})
-			if err != nil {
-				r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "CreateModelImageBuilderPod", "Failed to create model image builder pod: %v", err)
-				err = errors.Wrapf(err, "failed to create model image builder pod")
-				return err
-			}
-			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "ModelImageBuilder", "Building model image %s..., the model image builder pod is %s in namespace %s", inClusterModelName, pod.Name, pod.Namespace)
-			err = r.waitImageBuilderPodComplete(ctx, pod.Namespace, pod.Name)
-			if err != nil {
-				r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "ModelImageBuilder", "Failed to build model image %s, the model image builder pod is %s in namespace %s has an error: %s", inClusterModelName, pod.Name, pod.Namespace, err.Error())
-				err = errors.Wrapf(err, "failed to build model image %s", inClusterModelName)
-				return err
-			}
-			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "ModelImageBuilder", "Model image %s has been built successfully", inClusterModelName)
-			return nil
-		})
-	}
 
 	err = eg.Wait()
 	if err != nil {
@@ -1484,45 +1420,6 @@ COPY . /model
 	}
 
 	args := make([]string, 0)
-	imageTlsVerify := "false"
-	if opt.dockerRegistry.Secure {
-		imageTlsVerify = "true"
-	}
-
-	for _, model := range models_ {
-		modelImageName := GetModelImageName(opt.dockerRegistry, model, false)
-		modelRepository := model.Repository
-		volumeName := fmt.Sprintf("model-%s", hash(fmt.Sprintf("%s:%s", modelRepository.Name, model.Version)))
-		sourcePath := fmt.Sprintf("/models/%s/%s", modelRepository.Name, model.Version)
-		destDirPath := fmt.Sprintf("./models/%s", modelRepository.Name)
-		destPath := filepath.Join(destDirPath, model.Version)
-		args = append(args, "mkdir", "-p", destDirPath, ";", "ln", "-sf", filepath.Join(sourcePath, "model"), destPath, ";", "echo", "-n", fmt.Sprintf("'%s'", model.Version), ">", filepath.Join(destDirPath, "latest"), ";")
-		volumeAttrs := map[string]string{
-			"image": modelImageName,
-		}
-		if opt.imageCSIDriverName == consts.KubeImageCSIDriver {
-			volumeAttrs["tlsVerify"] = imageTlsVerify
-		}
-		if opt.dockerRegistry.Username != "" {
-			volumeAttrs["secret"] = consts.KubeSecretNameRegcred
-			volumeAttrs["secretNamespace"] = opt.bentoDeployment.Namespace
-		}
-		v := corev1.Volume{
-			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				CSI: &corev1.CSIVolumeSource{
-					Driver:           opt.imageCSIDriverName,
-					VolumeAttributes: volumeAttrs,
-				},
-			},
-		}
-		vs = append(vs, v)
-		vm := corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: sourcePath,
-		}
-		vms = append(vms, vm)
-	}
 
 	isOldVersion := false
 	if opt.bento.Manifest != nil && opt.bento.Manifest.BentomlVersion != "" {
@@ -1625,6 +1522,8 @@ COPY . /model
 			return
 		}
 	}
+
+	imageName := GetBentoImageName(opt.dockerRegistry, &opt.bento.BentoWithRepositorySchema, false)
 
 	container := corev1.Container{
 		Name:           kubeName,
@@ -1980,8 +1879,109 @@ func (r *BentoDeploymentReconciler) cleanUpAbandonedRunnerServices() {
 	}
 }
 
+func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
+	logs := log.Log.WithValues("func", "doBuildBentoImages")
+	logs.Info("start building bento images")
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*90)
+	defer cancel()
+
+	yataiClient, _, err := getYataiClient(ctx)
+	if err != nil {
+		err = errors.Wrap(err, "get yatai client")
+		return
+	}
+
+	dockerRegistry, err := r.getDockerRegistry(ctx, nil)
+	if err != nil {
+		err = errors.Wrap(err, "get docker registry")
+		return
+	}
+
+	bentos, err := yataiClient.ListImageBuildStatusUnsyncedBentos(ctx)
+	if err != nil {
+		err = errors.Wrap(err, "list image build status unsynced bentos")
+		return
+	}
+
+	var eg errsgroup.Group
+
+	for _, bento := range bentos {
+		bento := bento
+		eg.Go(func() error {
+			bentoTag := fmt.Sprintf("%s:%s", bento.Repository.Name, bento.Version)
+			logs := logs.WithValues("bentoTag", bentoTag)
+			logs.Info("updating bento image build status syncing_at")
+			err := yataiClient.UpdateBentoImageBuildStatusSyncingAt(ctx, bento.Repository.Name, bento.Version)
+			if err != nil {
+				return errors.Wrapf(err, "update bento image build status syncing at bento %s", bentoTag)
+			}
+			logs.Info("updated bento image build status syncing_at")
+			imageName := GetBentoImageName(dockerRegistry, bento, true)
+			logs.Info(fmt.Sprintf("checking image %s exists", imageName))
+			imageExists, err := checkImageExists(dockerRegistry, imageName)
+			if err != nil {
+				err = errors.Wrapf(err, "failed to check image %s exists for bento %s", imageName, bentoTag)
+				return err
+			}
+			if imageExists {
+				logs.Info(fmt.Sprintf("image %s exists", imageName))
+				return nil
+			}
+			logs.Info(fmt.Sprintf("image %s does not exist, creating image builder pod to build it", imageName))
+			pod, err := services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
+				ImageName: imageName,
+				Bento:     bento,
+			})
+			if err != nil {
+				err = errors.Wrapf(err, "failed to create image builder pod for bento %s", bentoTag)
+				return err
+			}
+
+			logs.Info("image builder pod created")
+
+			var imageBuildStatus modelschemas.ImageBuildStatus
+			logs.Info(fmt.Sprintf("wait image builder pod %s complete...", pod.Name))
+			imageBuildStatus, err = r.waitImageBuilderPodComplete(ctx, pod.Namespace, pod.Name)
+
+			if err != nil {
+				err = errors.Wrapf(err, "failed to build image %s for bento %s", imageName, bentoTag)
+				return err
+			}
+
+			logs.Info("updating bento image build status")
+			err = yataiClient.UpdateBentoImageBuildStatus(ctx, bento.Repository.Name, bento.Version, imageBuildStatus)
+			if err != nil {
+				return errors.Wrapf(err, "update bento image build status for bento %s", bentoTag)
+			}
+			logs.Info("updated bento image build status")
+
+			logs.Info(fmt.Sprintf("image %s built successfully", imageName))
+
+			return nil
+		})
+	}
+
+	return eg.Wait()
+}
+
+func (r *BentoDeploymentReconciler) buildBentoImages() {
+	logs := log.Log.WithValues("func", "buildBentoImages")
+	err := r.doBuildBentoImages()
+	if err != nil {
+		logs.Error(err, "buildBentoImages")
+	}
+	ticker := time.NewTicker(time.Minute * 3)
+	for range ticker.C {
+		err := r.doBuildBentoImages()
+		if err != nil {
+			logs.Error(err, "buildBentoImages")
+		}
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	go r.buildBentoImages()
 	go r.cleanUpAbandonedRunnerServices()
 
 	pred := predicate.GenerationChangedPredicate{}

@@ -1,14 +1,19 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"text/template"
 
+	"github.com/huandu/xstrings"
+	"github.com/iancoleman/strcase"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +24,7 @@ import (
 	"github.com/bentoml/yatai-common/consts"
 	"github.com/bentoml/yatai-common/k8sutils"
 	"github.com/bentoml/yatai-common/utils"
+	"github.com/bentoml/yatai-schemas/schemasv1"
 )
 
 type imageBuilderService struct{}
@@ -96,15 +102,17 @@ func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clients
 }
 
 type CreateImageBuilderPodOption struct {
-	KubeName          string
-	ImageName         string
-	DockerFileContent *string
-	DockerFilePath    *string
-	KubeLabels        map[string]string
-	PresignedURL      string
+	ImageName string
+	Bento     *schemasv1.BentoWithRepositorySchema
 }
 
 func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt CreateImageBuilderPodOption) (pod *corev1.Pod, err error) {
+	kubeName := strings.ReplaceAll(strcase.ToKebab(fmt.Sprintf("yatai-bento-image-builder-%s-%s", opt.Bento.Repository.Name, opt.Bento.Version)), ".", "-")
+	kubeLabels := map[string]string{
+		consts.KubeLabelYataiBentoRepository: opt.Bento.Repository.Name,
+		consts.KubeLabelYataiBento:           opt.Bento.Version,
+	}
+	logrus.Infof("Creating image builder pod %s", kubeName)
 	restConfig := config.GetConfigOrDie()
 	kubeCli, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
@@ -169,7 +177,6 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		return
 	}
 
-	kubeName := opt.KubeName
 	imageName := opt.ImageName
 
 	dockerImageBuilder := commonconfig.GetDockerImageBuilderConfig()
@@ -180,23 +187,20 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 
 	privileged := dockerImageBuilder.Privileged
 
-	securityContext := &corev1.SecurityContext{
-		RunAsUser:  utils.Int64Ptr(1000),
-		RunAsGroup: utils.Int64Ptr(1000),
+	yataiConfig, err := commonconfig.GetYataiConfig(ctx, kubeCli, consts.KubeNamespaceYataiDeploymentComponent, false)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get yatai config")
+		return
 	}
 
-	if privileged {
-		securityContext = nil
-	}
-
-	downloadCommand := fmt.Sprintf("curl '%s' --output /tmp/downloaded.tar && mkdir -p /workspace/buildcontext && cd /workspace/buildcontext && tar -xvf /tmp/downloaded.tar && rm /tmp/downloaded.tar", opt.PresignedURL)
+	downloadCommand := fmt.Sprintf("mkdir -p /workspace/buildcontext && curl -H \"X-YATAI-API-TOKEN: $YATAI_API_TOKEN\" '%s/api/v1/bento_repositories/%s/bentos/%s/download' --output /tmp/downloaded.tar && cd /workspace/buildcontext && tar -xvf /tmp/downloaded.tar && rm /tmp/downloaded.tar", yataiConfig.Endpoint, opt.Bento.Repository.Name, opt.Bento.Version)
 	if !privileged {
 		downloadCommand += " && chown -R 1000:1000 /workspace"
 	}
 
 	initContainers := []corev1.Container{
 		{
-			Name:  "downloader",
+			Name:  "bento-downloader",
 			Image: "quay.io/bentoml/curlimages-curl:7.84.0",
 			Command: []string{
 				"sh",
@@ -207,24 +211,45 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		},
 	}
 
-	dockerFilePath := ""
-	if opt.DockerFilePath != nil {
-		dockerFilePath = filepath.Join("/workspace/buildcontext", *opt.DockerFilePath)
-	}
-	if opt.DockerFileContent != nil {
-		dockerFilePath = "/yatai/Dockerfile"
+	for _, model := range opt.Bento.Manifest.Models {
+		modelRepositoryName, _, modelVersion := xstrings.Partition(model, ":")
+		modelRepositoryDirPath := fmt.Sprintf("/workspace/buildcontext/models/%s", modelRepositoryName)
+		modelDirPath := filepath.Join(modelRepositoryDirPath, modelVersion)
+		var downloadCommandOutput bytes.Buffer
+		err = template.Must(template.New("script").Parse(`
+mkdir -p {{.ModelDirPath}} &&
+curl -H "X-YATAI-API-TOKEN: $YATAI_API_TOKEN" "{{.Endpoint}}/api/v1/model_repositories/{{.ModelRepositoryName}}/models/{{.ModelVersion}}/download" --output /tmp/downloaded.tar &&
+cd {{.ModelDirPath}} &&
+tar -xvf /tmp/downloaded.tar &&
+echo -n '{{.ModelVersion}}' > {{.ModelRepositoryDirPath}}/latest &&
+rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}{
+			"ModelDirPath":           modelDirPath,
+			"ModelRepositoryDirPath": modelRepositoryDirPath,
+			"ModelRepositoryName":    modelRepositoryName,
+			"ModelVersion":           modelVersion,
+			"Endpoint":               yataiConfig.Endpoint,
+		})
+		if err != nil {
+			err = errors.Wrap(err, "failed to generate download command")
+			return
+		}
+		downloadCommand := downloadCommandOutput.String()
+		if !privileged {
+			downloadCommand += " && chown -R 1000:1000 /workspace"
+		}
 		initContainers = append(initContainers, corev1.Container{
-			Name:  "init-dockerfile",
-			Image: "quay.io/bentoml/busybox:1.33",
+			Name:  fmt.Sprintf("model-downloader-%s", model),
+			Image: "quay.io/bentoml/curlimages-curl:7.84.0",
 			Command: []string{
 				"sh",
 				"-c",
-				fmt.Sprintf("echo \"%s\" > %s", *opt.DockerFileContent, dockerFilePath),
+				downloadCommand,
 			},
-			VolumeMounts:    volumeMounts,
-			SecurityContext: securityContext,
+			VolumeMounts: volumeMounts,
 		})
 	}
+
+	dockerFilePath := "/workspace/buildcontext/env/docker/Dockerfile"
 
 	envs := []corev1.EnvVar{
 		{
@@ -280,7 +305,7 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 	pod = &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,
-			Labels:      opt.KubeLabels,
+			Labels:      kubeLabels,
 			Annotations: annotations,
 		},
 		Spec: corev1.PodSpec{
@@ -304,8 +329,8 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		},
 	}
 
-	selectorPieces := make([]string, 0, len(opt.KubeLabels))
-	for k, v := range opt.KubeLabels {
+	selectorPieces := make([]string, 0, len(kubeLabels))
+	for k, v := range kubeLabels {
 		selectorPieces = append(selectorPieces, fmt.Sprintf("%s = %s", k, v))
 	}
 

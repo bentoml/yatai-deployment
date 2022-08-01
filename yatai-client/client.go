@@ -30,6 +30,27 @@ func (c *YataiClient) getJsonReqBuilder() *reqcli.JsonRequestBuilder {
 	})
 }
 
+func (c *YataiClient) ListImageBuildStatusUnsyncedBentos(ctx context.Context) (bentos []*schemasv1.BentoWithRepositorySchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, "/api/v1/image_build_status_unsynced_bentos")
+	bentos = []*schemasv1.BentoWithRepositorySchema{}
+	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(bentos).Do(ctx)
+	return
+}
+
+func (c *YataiClient) UpdateBentoImageBuildStatusSyncingAt(ctx context.Context, bentoRepositoryName, bentoVersion string) (err error) {
+	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/bento_repositories/%s/bentos/%s/update_image_build_status_syncing_at", bentoRepositoryName, bentoVersion))
+	_, err = c.getJsonReqBuilder().Method("PATCH").Url(url_).Do(ctx)
+	return
+}
+
+func (c *YataiClient) UpdateBentoImageBuildStatus(ctx context.Context, bentoRepositoryName, bentoVersion string, status modelschemas.ImageBuildStatus) (err error) {
+	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/bento_repositories/%s/bentos/%s/update_image_build_status", bentoRepositoryName, bentoVersion))
+	_, err = c.getJsonReqBuilder().Method("PATCH").Payload(map[string]string{
+		"image_build_status": string(status),
+	}).Url(url_).Do(ctx)
+	return
+}
+
 func (c *YataiClient) GetBento(ctx context.Context, bentoRepositoryName, bentoVersion string) (bento *schemasv1.BentoFullSchema, err error) {
 	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/bento_repositories/%s/bentos/%s", bentoRepositoryName, bentoVersion))
 	bento = &schemasv1.BentoFullSchema{}
@@ -104,19 +125,5 @@ func (c *YataiClient) GetCluster(ctx context.Context, clusterName string) (clust
 	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/clusters/%s", clusterName))
 	cluster = &schemasv1.ClusterFullSchema{}
 	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(cluster).Do(ctx)
-	return
-}
-
-func (c *YataiClient) PresignBentoDownloadUrl(ctx context.Context, bentoRepositoryName, version string) (bento *schemasv1.BentoSchema, err error) {
-	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/bento_repositories/%s/bentos/%s/presign_download_url", bentoRepositoryName, version))
-	bento = &schemasv1.BentoSchema{}
-	_, err = c.getJsonReqBuilder().Method("PATCH").Url(url_).Result(bento).Do(ctx)
-	return
-}
-
-func (c *YataiClient) PresignModelDownloadUrl(ctx context.Context, modelRepositoryName, version string) (model *schemasv1.ModelSchema, err error) {
-	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/model_repositories/%s/models/%s/presign_download_url", modelRepositoryName, version))
-	model = &schemasv1.ModelSchema{}
-	_, err = c.getJsonReqBuilder().Method("PATCH").Url(url_).Result(model).Do(ctx)
 	return
 }

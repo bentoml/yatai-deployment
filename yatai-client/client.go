@@ -33,7 +33,7 @@ func (c *YataiClient) getJsonReqBuilder() *reqcli.JsonRequestBuilder {
 func (c *YataiClient) ListImageBuildStatusUnsyncedBentos(ctx context.Context) (bentos []*schemasv1.BentoWithRepositorySchema, err error) {
 	url_ := utils.UrlJoin(c.endpoint, "/api/v1/image_build_status_unsynced_bentos")
 	bentos = []*schemasv1.BentoWithRepositorySchema{}
-	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(bentos).Do(ctx)
+	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(&bentos).Do(ctx)
 	return
 }
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/huandu/xstrings"
 	"github.com/iancoleman/strcase"
 	"github.com/pkg/errors"
@@ -24,6 +25,7 @@ import (
 	"github.com/bentoml/yatai-common/consts"
 	"github.com/bentoml/yatai-common/k8sutils"
 	"github.com/bentoml/yatai-common/utils"
+	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 )
 
@@ -31,13 +33,7 @@ type imageBuilderService struct{}
 
 var ImageBuilderService = &imageBuilderService{}
 
-func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clientset, namespace string) (dockerConfigSecret *corev1.Secret, err error) {
-	dockerRegistry, err := commonconfig.GetDockerRegistryConfig(ctx)
-	if err != nil {
-		err = errors.Wrap(err, "failed to get docker registry config")
-		return nil, err
-	}
-
+func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clientset, namespace string, dockerRegistry modelschemas.DockerRegistrySchema) (dockerConfigSecret *corev1.Secret, err error) {
 	dockerConfigCMKubeName := "docker-config"
 	dockerConfigObj := struct {
 		Auths map[string]struct {
@@ -102,8 +98,9 @@ func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clients
 }
 
 type CreateImageBuilderPodOption struct {
-	ImageName string
-	Bento     *schemasv1.BentoWithRepositorySchema
+	ImageName      string
+	Bento          *schemasv1.BentoWithRepositorySchema
+	DockerRegistry modelschemas.DockerRegistrySchema
 }
 
 func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt CreateImageBuilderPodOption) (pod *corev1.Pod, err error) {
@@ -127,7 +124,7 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		return
 	}
 
-	dockerConfigSecret, err := MakeSureDockerConfigSecret(ctx, kubeCli, kubeNamespace)
+	dockerConfigSecret, err := MakeSureDockerConfigSecret(ctx, kubeCli, kubeNamespace, opt.DockerRegistry)
 	if err != nil {
 		return
 	}
@@ -171,12 +168,6 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		},
 	}
 
-	dockerRegistry, err := commonconfig.GetDockerRegistryConfig(ctx)
-	if err != nil {
-		err = errors.Wrap(err, "failed to get docker registry config")
-		return
-	}
-
 	imageName := opt.ImageName
 
 	dockerImageBuilder := commonconfig.GetDockerImageBuilderConfig()
@@ -193,6 +184,39 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		return
 	}
 
+	secretName := "yatai"
+
+	yataiSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: secretName,
+		},
+		StringData: map[string]string{
+			consts.EnvYataiApiToken: yataiConfig.ApiToken,
+		},
+	}
+
+	_, err = kubeCli.CoreV1().Secrets(kubeNamespace).Get(ctx, secretName, metav1.GetOptions{})
+	isNotFound := apierrors.IsNotFound(err)
+	if err != nil && !isNotFound {
+		err = errors.Wrapf(err, "failed to get secret %s", secretName)
+		return
+	}
+
+	if isNotFound {
+		_, err = kubeCli.CoreV1().Secrets(kubeNamespace).Create(ctx, yataiSecret, metav1.CreateOptions{})
+		isExists := apierrors.IsAlreadyExists(err)
+		if err != nil && !isExists {
+			err = errors.Wrapf(err, "failed to create secret %s", secretName)
+			return
+		}
+	} else {
+		_, err = kubeCli.CoreV1().Secrets(kubeNamespace).Update(ctx, yataiSecret, metav1.UpdateOptions{})
+		if err != nil {
+			err = errors.Wrapf(err, "failed to update secret %s", secretName)
+			return
+		}
+	}
+
 	downloadCommand := fmt.Sprintf("mkdir -p /workspace/buildcontext && curl -H \"X-YATAI-API-TOKEN: $YATAI_API_TOKEN\" '%s/api/v1/bento_repositories/%s/bentos/%s/download' --output /tmp/downloaded.tar && cd /workspace/buildcontext && tar -xvf /tmp/downloaded.tar && rm /tmp/downloaded.tar", yataiConfig.Endpoint, opt.Bento.Repository.Name, opt.Bento.Version)
 	if !privileged {
 		downloadCommand += " && chown -R 1000:1000 /workspace"
@@ -201,17 +225,26 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 	initContainers := []corev1.Container{
 		{
 			Name:  "bento-downloader",
-			Image: "quay.io/bentoml/curlimages-curl:7.84.0",
+			Image: "quay.io/bentoml/curl:0.0.1",
 			Command: []string{
 				"sh",
 				"-c",
 				downloadCommand,
 			},
 			VolumeMounts: volumeMounts,
+			EnvFrom: []corev1.EnvFromSource{
+				{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secretName,
+						},
+					},
+				},
+			},
 		},
 	}
 
-	for _, model := range opt.Bento.Manifest.Models {
+	for idx, model := range opt.Bento.Manifest.Models {
 		modelRepositoryName, _, modelVersion := xstrings.Partition(model, ":")
 		modelRepositoryDirPath := fmt.Sprintf("/workspace/buildcontext/models/%s", modelRepositoryName)
 		modelDirPath := filepath.Join(modelRepositoryDirPath, modelVersion)
@@ -238,14 +271,23 @@ rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}
 			downloadCommand += " && chown -R 1000:1000 /workspace"
 		}
 		initContainers = append(initContainers, corev1.Container{
-			Name:  fmt.Sprintf("model-downloader-%s", model),
-			Image: "quay.io/bentoml/curlimages-curl:7.84.0",
+			Name:  fmt.Sprintf("model-downloader-%d", idx),
+			Image: "quay.io/bentoml/curl:0.0.1",
 			Command: []string{
 				"sh",
 				"-c",
 				downloadCommand,
 			},
 			VolumeMounts: volumeMounts,
+			EnvFrom: []corev1.EnvFromSource{
+				{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secretName,
+						},
+					},
+				},
+			},
 		})
 	}
 
@@ -274,7 +316,7 @@ rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}
 		"--local",
 		fmt.Sprintf("dockerfile=%s", filepath.Dir(dockerFilePath)),
 		"--output",
-		fmt.Sprintf("type=image,name=%s,push=true,registry.insecure=%v", imageName, !dockerRegistry.Secure),
+		fmt.Sprintf("type=image,name=%s,push=true,registry.insecure=%v", imageName, !opt.DockerRegistry.Secure),
 	}
 
 	annotations := make(map[string]string, 1)
@@ -351,20 +393,39 @@ rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}
 	}
 
 	oldPod, err := podsCli.Get(ctx, kubeName, metav1.GetOptions{})
-	isNotFound := apierrors.IsNotFound(err)
+	isNotFound = apierrors.IsNotFound(err)
 	if !isNotFound && err != nil {
 		return
 	}
 	if isNotFound {
 		_, err = podsCli.Create(ctx, pod, metav1.CreateOptions{})
-		if err != nil {
+		isExists := apierrors.IsAlreadyExists(err)
+		if err != nil && !isExists {
+			err = errors.Wrapf(err, "failed to create pod %s", kubeName)
 			return
 		}
+		err = nil
 	} else {
-		oldPod.Spec = pod.Spec
-		_, err = podsCli.Update(ctx, oldPod, metav1.UpdateOptions{})
+		var patchResult *patch.PatchResult
+		patchResult, err = patch.DefaultPatchMaker.Calculate(oldPod, pod)
 		if err != nil {
+			err = errors.Wrapf(err, "failed to calculate patch for pod %s", kubeName)
 			return
+		}
+
+		if !patchResult.IsEmpty() || oldPod.Status.Phase == corev1.PodFailed {
+			err = podsCli.Delete(ctx, kubeName, metav1.DeleteOptions{})
+			if err != nil {
+				err = errors.Wrapf(err, "failed to delete pod %s", kubeName)
+				return
+			}
+			_, err = podsCli.Create(ctx, pod, metav1.CreateOptions{})
+			isExists := apierrors.IsAlreadyExists(err)
+			if err != nil && !isExists {
+				err = errors.Wrapf(err, "failed to create pod %s", kubeName)
+				return
+			}
+			err = nil
 		}
 	}
 

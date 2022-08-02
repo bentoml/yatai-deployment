@@ -404,12 +404,14 @@ func getYataiClient(ctx context.Context) (yataiClient *yataiclient.YataiClient, 
 
 func (r *BentoDeploymentReconciler) getDockerRegistry(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment) (dockerRegistry modelschemas.DockerRegistrySchema, err error) {
 	dockerRegistryConfig, err := commonconfig.GetDockerRegistryConfig(ctx)
-	if err != nil {
+	isNotFound := utils.IsNotFound(err)
+	if err != nil && !isNotFound {
 		err = errors.Wrap(err, "get docker registry")
 		return
 	}
+	err = nil
 
-	if bentoDeployment != nil && dockerRegistryConfig.Server == "" {
+	if isNotFound && bentoDeployment != nil {
 		// compatibility with the old yatai
 		var yataiClient *yataiclient.YataiClient
 		var clusterName string
@@ -1176,6 +1178,10 @@ func checkImageExists(dockerRegistry modelschemas.DockerRegistrySchema, imageNam
 	}
 	imageName, _, tag := xstrings.LastPartition(imageName, ":")
 	tags, err := hub.Tags(imageName)
+	isNotFound := err != nil && strings.Contains(err.Error(), "404")
+	if isNotFound {
+		return false, nil
+	}
 	if err != nil {
 		err = errors.Wrapf(err, "get tags for docker image %s", imageName)
 		return false, err
@@ -1391,8 +1397,9 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CheckImageExists", "Image %s does not exist", imageName)
 		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "BentoImageBuilder", "Bento image builder is starting")
 		pod, err := services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
-			ImageName: imageName,
-			Bento:     &opt.bento.BentoWithRepositorySchema,
+			ImageName:      imageName,
+			Bento:          &opt.bento.BentoWithRepositorySchema,
+			DockerRegistry: opt.dockerRegistry,
 		})
 		if err != nil {
 			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "BentoImageBuilder", "Failed to create image builder pod: %v", err)
@@ -1929,8 +1936,9 @@ func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
 			}
 			logs.Info(fmt.Sprintf("image %s does not exist, creating image builder pod to build it", imageName))
 			pod, err := services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
-				ImageName: imageName,
-				Bento:     bento,
+				ImageName:      imageName,
+				Bento:          bento,
+				DockerRegistry: dockerRegistry,
 			})
 			if err != nil {
 				err = errors.Wrapf(err, "failed to create image builder pod for bento %s", bentoTag)

@@ -1216,6 +1216,8 @@ func GetModelImageName(dockerRegistry modelschemas.DockerRegistrySchema, model *
 
 // wait image builder pod complete
 func (r *BentoDeploymentReconciler) waitImageBuilderPodComplete(ctx context.Context, namespace, podName string) (modelschemas.ImageBuildStatus, error) {
+	logs := log.Log.WithValues("func", "waitImageBuilderPodComplete", "namespace", namespace, "pod", podName)
+
 	// Interval to poll for objects.
 	pollInterval := 5 * time.Second
 	// How long to wait for objects.
@@ -1227,7 +1229,8 @@ func (r *BentoDeploymentReconciler) waitImageBuilderPodComplete(ctx context.Cont
 	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
 		pod := &corev1.Pod{}
 		err_ := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: podName}, pod)
-		if err != nil {
+		if err_ != nil {
+			logs.Error(err_, "failed to get pod")
 			return true, err_
 		}
 		if pod.Status.Phase == corev1.PodSucceeded {
@@ -1956,7 +1959,7 @@ func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
 				return err
 			}
 
-			logs.Info("updating bento image build status")
+			logs.Info(fmt.Sprintf("pod %s complete, update bento image build status %s", pod.Name, string(imageBuildStatus)))
 			err = yataiClient.UpdateBentoImageBuildStatus(ctx, bento.Repository.Name, bento.Version, imageBuildStatus)
 			if err != nil {
 				return errors.Wrapf(err, "update bento image build status for bento %s", bentoTag)

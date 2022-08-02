@@ -98,9 +98,10 @@ func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clients
 }
 
 type CreateImageBuilderPodOption struct {
-	ImageName      string
-	Bento          *schemasv1.BentoWithRepositorySchema
-	DockerRegistry modelschemas.DockerRegistrySchema
+	ImageName        string
+	Bento            *schemasv1.BentoWithRepositorySchema
+	DockerRegistry   modelschemas.DockerRegistrySchema
+	RecreateIfFailed bool
 }
 
 func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt CreateImageBuilderPodOption) (pod *corev1.Pod, err error) {
@@ -347,6 +348,7 @@ rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}
 	pod = &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,
+			Namespace:   kubeNamespace,
 			Labels:      kubeLabels,
 			Annotations: annotations,
 		},
@@ -371,27 +373,6 @@ rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}
 		},
 	}
 
-	selectorPieces := make([]string, 0, len(kubeLabels))
-	for k, v := range kubeLabels {
-		selectorPieces = append(selectorPieces, fmt.Sprintf("%s = %s", k, v))
-	}
-
-	if len(selectorPieces) > 0 {
-		var pods *corev1.PodList
-		pods, err = podsCli.List(ctx, metav1.ListOptions{
-			LabelSelector: strings.Join(selectorPieces, ", "),
-		})
-		if err != nil {
-			return
-		}
-		for _, pod_ := range pods.Items {
-			err = podsCli.Delete(ctx, pod_.Name, metav1.DeleteOptions{})
-			if err != nil {
-				return
-			}
-		}
-	}
-
 	oldPod, err := podsCli.Get(ctx, kubeName, metav1.GetOptions{})
 	isNotFound = apierrors.IsNotFound(err)
 	if !isNotFound && err != nil {
@@ -413,7 +394,7 @@ rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}
 			return
 		}
 
-		if !patchResult.IsEmpty() || oldPod.Status.Phase == corev1.PodFailed {
+		if !patchResult.IsEmpty() || (oldPod.Status.Phase == corev1.PodFailed && opt.RecreateIfFailed) {
 			err = podsCli.Delete(ctx, kubeName, metav1.DeleteOptions{})
 			if err != nil {
 				err = errors.Wrapf(err, "failed to delete pod %s", kubeName)

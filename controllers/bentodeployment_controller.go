@@ -26,11 +26,13 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	goversion "github.com/hashicorp/go-version"
 	"github.com/prune998/docker-registry-client/registry"
 	"github.com/sirupsen/logrus"
+	"go.uber.org/multierr"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -1219,7 +1221,7 @@ func (r *BentoDeploymentReconciler) waitImageBuilderPodComplete(ctx context.Cont
 	logs := log.Log.WithValues("func", "waitImageBuilderPodComplete", "namespace", namespace, "pod", podName)
 
 	// Interval to poll for objects.
-	pollInterval := 5 * time.Second
+	pollInterval := 3 * time.Second
 	// How long to wait for objects.
 	waitTimeout := 60 * time.Minute
 
@@ -1400,9 +1402,10 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "CheckImageExists", "Image %s does not exist", imageName)
 		r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "BentoImageBuilder", "Bento image builder is starting")
 		pod, err := services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
-			ImageName:      imageName,
-			Bento:          &opt.bento.BentoWithRepositorySchema,
-			DockerRegistry: opt.dockerRegistry,
+			ImageName:        imageName,
+			Bento:            &opt.bento.BentoWithRepositorySchema,
+			DockerRegistry:   opt.dockerRegistry,
+			RecreateIfFailed: true,
 		})
 		if err != nil {
 			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "BentoImageBuilder", "Failed to create image builder pod: %v", err)
@@ -1891,41 +1894,94 @@ func (r *BentoDeploymentReconciler) cleanUpAbandonedRunnerServices() {
 
 func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
 	logs := log.Log.WithValues("func", "doBuildBentoImages")
-	logs.Info("start building bento images")
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*90)
 	defer cancel()
 
+	logs.Info("getting yatai client")
 	yataiClient, _, err := getYataiClient(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "get yatai client")
 		return
 	}
 
+	logs.Info("getting docker registry")
 	dockerRegistry, err := r.getDockerRegistry(ctx, nil)
 	if err != nil {
 		err = errors.Wrap(err, "get docker registry")
 		return
 	}
 
-	bentos, err := yataiClient.ListImageBuildStatusUnsyncedBentos(ctx)
-	if err != nil {
-		err = errors.Wrap(err, "list image build status unsynced bentos")
+	imageBuilderMetaCmName := "image-builder-meta"
+	oldImageBuilderMetaCm := &corev1.ConfigMap{}
+	lastSyncedCreatedAtKey := "last-synced-created-at"
+
+	err = r.Get(ctx, types.NamespacedName{Name: imageBuilderMetaCmName, Namespace: consts.KubeNamespaceYataiBentoImageBuilder}, oldImageBuilderMetaCm)
+	imageBuilderMetaCmIsNotFound := k8serrors.IsNotFound(err)
+	if err != nil && !imageBuilderMetaCmIsNotFound {
+		err = errors.Wrapf(err, "get config map %s", imageBuilderMetaCmName)
 		return
 	}
 
+	var lastSyncedCreatedAt *time.Time
+	var lastSyncedCreatedAtMu sync.Mutex
+
+	if !imageBuilderMetaCmIsNotFound {
+		lastSyncedCreatedAtStr := oldImageBuilderMetaCm.Data[lastSyncedCreatedAtKey]
+		if lastSyncedCreatedAtStr != "" {
+			var lastSyncedCreatedAt_ time.Time
+			lastSyncedCreatedAt_, err = time.Parse(time.RFC3339, lastSyncedCreatedAtStr)
+			if err != nil {
+				err = errors.Wrapf(err, "parse last synced created at %s", lastSyncedCreatedAtStr)
+				return
+			}
+			lastSyncedCreatedAt = &lastSyncedCreatedAt_
+		}
+	}
+
+	start := 0
+	count := 20
+
+	logs.Info("listing bentos from yatai")
+	bentos := make([]*schemasv1.BentoWithRepositorySchema, 0)
+out:
+	for {
+		var bentos_ *schemasv1.BentoWithRepositoryListSchema
+		bentos_, err = yataiClient.ListBentos(ctx, schemasv1.ListQuerySchema{
+			Start: uint(start),
+			Count: uint(count),
+			Q:     "sort:created_at-desc",
+		})
+		if err != nil {
+			err = errors.Wrap(err, "list bentos")
+			return
+		}
+		if lastSyncedCreatedAt != nil {
+			for _, bento := range bentos_.Items {
+				if bento.CreatedAt.Before(*lastSyncedCreatedAt) {
+					break out
+				}
+				bentos = append(bentos, bento)
+			}
+		} else {
+			bentos = append(bentos, bentos_.Items...)
+		}
+		start += count
+		if start >= int(bentos_.Total) {
+			break
+		}
+	}
+
+	logs.Info(fmt.Sprintf("found %d bentos need to build image", len(bentos)))
+
 	var eg errsgroup.Group
+
+	eg.SetPoolSize(10)
 
 	for _, bento := range bentos {
 		bento := bento
 		eg.Go(func() error {
 			bentoTag := fmt.Sprintf("%s:%s", bento.Repository.Name, bento.Version)
 			logs := logs.WithValues("bentoTag", bentoTag)
-			logs.Info("updating bento image build status syncing_at")
-			err := yataiClient.UpdateBentoImageBuildStatusSyncingAt(ctx, bento.Repository.Name, bento.Version)
-			if err != nil {
-				return errors.Wrapf(err, "update bento image build status syncing at bento %s", bentoTag)
-			}
-			logs.Info("updated bento image build status syncing_at")
 			imageName := GetBentoImageName(dockerRegistry, bento, true)
 			logs.Info(fmt.Sprintf("checking image %s exists", imageName))
 			imageExists, err := checkImageExists(dockerRegistry, imageName)
@@ -1938,7 +1994,7 @@ func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
 				return nil
 			}
 			logs.Info(fmt.Sprintf("image %s does not exist, creating image builder pod to build it", imageName))
-			pod, err := services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
+			_, err = services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
 				ImageName:      imageName,
 				Bento:          bento,
 				DockerRegistry: dockerRegistry,
@@ -1950,21 +2006,14 @@ func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
 
 			logs.Info("image builder pod created")
 
-			var imageBuildStatus modelschemas.ImageBuildStatus
-			logs.Info(fmt.Sprintf("wait image builder pod %s complete...", pod.Name))
-			imageBuildStatus, err = r.waitImageBuilderPodComplete(ctx, pod.Namespace, pod.Name)
+			func() {
+				lastSyncedCreatedAtMu.Lock()
+				defer lastSyncedCreatedAtMu.Unlock()
 
-			if err != nil {
-				err = errors.Wrapf(err, "failed to build image %s for bento %s", imageName, bentoTag)
-				return err
-			}
-
-			logs.Info(fmt.Sprintf("pod %s complete, update bento image build status %s", pod.Name, string(imageBuildStatus)))
-			err = yataiClient.UpdateBentoImageBuildStatus(ctx, bento.Repository.Name, bento.Version, imageBuildStatus)
-			if err != nil {
-				return errors.Wrapf(err, "update bento image build status for bento %s", bentoTag)
-			}
-			logs.Info("updated bento image build status")
+				if lastSyncedCreatedAt == nil || bento.CreatedAt.After(*lastSyncedCreatedAt) {
+					lastSyncedCreatedAt = &bento.CreatedAt
+				}
+			}()
 
 			logs.Info(fmt.Sprintf("image %s built successfully", imageName))
 
@@ -1972,7 +2021,31 @@ func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
 		})
 	}
 
-	return eg.Wait()
+	err = eg.Wait()
+
+	lastSyncedCreatedAtMu.Lock()
+	defer lastSyncedCreatedAtMu.Unlock()
+
+	if lastSyncedCreatedAt != nil {
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      imageBuilderMetaCmName,
+				Namespace: consts.KubeNamespaceYataiBentoImageBuilder,
+			},
+		}
+		if !imageBuilderMetaCmIsNotFound {
+			cm.Data = oldImageBuilderMetaCm.Data
+			if cm.Data == nil {
+				cm.Data = map[string]string{}
+			}
+			cm.Data[lastSyncedCreatedAtKey] = lastSyncedCreatedAt.Format(time.RFC3339)
+			err = multierr.Append(err, errors.Wrapf(r.Update(ctx, cm), "update config map %s", imageBuilderMetaCmName))
+		} else {
+			err = multierr.Append(err, errors.Wrapf(r.Create(ctx, cm), "create config map %s", imageBuilderMetaCmName))
+		}
+	}
+
+	return err
 }
 
 func (r *BentoDeploymentReconciler) buildBentoImages() {
@@ -1981,7 +2054,7 @@ func (r *BentoDeploymentReconciler) buildBentoImages() {
 	if err != nil {
 		logs.Error(err, "buildBentoImages")
 	}
-	ticker := time.NewTicker(time.Minute * 3)
+	ticker := time.NewTicker(time.Second * 30)
 	for range ticker.C {
 		err := r.doBuildBentoImages()
 		if err != nil {

@@ -151,7 +151,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
-	dockerRegistry, err := r.getDockerRegistry(ctx, bentoDeployment)
+	dockerRegistry, err := r.getDockerRegistry(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "get docker registry")
 		return
@@ -404,85 +404,48 @@ func getYataiClient(ctx context.Context) (yataiClient *yataiclient.YataiClient, 
 	return
 }
 
-func (r *BentoDeploymentReconciler) getDockerRegistry(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment) (dockerRegistry modelschemas.DockerRegistrySchema, err error) {
+func (r *BentoDeploymentReconciler) getDockerRegistry(ctx context.Context) (dockerRegistry modelschemas.DockerRegistrySchema, err error) {
 	dockerRegistryConfig, err := commonconfig.GetDockerRegistryConfig(ctx)
-	isNotFound := utils.IsNotFound(err)
-	if err != nil && !isNotFound {
+	if err != nil {
 		err = errors.Wrap(err, "get docker registry")
 		return
 	}
-	err = nil
 
-	if isNotFound && bentoDeployment != nil {
-		// compatibility with the old yatai
-		var yataiClient *yataiclient.YataiClient
-		var clusterName string
-		yataiClient, clusterName, err = getYataiClient(ctx)
-		if err != nil {
-			err = errors.Wrap(err, "get yatai client")
-			return
-		}
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistry", "Docker registry is not configured. Using docker registry from yatai")
-		var dockerRegistryRef *modelschemas.DockerRegistryRefSchema
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfigRef", "Fetching docker registry config ref")
-		dockerRegistryRef, err = yataiClient.GetDockerRegistryRef(ctx, clusterName)
-		if err != nil {
-			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistryConfigRef", "Failed to fetch docker registry config ref: %v", err)
-			return
-		}
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfigRef", "Successfully fetched docker registry config ref")
-
-		secret := &corev1.Secret{}
-
-		err = r.Get(ctx, types.NamespacedName{Name: dockerRegistryRef.Name, Namespace: dockerRegistryRef.Namespace}, secret)
-		if err != nil {
-			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetDockerRegistryConfig", "Failed to get docker registry config from secret %s/%s: %v", dockerRegistryRef.Namespace, dockerRegistryRef.Name, err)
-			return
-		}
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfig", "Successfully fetched docker registry config from secret")
-
-		err = json.Unmarshal(secret.Data[dockerRegistryRef.Key], &dockerRegistry)
-		if err != nil {
-			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "UnmarshalDockerRegistryConfig", "Failed to unmarshal docker registry config from secret %s/%s: %v", dockerRegistryRef.Namespace, dockerRegistryRef.Name, err)
-			return
-		}
-		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "GetDockerRegistryConfig", "Successfully unmarshaled docker registry config from secret")
-	} else {
-		bentoRepositoryName := "yatai-bentos"
-		modelRepositoryName := "yatai-models"
-		if dockerRegistryConfig.BentoRepositoryName != "" {
-			bentoRepositoryName = dockerRegistryConfig.BentoRepositoryName
-		}
-		if dockerRegistryConfig.ModelRepositoryName != "" {
-			modelRepositoryName = dockerRegistryConfig.ModelRepositoryName
-		}
-		bentoRepositoryURI := fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.Server, "/"), bentoRepositoryName)
-		modelRepositoryURI := fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.Server, "/"), modelRepositoryName)
-		if strings.Contains(dockerRegistryConfig.Server, "docker.io") {
-			bentoRepositoryURI = fmt.Sprintf("docker.io/%s", bentoRepositoryName)
-			modelRepositoryURI = fmt.Sprintf("docker.io/%s", modelRepositoryName)
-		}
-		bentoRepositoryInClusterURI := bentoRepositoryURI
-		modelRepositoryInClusterURI := modelRepositoryURI
-		if dockerRegistryConfig.InClusterServer != "" {
-			bentoRepositoryInClusterURI = fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.InClusterServer, "/"), bentoRepositoryName)
-			modelRepositoryInClusterURI = fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.InClusterServer, "/"), modelRepositoryName)
-			if strings.Contains(dockerRegistryConfig.InClusterServer, "docker.io") {
-				bentoRepositoryInClusterURI = fmt.Sprintf("docker.io/%s", bentoRepositoryName)
-				modelRepositoryInClusterURI = fmt.Sprintf("docker.io/%s", modelRepositoryName)
-			}
-		}
-		dockerRegistry = modelschemas.DockerRegistrySchema{
-			Server:                       dockerRegistryConfig.Server,
-			Username:                     dockerRegistryConfig.Username,
-			Password:                     dockerRegistryConfig.Password,
-			Secure:                       dockerRegistryConfig.Secure,
-			BentosRepositoryURI:          bentoRepositoryURI,
-			BentosRepositoryURIInCluster: bentoRepositoryInClusterURI,
-			ModelsRepositoryURI:          modelRepositoryURI,
-			ModelsRepositoryURIInCluster: modelRepositoryInClusterURI,
+	bentoRepositoryName := "yatai-bentos"
+	modelRepositoryName := "yatai-models"
+	if dockerRegistryConfig.BentoRepositoryName != "" {
+		bentoRepositoryName = dockerRegistryConfig.BentoRepositoryName
+	}
+	if dockerRegistryConfig.ModelRepositoryName != "" {
+		modelRepositoryName = dockerRegistryConfig.ModelRepositoryName
+	}
+	bentoRepositoryURI := fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.Server, "/"), bentoRepositoryName)
+	modelRepositoryURI := fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.Server, "/"), modelRepositoryName)
+	if strings.Contains(dockerRegistryConfig.Server, "docker.io") {
+		bentoRepositoryURI = fmt.Sprintf("docker.io/%s", bentoRepositoryName)
+		modelRepositoryURI = fmt.Sprintf("docker.io/%s", modelRepositoryName)
+	}
+	bentoRepositoryInClusterURI := bentoRepositoryURI
+	modelRepositoryInClusterURI := modelRepositoryURI
+	if dockerRegistryConfig.InClusterServer != "" {
+		bentoRepositoryInClusterURI = fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.InClusterServer, "/"), bentoRepositoryName)
+		modelRepositoryInClusterURI = fmt.Sprintf("%s/%s", strings.TrimRight(dockerRegistryConfig.InClusterServer, "/"), modelRepositoryName)
+		if strings.Contains(dockerRegistryConfig.InClusterServer, "docker.io") {
+			bentoRepositoryInClusterURI = fmt.Sprintf("docker.io/%s", bentoRepositoryName)
+			modelRepositoryInClusterURI = fmt.Sprintf("docker.io/%s", modelRepositoryName)
 		}
 	}
+	dockerRegistry = modelschemas.DockerRegistrySchema{
+		Server:                       dockerRegistryConfig.Server,
+		Username:                     dockerRegistryConfig.Username,
+		Password:                     dockerRegistryConfig.Password,
+		Secure:                       dockerRegistryConfig.Secure,
+		BentosRepositoryURI:          bentoRepositoryURI,
+		BentosRepositoryURIInCluster: bentoRepositoryInClusterURI,
+		ModelsRepositoryURI:          modelRepositoryURI,
+		ModelsRepositoryURIInCluster: modelRepositoryInClusterURI,
+	}
+
 	return
 }
 
@@ -1905,7 +1868,7 @@ func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
 	}
 
 	logs.Info("getting docker registry")
-	dockerRegistry, err := r.getDockerRegistry(ctx, nil)
+	dockerRegistry, err := r.getDockerRegistry(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "get docker registry")
 		return

@@ -159,8 +159,8 @@ github.com/banzaicloud/k8s-objectmatcher v1.8.0/go.mod h1:p2LSNAjlECf07fbhDyebTk
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
-github.com/bentoml/yatai-common v0.0.0-20220808125400-c99d34c5aeaf h1:91tmPK4bM0A2UOCR2iHWnzfskcC0C6ZiuCIgWjrB8YI=
-github.com/bentoml/yatai-common v0.0.0-20220808125400-c99d34c5aeaf/go.mod h1:pox0XYk/bVUwKkadn0XwWHEbJmxSEeN3+HwGA4a8uOQ=
+github.com/bentoml/yatai-common v0.0.0-20220808132059-f48396b17807 h1:QW7XSvN4lCDEDCny+X3brJth7fq9CqkaJrQKVGmReiY=
+github.com/bentoml/yatai-common v0.0.0-20220808132059-f48396b17807/go.mod h1:pox0XYk/bVUwKkadn0XwWHEbJmxSEeN3+HwGA4a8uOQ=
 github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987 h1:gPYq0p6dCo12QVYECaJ1uZ762A5/8cnhlXvk6Jy6Exc=
 github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987/go.mod h1:OT5T7rrtdjJIkJpUazp1fQBbAVzl55YXyUJNVRLqskw=
 github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=

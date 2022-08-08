@@ -1629,6 +1629,16 @@ more_set_headers "X-Yatai-Bento: %s";
 		return
 	}
 
+	ingressAnnotations, err := system.GetIngressAnnotations(ctx, clientset)
+	if err != nil {
+		err = errors.Wrapf(err, "get ingress annotations")
+		return
+	}
+
+	for k, v := range ingressAnnotations {
+		annotations[k] = v
+	}
+
 	interIng := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,

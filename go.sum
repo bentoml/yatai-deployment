@@ -159,8 +159,8 @@ github.com/banzaicloud/k8s-objectmatcher v1.8.0/go.mod h1:p2LSNAjlECf07fbhDyebTk
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
-github.com/bentoml/yatai-common v0.0.0-20220808124003-446906f64c46 h1:5IONtmURJYqBym1vXO0IF6mwJoExmLSCqTDqteNeTaw=
-github.com/bentoml/yatai-common v0.0.0-20220808124003-446906f64c46/go.mod h1:evYb3j9/fzKsKFxU5l3DD/erGc0aEYPRlKTjXlnX1do=
+github.com/bentoml/yatai-common v0.0.0-20220808125400-c99d34c5aeaf h1:91tmPK4bM0A2UOCR2iHWnzfskcC0C6ZiuCIgWjrB8YI=
+github.com/bentoml/yatai-common v0.0.0-20220808125400-c99d34c5aeaf/go.mod h1:pox0XYk/bVUwKkadn0XwWHEbJmxSEeN3+HwGA4a8uOQ=
 github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987 h1:gPYq0p6dCo12QVYECaJ1uZ762A5/8cnhlXvk6Jy6Exc=
 github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987/go.mod h1:OT5T7rrtdjJIkJpUazp1fQBbAVzl55YXyUJNVRLqskw=
 github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
@@ -922,6 +922,8 @@ github.com/rogpeppe/go-internal v1.5.2/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTE
 github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
 github.com/rogpeppe/go-internal v1.8.0 h1:FCbCCtXNOY3UtUuHUYaghJg4y7Fd14rXifAYUAtL9R8=
 github.com/rogpeppe/go-internal v1.8.0/go.mod h1:WmiCO8CzOY8rg0OYDC4/i/2WRWAB6poM+XZ2dLUbcbE=
+github.com/rs/xid v1.4.0 h1:qd7wPTDkN6KQx2VmMBLrpHkiyQwgFXRnkOLacUiaSNY=
+github.com/rs/xid v1.4.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
 github.com/rubenv/sql-migrate v0.0.0-20210614095031-55d5740dbbcc/go.mod h1:HFLT6i9iR4QBOF5rdCyjddC9t59ArqWJV2xx+jwcCMo=
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=

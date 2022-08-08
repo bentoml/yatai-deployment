@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
-	github.com/bentoml/yatai-common v0.0.0-20220808124003-446906f64c46
+	github.com/bentoml/yatai-common v0.0.0-20220808125400-c99d34c5aeaf
 	github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987
 	github.com/hashicorp/go-version v1.5.0
 	github.com/huandu/xstrings v1.3.2
@@ -62,6 +62,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.33.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/rs/xid v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect

@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
-	github.com/bentoml/yatai-common v0.0.0-20220726055933-03c35eb2a939
+	github.com/bentoml/yatai-common v0.0.0-20220808124003-446906f64c46
 	github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987
 	github.com/hashicorp/go-version v1.5.0
 	github.com/huandu/xstrings v1.3.2

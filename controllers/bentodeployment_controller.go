@@ -1637,7 +1637,7 @@ more_set_headers "X-Yatai-Bento: %s";
 			Annotations: annotations,
 		},
 		Spec: networkingv1.IngressSpec{
-			IngressClassName: &ingressClassName,
+			IngressClassName: ingressClassName,
 			Rules: []networkingv1.IngressRule{
 				{
 					Host: internalHost,

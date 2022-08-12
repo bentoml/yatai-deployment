@@ -203,3 +203,8 @@ catalog-push: ## Push a catalog image.
 update-codegen:
 	chmod +x ./hack/update-codegen.sh
 	./hack/update-codegen.sh
+
+build-curl-image:
+	docker build -t quay.io/bentoml/curl:0.0.1 -f Dockerfile-curl .
+	docker push quay.io/bentoml/curl:0.0.1
+

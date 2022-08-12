@@ -1191,10 +1191,18 @@ func (r *BentoDeploymentReconciler) waitImageBuilderPodComplete(ctx context.Cont
 
 	imageBuildStatus := modelschemas.ImageBuildStatusPending
 
+	restConf := config.GetConfigOrDie()
+	cliset, err := kubernetes.NewForConfig(restConf)
+	if err != nil {
+		err = errors.Wrapf(err, "create kubernetes client for %s", restConf.Host)
+		return imageBuildStatus, err
+	}
+
+	podCli := cliset.CoreV1().Pods(namespace)
+
 	// Wait for the image builder pod to be Complete.
 	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
-		pod := &corev1.Pod{}
-		err_ := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: podName}, pod)
+		pod, err_ := podCli.Get(ctx, podName, metav1.GetOptions{})
 		if err_ != nil {
 			logs.Error(err_, "failed to get pod")
 			return true, err_

@@ -1805,14 +1805,7 @@ func (r *BentoDeploymentReconciler) doCleanUpAbandonedRunnerServices() error {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*10)
 	defer cancel()
 
-	deploymentNamespaces := []string{}
-	deploymentNamespacesStr := os.Getenv("DEPLOYMENT_NAMESPACES")
-	if deploymentNamespacesStr != "" {
-		err := json.Unmarshal([]byte(deploymentNamespacesStr), &deploymentNamespaces)
-		if err != nil {
-			return errors.Wrapf(err, "unmarshal deployment namespaces")
-		}
-	}
+	deploymentNamespaces := GetDeploymentNamespaces()
 
 	for _, deploymentNamespace := range deploymentNamespaces {
 		serviceList := &corev1.ServiceList{}
@@ -2037,6 +2030,16 @@ func (r *BentoDeploymentReconciler) buildBentoImages() {
 			logs.Error(err, "buildBentoImages")
 		}
 	}
+}
+
+func GetDeploymentNamespaces() []string {
+	deploymentNamespacesStr := os.Getenv("DEPLOYMENT_NAMESPACES")
+	pieces := strings.Split(deploymentNamespacesStr, ",")
+	deploymentNamespaces := make([]string, 0, len(pieces))
+	for _, piece := range pieces {
+		deploymentNamespaces = append(deploymentNamespaces, strings.TrimSpace(piece))
+	}
+	return deploymentNamespaces
 }
 
 // SetupWithManager sets up the controller with the Manager.

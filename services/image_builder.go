@@ -101,6 +101,7 @@ type CreateImageBuilderPodOption struct {
 	ImageName        string
 	Bento            *schemasv1.BentoWithRepositorySchema
 	DockerRegistry   modelschemas.DockerRegistrySchema
+	ClusterName      string
 	RecreateIfFailed bool
 }
 
@@ -218,7 +219,7 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		}
 	}
 
-	downloadCommand := fmt.Sprintf("mkdir -p /workspace/buildcontext && curl -H \"X-YATAI-API-TOKEN: $YATAI_API_TOKEN\" '%s/api/v1/bento_repositories/%s/bentos/%s/download' --output /tmp/downloaded.tar && cd /workspace/buildcontext && tar -xvf /tmp/downloaded.tar && rm /tmp/downloaded.tar", yataiConfig.Endpoint, opt.Bento.Repository.Name, opt.Bento.Version)
+	downloadCommand := fmt.Sprintf("mkdir -p /workspace/buildcontext && curl -H \"X-YATAI-API-TOKEN: %s:%s:$YATAI_API_TOKEN\" '%s/api/v1/bento_repositories/%s/bentos/%s/download' --output /tmp/downloaded.tar && cd /workspace/buildcontext && tar -xvf /tmp/downloaded.tar && rm /tmp/downloaded.tar", consts.YataiApiTokenPrefixYataiDeploymentOperator, opt.ClusterName, yataiConfig.Endpoint, opt.Bento.Repository.Name, opt.Bento.Version)
 	if !privileged {
 		downloadCommand += " && chown -R 1000:1000 /workspace"
 	}
@@ -252,12 +253,14 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		var downloadCommandOutput bytes.Buffer
 		err = template.Must(template.New("script").Parse(`
 mkdir -p {{.ModelDirPath}} &&
-curl -H "X-YATAI-API-TOKEN: $YATAI_API_TOKEN" "{{.Endpoint}}/api/v1/model_repositories/{{.ModelRepositoryName}}/models/{{.ModelVersion}}/download" --output /tmp/downloaded.tar &&
+curl -H "X-YATAI-API-TOKEN: {{.ApiTokenPrefix}}:{{.ClusterName}}:$YATAI_API_TOKEN" "{{.Endpoint}}/api/v1/model_repositories/{{.ModelRepositoryName}}/models/{{.ModelVersion}}/download" --output /tmp/downloaded.tar &&
 cd {{.ModelDirPath}} &&
 tar -xvf /tmp/downloaded.tar &&
 echo -n '{{.ModelVersion}}' > {{.ModelRepositoryDirPath}}/latest &&
 rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}{
 			"ModelDirPath":           modelDirPath,
+			"ApiTokenPrefix":         consts.YataiApiTokenPrefixYataiDeploymentOperator,
+			"ClusterName":            opt.ClusterName,
 			"ModelRepositoryDirPath": modelRepositoryDirPath,
 			"ModelRepositoryName":    modelRepositoryName,
 			"ModelVersion":           modelVersion,

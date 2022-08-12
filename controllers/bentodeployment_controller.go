@@ -1370,6 +1370,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 			Bento:            &opt.bento.BentoWithRepositorySchema,
 			DockerRegistry:   opt.dockerRegistry,
 			RecreateIfFailed: true,
+			ClusterName:      opt.cluster.Name,
 		})
 		if err != nil {
 			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "BentoImageBuilder", "Failed to create image builder pod: %v", err)
@@ -1867,7 +1868,7 @@ func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
 	defer cancel()
 
 	logs.Info("getting yatai client")
-	yataiClient, _, err := getYataiClient(ctx)
+	yataiClient, clusterName, err := getYataiClient(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "get yatai client")
 		return
@@ -1975,6 +1976,7 @@ out:
 				ImageName:      imageName,
 				Bento:          bento,
 				DockerRegistry: dockerRegistry,
+				ClusterName:    clusterName,
 			})
 			if err != nil {
 				err = errors.Wrapf(err, "failed to create image builder pod for bento %s", bentoTag)

@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1804,36 +1805,48 @@ func (r *BentoDeploymentReconciler) doCleanUpAbandonedRunnerServices() error {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*10)
 	defer cancel()
 
-	serviceList := &corev1.ServiceList{}
-	serviceListOpts := []client.ListOption{
-		client.HasLabels{consts.KubeLabelYataiBentoRunner},
-	}
-	err := r.List(ctx, serviceList, serviceListOpts...)
-	if err != nil {
-		return errors.Wrap(err, "list services")
-	}
-	for _, service := range serviceList.Items {
-		service := service
-		podList := &corev1.PodList{}
-		podListOpts := []client.ListOption{
-			client.InNamespace(service.Namespace),
-			client.MatchingLabels(service.Spec.Selector),
-		}
-		err := r.List(ctx, podList, podListOpts...)
+	deploymentNamespaces := []string{}
+	deploymentNamespacesStr := os.Getenv("DEPLOYMENT_NAMESPACES")
+	if deploymentNamespacesStr != "" {
+		err := json.Unmarshal([]byte(deploymentNamespacesStr), &deploymentNamespaces)
 		if err != nil {
-			return errors.Wrap(err, "list pods")
+			return errors.Wrapf(err, "unmarshal deployment namespaces")
 		}
-		if len(podList.Items) > 0 {
-			continue
+	}
+
+	for _, deploymentNamespace := range deploymentNamespaces {
+		serviceList := &corev1.ServiceList{}
+		serviceListOpts := []client.ListOption{
+			client.HasLabels{consts.KubeLabelYataiBentoRunner},
+			client.InNamespace(deploymentNamespace),
 		}
-		createdAt := service.ObjectMeta.CreationTimestamp
-		if time.Since(createdAt.Time) < time.Minute*3 {
-			continue
-		}
-		logs.Info("deleting abandoned runner service", "name", service.Name, "namespace", service.Namespace)
-		err = r.Delete(ctx, &service)
+		err := r.List(ctx, serviceList, serviceListOpts...)
 		if err != nil {
-			return errors.Wrapf(err, "delete service %s", service.Name)
+			return errors.Wrap(err, "list services")
+		}
+		for _, service := range serviceList.Items {
+			service := service
+			podList := &corev1.PodList{}
+			podListOpts := []client.ListOption{
+				client.InNamespace(service.Namespace),
+				client.MatchingLabels(service.Spec.Selector),
+			}
+			err := r.List(ctx, podList, podListOpts...)
+			if err != nil {
+				return errors.Wrap(err, "list pods")
+			}
+			if len(podList.Items) > 0 {
+				continue
+			}
+			createdAt := service.ObjectMeta.CreationTimestamp
+			if time.Since(createdAt.Time) < time.Minute*3 {
+				continue
+			}
+			logs.Info("deleting abandoned runner service", "name", service.Name, "namespace", service.Namespace)
+			err = r.Delete(ctx, &service)
+			if err != nil {
+				return errors.Wrapf(err, "delete service %s", service.Name)
+			}
 		}
 	}
 	logs.Info("finished cleaning up abandoned runner services")

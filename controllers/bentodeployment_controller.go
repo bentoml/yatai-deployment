@@ -1880,11 +1880,19 @@ func (r *BentoDeploymentReconciler) doBuildBentoImages() (err error) {
 		return
 	}
 
+	restConfig := config.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		err = errors.Wrap(err, "create kubernetes clientset")
+		return
+	}
+
+	cmCli := clientset.CoreV1().ConfigMaps(consts.KubeNamespaceYataiBentoImageBuilder)
+
 	imageBuilderMetaCmName := "image-builder-meta"
-	oldImageBuilderMetaCm := &corev1.ConfigMap{}
 	lastSyncedCreatedAtKey := "last-synced-created-at"
 
-	err = r.Get(ctx, types.NamespacedName{Name: imageBuilderMetaCmName, Namespace: consts.KubeNamespaceYataiBentoImageBuilder}, oldImageBuilderMetaCm)
+	oldImageBuilderMetaCm, err := cmCli.Get(ctx, imageBuilderMetaCmName, metav1.GetOptions{})
 	imageBuilderMetaCmIsNotFound := k8serrors.IsNotFound(err)
 	if err != nil && !imageBuilderMetaCmIsNotFound {
 		err = errors.Wrapf(err, "get config map %s", imageBuilderMetaCmName)
@@ -2003,14 +2011,11 @@ out:
 			},
 		}
 		if !imageBuilderMetaCmIsNotFound {
-			cm.Data = oldImageBuilderMetaCm.Data
-			if cm.Data == nil {
-				cm.Data = map[string]string{}
-			}
-			cm.Data[lastSyncedCreatedAtKey] = lastSyncedCreatedAt.Format(time.RFC3339)
-			err = multierr.Append(err, errors.Wrapf(r.Update(ctx, cm), "update config map %s", imageBuilderMetaCmName))
+			_, err = cmCli.Patch(ctx, cm.Name, types.MergePatchType, []byte(fmt.Sprintf(`{"data":{"%s":"%s"}}`, lastSyncedCreatedAtKey, lastSyncedCreatedAt.Format(time.RFC3339))), metav1.PatchOptions{})
+			err = multierr.Append(err, errors.Wrapf(err, "update config map %s", imageBuilderMetaCmName))
 		} else {
-			err = multierr.Append(err, errors.Wrapf(r.Create(ctx, cm), "create config map %s", imageBuilderMetaCmName))
+			_, err = cmCli.Create(ctx, cm, metav1.CreateOptions{})
+			err = multierr.Append(err, errors.Wrapf(err, "create config map %s", imageBuilderMetaCmName))
 		}
 	}
 

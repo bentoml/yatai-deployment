@@ -1722,10 +1722,13 @@ func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context,
 func (r *BentoDeploymentReconciler) generateIngresses(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema) (ingresses []*networkingv1.Ingress, err error) {
 	kubeName := r.getKubeName(bentoDeployment, bento, nil)
 
+	r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GenerateIngressHost", "Generating hostname for ingress")
 	internalHost, err := r.generateIngressHost(ctx, bentoDeployment)
 	if err != nil {
+		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GenerateIngressHost", "Failed to generate hostname for ingress: %v", err)
 		return
 	}
+	r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GenerateIngressHost", "Generated hostname for ingress: %s", internalHost)
 
 	annotations := r.getKubeAnnotations(bento)
 

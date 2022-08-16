@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
 	github.com/bentoml/yatai-common v0.0.0-20220808163629-fd79fcb6304f
-	github.com/bentoml/yatai-schemas v0.0.0-20220610080359-c6baf2433987
+	github.com/bentoml/yatai-schemas v0.0.0-20220816014402-e1efcc5a8e9f
 	github.com/hashicorp/go-version v1.5.0
 	github.com/huandu/xstrings v1.3.2
 	github.com/iancoleman/strcase v0.2.0
@@ -31,7 +31,6 @@ require (
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
-	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -92,7 +91,6 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	helm.sh/helm/v3 v3.8.1 // indirect
 	k8s.io/apiextensions-apiserver v0.23.5 // indirect
 	k8s.io/component-base v0.23.5 // indirect
 	k8s.io/gengo v0.0.0-20211129171323-c02415ce4185 // indirect

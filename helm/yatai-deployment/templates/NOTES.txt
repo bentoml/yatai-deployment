@@ -1,0 +1,9 @@
+Verify the installation
+
+Run the following command:
+
+kubectl -n {{ .Release.Namespace }} get pod
+
+The output should be something like this:
+
+

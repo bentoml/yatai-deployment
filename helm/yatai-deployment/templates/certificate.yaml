@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "yatai-deployment.fullname" . }}-serving-cert
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "yatai-deployment.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+  - {{ include "yatai-deployment.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc
+  - {{ include "yatai-deployment.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: {{ include "yatai-deployment.fullname" . }}-selfsigned-issuer
+  secretName: {{ include "yatai-deployment.fullname" . }}-webhook-server-cert

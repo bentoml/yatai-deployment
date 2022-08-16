@@ -1,0 +1,48 @@
+{{- if not .Values.layers.network.domainSuffix }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: '{{ include "yatai-deployment.fullname" . }}-default-domain'
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "yatai-deployment.labels" . | nindent 4 }}
+    app: "yatai-default-domain"
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        {{- include "yatai-deployment.selectorLabels" . | nindent 8 }}
+        app: "yatai-default-domain"
+    spec:
+      serviceAccountName: {{ include "yatai-deployment.serviceAccountName" . }}
+      containers:
+        - name: default-domain
+          # This is the Go import path for the binary that is containerized
+          # and substituted here.
+          image: "{{ .Values.registry }}/{{ .Values.defaultDomainImage.repository }}:{{ .Values.defaultDomainImage.tag }}"
+          imagePullPolicy: {{ .Values.defaultDomainImage.pullPolicy }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      restartPolicy: Never
+  backoffLimit: 10
+  {{- end }}

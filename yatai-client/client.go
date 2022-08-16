@@ -138,3 +138,10 @@ func (c *YataiClient) GetCluster(ctx context.Context, clusterName string) (clust
 	_, err = c.getJsonReqBuilder().Method("GET").Url(url_).Result(cluster).Do(ctx)
 	return
 }
+
+func (c *YataiClient) RegisterYataiComponent(ctx context.Context, clusterName string, schema *schemasv1.RegisterYataiComponentSchema) (yataiComponent *schemasv1.YataiComponentSchema, err error) {
+	url_ := utils.UrlJoin(c.endpoint, fmt.Sprintf("/api/v1/clusters/%s/yatai_components", clusterName))
+	yataiComponent = &schemasv1.YataiComponentSchema{}
+	_, err = c.getJsonReqBuilder().Method("POST").Url(url_).Payload(schema).Result(yataiComponent).Do(ctx)
+	return
+}

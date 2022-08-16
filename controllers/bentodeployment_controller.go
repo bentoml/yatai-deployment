@@ -72,6 +72,7 @@ import (
 
 	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
 	"github.com/bentoml/yatai-deployment-operator/services"
+	"github.com/bentoml/yatai-deployment-operator/version"
 	yataiclient "github.com/bentoml/yatai-deployment-operator/yatai-client"
 )
 
@@ -2047,6 +2048,46 @@ func (r *BentoDeploymentReconciler) buildBentoImages() {
 	}
 }
 
+func (r *BentoDeploymentReconciler) doRegisterYataiComponent() (err error) {
+	logs := log.Log.WithValues("func", "doRegisterYataiComponent")
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*5)
+	defer cancel()
+
+	logs.Info("getting yatai client")
+	yataiClient, clusterName, err := getYataiClient(ctx)
+	if err != nil {
+		err = errors.Wrap(err, "get yatai client")
+		return
+	}
+
+	_, err = yataiClient.RegisterYataiComponent(ctx, clusterName, &schemasv1.RegisterYataiComponentSchema{
+		Name:          modelschemas.YataiComponentNameDeployment,
+		KubeNamespace: consts.KubeNamespaceYataiDeploymentComponent,
+		Version:       version.Version,
+		SelectorLabels: map[string]string{
+			"app": "yatai-deployment",
+		},
+	})
+
+	return err
+}
+
+func (r *BentoDeploymentReconciler) registerYataiComponent() {
+	logs := log.Log.WithValues("func", "registerYataiComponent")
+	err := r.doRegisterYataiComponent()
+	if err != nil {
+		logs.Error(err, "registerYataiComponent")
+	}
+	ticker := time.NewTicker(time.Minute * 5)
+	for range ticker.C {
+		err := r.doRegisterYataiComponent()
+		if err != nil {
+			logs.Error(err, "registerYataiComponent")
+		}
+	}
+}
+
 func GetDeploymentNamespaces() []string {
 	deploymentNamespacesStr := os.Getenv("DEPLOYMENT_NAMESPACES")
 	pieces := strings.Split(deploymentNamespacesStr, ",")
@@ -2061,6 +2102,7 @@ func GetDeploymentNamespaces() []string {
 func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	go r.buildBentoImages()
 	go r.cleanUpAbandonedRunnerServices()
+	go r.registerYataiComponent()
 
 	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).

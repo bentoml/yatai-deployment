@@ -15,7 +15,7 @@ lint:
 	ct lint --all
 
 cleanup:
-	rm yatai-deployment-*.tgz
+	rm yatai-deployment-*.tgz || true
 
 release: cleanup
 	helm package . --version ${VERSION} --app-version ${VERSION}

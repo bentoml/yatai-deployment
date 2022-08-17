@@ -2103,6 +2103,8 @@ func GetDeploymentNamespaces() []string {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	version.Print()
+
 	go r.buildBentoImages()
 	go r.cleanUpAbandonedRunnerServices()
 	go r.registerYataiComponent()

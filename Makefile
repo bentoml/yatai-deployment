@@ -104,7 +104,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 	go run -ldflags "$(VERSION_BUILDFLAGS)" ./main.go
 
 docker-build: ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build --build-arg VERSION_BUILDFLAGS="$(VERSION_BUILDFLAGS)" -t ${IMG} .
 
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}

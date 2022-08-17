@@ -1,4 +1,4 @@
-# Default values for yatai-deployment-operator.
+# Default values for yatai-deployment.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -7,7 +7,7 @@ replicaCount: 1
 registry: quay.io/bentoml
 
 image:
-  repository: yatai-deployment-operator
+  repository: yatai-deployment
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""

@@ -25,7 +25,7 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
-	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned/typed/serving/v1alpha2"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha2"
 )
 
 type Interface interface {

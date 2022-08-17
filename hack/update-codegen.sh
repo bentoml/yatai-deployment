@@ -8,7 +8,7 @@ set -o pipefail
 # 1. kubebuilder2.3.2版本生成的api目录结构code-generator无法直接使用(将api由api/${VERSION}移动至api/${GROUP}/${VERSION}即可)
 
 # corresponding to go mod init <module>
-MODULE=github.com/bentoml/yatai-deployment-operator
+MODULE=github.com/bentoml/yatai-deployment
 # api package
 APIS_PKG=apis
 # generated output package
@@ -48,7 +48,7 @@ echo "Cleanup..."
 
 rm -rf ./generated && mv ./${MODULE}/generated .
 
-# find ./generated/ -type f -not -path '*/\.*' -exec sed -i 's/github.com\/bentoml\/yatai-deployment-operator\/api\/serving\//github.com\/bentoml\/yatai-deployment-operator\/api\//g' {} \;
+# find ./generated/ -type f -not -path '*/\.*' -exec sed -i 's/github.com\/bentoml\/yatai-deployment\/api\/serving\//github.com\/bentoml\/yatai-deployment\/api\//g' {} \;
 
 rm -rf ./github.com
 

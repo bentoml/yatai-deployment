@@ -23,7 +23,7 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
+	v1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other

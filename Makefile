@@ -9,7 +9,7 @@ ifndef VERSION
 	VERSION := $(shell git describe --tags `git rev-list --tags --max-count=1` | sed 's/v\(\)/\1/')
 endif
 
-PKG := github.com/bentoml/yatai-deployment-operator
+PKG := github.com/bentoml/yatai-deployment
 VERSION_BUILDFLAGS := -X '$(PKG)/version.GitCommit=$(GIT_COMMIT)' -X '$(PKG)/version.Version=$(VERSION)' -X '$(PKG)/version.BuildDate=$(BUILD_DATE)'
 
 # CHANNELS define the bundle channels used in the bundle.
@@ -35,8 +35,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# yatai.ai/yatai-deployment-operator-bundle:$VERSION and yatai.ai/yatai-deployment-operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= yatai.ai/yatai-deployment-operator
+# yatai.ai/yatai-deployment-bundle:$VERSION and yatai.ai/yatai-deployment-catalog:$VERSION.
+IMAGE_TAG_BASE ?= yatai.ai/yatai-deployment
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)

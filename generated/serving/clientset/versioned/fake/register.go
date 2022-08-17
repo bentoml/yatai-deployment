@@ -24,7 +24,7 @@ import (
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
 )
 
 var scheme = runtime.NewScheme()

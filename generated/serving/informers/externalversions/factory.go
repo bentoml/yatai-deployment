@@ -27,9 +27,9 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 
-	versioned "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned"
-	internalinterfaces "github.com/bentoml/yatai-deployment-operator/generated/serving/informers/externalversions/internalinterfaces"
-	serving "github.com/bentoml/yatai-deployment-operator/generated/serving/informers/externalversions/serving"
+	versioned "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned"
+	internalinterfaces "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/internalinterfaces"
+	serving "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/serving"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.

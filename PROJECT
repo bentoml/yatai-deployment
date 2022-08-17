@@ -5,8 +5,8 @@ plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 multigroup: true
-projectName: yatai-deployment-operator
-repo: github.com/bentoml/yatai-deployment-operator
+projectName: yatai-deployment
+repo: github.com/bentoml/yatai-deployment
 resources:
 - api:
     crdVersion: v1
@@ -14,7 +14,7 @@ resources:
   domain: yatai.ai
   group: serving
   kind: BentoDeployment
-  path: github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha1
+  path: github.com/bentoml/yatai-deployment/apis/serving/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -23,7 +23,7 @@ resources:
   domain: yatai.ai
   group: serving
   kind: BentoDeployment
-  path: github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2
+  path: github.com/bentoml/yatai-deployment/apis/serving/v1alpha2
   version: v1alpha2
   webhooks:
     conversion: true

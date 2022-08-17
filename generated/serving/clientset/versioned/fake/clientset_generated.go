@@ -24,9 +24,9 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
 
-	clientset "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned"
-	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned/typed/serving/v1alpha2"
-	fakeservingv1alpha2 "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned/typed/serving/v1alpha2/fake"
+	clientset "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha2"
+	fakeservingv1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha2/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.

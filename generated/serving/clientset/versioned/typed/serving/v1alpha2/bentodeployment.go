@@ -26,8 +26,8 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
 
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
-	scheme "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned/scheme"
+	v1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
+	scheme "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/scheme"
 )
 
 // BentoDeploymentsGetter has a method to return a BentoDeploymentInterface.

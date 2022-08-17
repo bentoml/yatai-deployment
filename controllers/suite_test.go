@@ -29,8 +29,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha1"
-	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
+	servingv1alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha1"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
 	//+kubebuilder:scaffold:imports
 )
 

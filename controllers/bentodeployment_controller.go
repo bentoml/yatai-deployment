@@ -70,10 +70,10 @@ import (
 
 	commonconfig "github.com/bentoml/yatai-common/config"
 
-	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
-	"github.com/bentoml/yatai-deployment-operator/services"
-	"github.com/bentoml/yatai-deployment-operator/version"
-	yataiclient "github.com/bentoml/yatai-deployment-operator/yatai-client"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
+	"github.com/bentoml/yatai-deployment/services"
+	"github.com/bentoml/yatai-deployment/version"
+	yataiclient "github.com/bentoml/yatai-deployment/yatai-client"
 )
 
 // BentoDeploymentReconciler reconciles a BentoDeployment object

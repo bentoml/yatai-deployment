@@ -32,9 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	servingv1alpha1 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha1"
-	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
-	"github.com/bentoml/yatai-deployment-operator/controllers"
+	servingv1alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha1"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
+	"github.com/bentoml/yatai-deployment/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -87,7 +87,7 @@ func main() {
 	if err = (&controllers.BentoDeploymentReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("yatai-deployment-operator"),
+		Recorder: mgr.GetEventRecorderFor("yatai-deployment"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BentoDeployment")
 		os.Exit(1)

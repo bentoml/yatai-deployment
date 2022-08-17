@@ -26,10 +26,10 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 
-	servingv1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
-	versioned "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned"
-	internalinterfaces "github.com/bentoml/yatai-deployment-operator/generated/serving/informers/externalversions/internalinterfaces"
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/generated/serving/listers/serving/v1alpha2"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
+	versioned "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned"
+	internalinterfaces "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/internalinterfaces"
+	v1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/listers/serving/v1alpha2"
 )
 
 // BentoDeploymentInformer provides access to a shared informer and lister for

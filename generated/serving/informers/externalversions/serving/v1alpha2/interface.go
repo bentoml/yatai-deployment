@@ -18,7 +18,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	internalinterfaces "github.com/bentoml/yatai-deployment-operator/generated/serving/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

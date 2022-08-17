@@ -28,7 +28,7 @@ jobs:
       - name: Release image
         env:
           VERSION: ${{ steps.tag.outputs.tag }}
-          IMG: quay.io/bentoml/yatai-deployment-operator:${{ steps.tag.outputs.tag }}
+          IMG: quay.io/bentoml/yatai-deployment:${{ steps.tag.outputs.tag }}
         run: make docker-build docker-push
 
   release-helm-charts:

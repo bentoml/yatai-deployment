@@ -21,7 +21,7 @@ import (
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned/typed/serving/v1alpha2"
+	v1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha2"
 )
 
 type FakeServingV1alpha2 struct {

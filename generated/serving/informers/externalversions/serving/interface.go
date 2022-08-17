@@ -18,8 +18,8 @@ limitations under the License.
 package serving
 
 import (
-	internalinterfaces "github.com/bentoml/yatai-deployment-operator/generated/serving/informers/externalversions/internalinterfaces"
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/generated/serving/informers/externalversions/serving/v1alpha2"
+	internalinterfaces "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/internalinterfaces"
+	v1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/serving/v1alpha2"
 )
 
 // Interface provides access to each of this group's versions.

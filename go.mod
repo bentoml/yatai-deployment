@@ -1,4 +1,4 @@
-module github.com/bentoml/yatai-deployment-operator
+module github.com/bentoml/yatai-deployment
 
 go 1.17
 

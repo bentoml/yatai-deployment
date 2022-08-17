@@ -22,8 +22,8 @@ import (
 
 	rest "k8s.io/client-go/rest"
 
-	v1alpha2 "github.com/bentoml/yatai-deployment-operator/apis/serving/v1alpha2"
-	"github.com/bentoml/yatai-deployment-operator/generated/serving/clientset/versioned/scheme"
+	v1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
+	"github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/scheme"
 )
 
 type ServingV1alpha2Interface interface {

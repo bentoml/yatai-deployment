@@ -2069,7 +2069,7 @@ func (r *BentoDeploymentReconciler) doRegisterYataiComponent() (err error) {
 		KubeNamespace: consts.KubeNamespaceYataiDeploymentComponent,
 		Version:       version.Version,
 		SelectorLabels: map[string]string{
-			"app": "yatai-deployment",
+			"app.kubernetes.io/name": "yatai-deployment",
 		},
 	})
 

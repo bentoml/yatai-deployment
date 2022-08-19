@@ -148,6 +148,16 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return bento_, err
 	}
 
+	organization, err := yataiClient.GetOrganization(ctx)
+	if err != nil {
+		return
+	}
+
+	cluster, err := yataiClient.GetCluster(ctx, clusterName)
+	if err != nil {
+		return
+	}
+
 	bento, err := getBento()
 	if err != nil {
 		return
@@ -189,9 +199,10 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			var modified_ bool
 			// create or update deployment
 			modified_, err = r.createOrUpdateDeployment(ctx, createOrUpdateDeploymentOption{
-				clusterName:     clusterName,
 				yataiClient:     yataiClient,
 				bentoDeployment: bentoDeployment,
+				organization:    organization,
+				cluster:         cluster,
 				bento:           bento,
 				dockerRegistry:  dockerRegistry,
 				majorCluster:    majorCluster,
@@ -234,9 +245,10 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// create or update api-server deployment
 	modified_, err := r.createOrUpdateDeployment(ctx, createOrUpdateDeploymentOption{
-		clusterName:     clusterName,
 		yataiClient:     yataiClient,
 		bentoDeployment: bentoDeployment,
+		organization:    organization,
+		cluster:         cluster,
 		bento:           bento,
 		dockerRegistry:  dockerRegistry,
 		majorCluster:    majorCluster,
@@ -276,7 +288,11 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// create or update api-server ingresses
-	modified_, err = r.createOrUpdateIngresses(ctx, bentoDeployment, bento)
+	modified_, err = r.createOrUpdateIngresses(ctx, createOrUpdateIngressOption{
+		organization:    organization,
+		bentoDeployment: bentoDeployment,
+		bento:           bento,
+	})
 	if err != nil {
 		return
 	}
@@ -454,27 +470,17 @@ func (r *BentoDeploymentReconciler) getDockerRegistry(ctx context.Context) (dock
 type createOrUpdateDeploymentOption struct {
 	yataiClient     *yataiclient.YataiClient
 	bentoDeployment *servingv1alpha2.BentoDeployment
+	organization    *schemasv1.OrganizationFullSchema
+	cluster         *schemasv1.ClusterFullSchema
 	bento           *schemasv1.BentoFullSchema
 	dockerRegistry  modelschemas.DockerRegistrySchema
 	majorCluster    *schemasv1.ClusterFullSchema
 	version         *schemasv1.VersionSchema
 	runnerName      *string
-	clusterName     string
 }
 
 func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context, opt createOrUpdateDeploymentOption) (modified bool, err error) {
 	logs := log.FromContext(ctx)
-
-	organization_, err := opt.yataiClient.GetOrganization(ctx)
-	if err != nil {
-		return
-	}
-
-	clusterName := opt.clusterName
-	cluster_, err := opt.yataiClient.GetCluster(ctx, clusterName)
-	if err != nil {
-		return
-	}
 
 	deployment, err := r.generateDeployment(ctx, generateDeploymentOption{
 		bentoDeployment: opt.bentoDeployment,
@@ -483,8 +489,8 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 		majorCluster:    opt.majorCluster,
 		version:         opt.version,
 		runnerName:      opt.runnerName,
-		organization:    organization_,
-		cluster:         cluster_,
+		organization:    opt.organization,
+		cluster:         opt.cluster,
 	})
 	if err != nil {
 		return
@@ -530,7 +536,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 				return
 			}
 			r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeNormal, "GetYataiDeployment", "Fetching yatai deployment %s", opt.bentoDeployment.Name)
-			_, err = opt.yataiClient.GetDeployment(ctx, clusterName, opt.bentoDeployment.Namespace, opt.bentoDeployment.Name)
+			_, err = opt.yataiClient.GetDeployment(ctx, opt.cluster.Name, opt.bentoDeployment.Namespace, opt.bentoDeployment.Name)
 			isNotFound := err != nil && strings.Contains(strings.ToLower(err.Error()), "not found")
 			if err != nil && !isNotFound {
 				r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "GetYataiDeployment", "Failed to fetch yatai deployment %s: %s", opt.bentoDeployment.Name, err)
@@ -539,7 +545,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 			err = nil
 			if !isNotFound {
 				r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "SyncYataiDeploymentStatus", "Syncing yatai deployment %s status: %s", opt.bentoDeployment.Name, err)
-				_, err = opt.yataiClient.SyncDeploymentStatus(ctx, clusterName, opt.bentoDeployment.Namespace, opt.bentoDeployment.Name)
+				_, err = opt.yataiClient.SyncDeploymentStatus(ctx, opt.cluster.Name, opt.bentoDeployment.Namespace, opt.bentoDeployment.Name)
 				if err != nil {
 					r.Recorder.Eventf(opt.bentoDeployment, corev1.EventTypeWarning, "SyncYataiDeploymentStatus", "Failed to sync yatai deployment %s status: %s", opt.bentoDeployment.Name, err)
 					return
@@ -724,10 +730,23 @@ func (r *BentoDeploymentReconciler) createOrUpdateService(ctx context.Context, o
 	return
 }
 
-func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema) (modified bool, err error) {
+type createOrUpdateIngressOption struct {
+	organization    *schemasv1.OrganizationFullSchema
+	bentoDeployment *servingv1alpha2.BentoDeployment
+	bento           *schemasv1.BentoFullSchema
+}
+
+func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context, opt createOrUpdateIngressOption) (modified bool, err error) {
 	logs := log.FromContext(ctx)
 
-	ingresses, err := r.generateIngresses(ctx, bentoDeployment, bento)
+	bentoDeployment := opt.bentoDeployment
+	bento := opt.bento
+
+	ingresses, err := r.generateIngresses(ctx, generateIngressesOption{
+		organization:    opt.organization,
+		bentoDeployment: bentoDeployment,
+		bento:           bento,
+	})
 	if err != nil {
 		return
 	}
@@ -1719,7 +1738,16 @@ func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context,
 	return fmt.Sprintf("%s-%s.%s", bentoDeployment.Name, bentoDeployment.Namespace, domainSuffix), nil
 }
 
-func (r *BentoDeploymentReconciler) generateIngresses(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema) (ingresses []*networkingv1.Ingress, err error) {
+type generateIngressesOption struct {
+	organization    *schemasv1.OrganizationFullSchema
+	bentoDeployment *servingv1alpha2.BentoDeployment
+	bento           *schemasv1.BentoFullSchema
+}
+
+func (r *BentoDeploymentReconciler) generateIngresses(ctx context.Context, opt generateIngressesOption) (ingresses []*networkingv1.Ingress, err error) {
+	bentoDeployment := opt.bentoDeployment
+	bento := opt.bento
+
 	kubeName := r.getKubeName(bentoDeployment, bento, nil)
 
 	r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GenerateIngressHost", "Generating hostname for ingress")
@@ -1736,8 +1764,9 @@ func (r *BentoDeploymentReconciler) generateIngresses(ctx context.Context, bento
 
 	annotations["nginx.ingress.kubernetes.io/configuration-snippet"] = fmt.Sprintf(`
 more_set_headers "X-Powered-By: Yatai";
+more_set_headers "X-Yatai-Org-Name: %s";
 more_set_headers "X-Yatai-Bento: %s";
-`, tag)
+`, opt.organization.Name, tag)
 
 	annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
 

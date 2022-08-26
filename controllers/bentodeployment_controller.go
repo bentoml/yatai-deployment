@@ -126,6 +126,14 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
+	defer func() {
+		if err == nil {
+			return
+		}
+		logs.Error(err, "Failed to reconcile BentoDeployment.")
+		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "ReconcileError", "Failed to reconcile BentoDeployment: %v", err)
+	}()
+
 	yataiClient, clusterName, err := getYataiClient(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "get yatai client")

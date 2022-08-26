@@ -862,7 +862,12 @@ func hash(text string) string {
 }
 
 func (r *BentoDeploymentReconciler) getRunnerServiceName(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName string) string {
-	return fmt.Sprintf("%s-runner-%s", bentoDeployment.Name, hash(fmt.Sprintf("%s:%s-%s", bento.Repository.Name, bento.Version, runnerName)))
+	hashStr := hash(fmt.Sprintf("%s:%s-%s", bento.Repository.Name, bento.Version, runnerName))
+	svcName := fmt.Sprintf("%s-runner-%s", bentoDeployment.Name, hashStr)
+	if len(svcName) > 63 {
+		svcName = fmt.Sprintf("runner-%s", hash(fmt.Sprintf("%s-%s:%s-%s", bentoDeployment.Name, bento.Repository.Name, bento.Version, runnerName)))
+	}
+	return svcName
 }
 
 func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) string {

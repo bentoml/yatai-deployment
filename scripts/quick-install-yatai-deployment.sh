@@ -6,37 +6,37 @@ DEVEL=${DEVEL:-false}
 
 # check if jq command exists
 if ! command -v jq >/dev/null 2>&1; then
-  echo "jq command not found. Please install jq."
+  echo "😱 jq command not found, please install it first!" >&2
   exit 1
 fi
 
 # check if kubectl command exists
 if ! command -v kubectl >/dev/null 2>&1; then
-  echo "😱 kubectl command is not found, please install it first!"
+  echo "😱 kubectl command is not found, please install it first!" >&2
   exit 1
 fi
 
 KUBE_VERSION=$(kubectl version --output=json | jq '.serverVersion.minor')
 if [ ${KUBE_VERSION} -lt 20 ]; then
-  echo "😱 install requires at least Kubernetes 1.20"
+  echo "😱 install requires at least Kubernetes 1.20" >&2
   exit 1
 fi
 
 # check if helm command exists
 if ! command -v helm >/dev/null 2>&1; then
-  echo "😱 helm command is not found, please install it first!"
+  echo "😱 helm command is not found, please install it first!" >&2
   exit 1
 fi
 
 INGRESS_CLASS=$(kubectl get ingressclass -o jsonpath='{.items[0].metadata.name}' 2> /dev/null || true)
 # check if ingress class is empty
 if [ -z "$INGRESS_CLASS" ]; then
-  echo "😱 ingress controller is not found, please install it first!"
+  echo "😱 ingress controller is not found, please install it first!" >&2
   exit 1
 fi
 
 if ! kubectl -n yatai-system wait --for=condition=ready --timeout=10s pod -l app.kubernetes.io/name=yatai; then
-  echo "😱 yatai is not ready, please wait for it to be ready!"
+  echo "😱 yatai is not ready, please wait for it to be ready!" >&2
   exit 1
 fi
 
@@ -88,7 +88,7 @@ kubectl apply -f /tmp/cert-manager-test-resources.yaml
 echo "🧪 verifying that the cert-manager is working properly"
 sleep 5
 if ! kubectl describe certificate -n cert-manager-test | grep "The certificate has been successfully issued"; then
-  echo "😱 self-signed certificate is not issued, please check cert-manager installation"
+  echo "😱 self-signed certificate is not issued, please check cert-manager installation!" >&2
   exit 1;
 fi
 kubectl delete -f /tmp/cert-manager-test-resources.yaml

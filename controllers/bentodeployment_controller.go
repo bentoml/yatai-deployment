@@ -1387,8 +1387,6 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		},
 	}
 
-	containers := make([]corev1.Container, 0, 1)
-
 	vs := make([]corev1.Volume, 0)
 	vms := make([]corev1.VolumeMount, 0)
 
@@ -1548,6 +1546,8 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	imageName := GetBentoImageName(opt.dockerRegistry, &opt.bento.BentoWithRepositorySchema, false)
 
+	containers := make([]corev1.Container, 0, 2)
+
 	container := corev1.Container{
 		Name:           kubeName,
 		Image:          imageName,
@@ -1570,6 +1570,74 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	}
 
 	containers = append(containers, container)
+
+	metricsPort := containerPort + 1
+
+	containers = append(containers, corev1.Container{
+		Name:  "metrics-transformer",
+		Image: "quay.io/bentoml/yatai-bento-metrics-transformer:0.0.2",
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("10Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("100m"),
+				corev1.ResourceMemory: resource.MustParse("100Mi"),
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			InitialDelaySeconds: 5,
+			TimeoutSeconds:      5,
+			FailureThreshold:    10,
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/healthz",
+					Port: intstr.FromString("metrics"),
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			InitialDelaySeconds: 5,
+			TimeoutSeconds:      5,
+			FailureThreshold:    10,
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/healthz",
+					Port: intstr.FromString("metrics"),
+				},
+			},
+		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "BENTOML_SERVER_HOST",
+				Value: "localhost",
+			},
+			{
+				Name:  "BENTOML_SERVER_PORT",
+				Value: fmt.Sprintf("%d", containerPort),
+			},
+			{
+				Name:  "PORT",
+				Value: fmt.Sprintf("%d", metricsPort),
+			},
+			{
+				Name:  "OLD_METRICS_PREFIX",
+				Value: fmt.Sprintf("BENTOML_%s_", opt.bento.Repository.Name),
+			},
+			{
+				Name:  "NEW_METRICS_PREFIX",
+				Value: "BENTOML_",
+			},
+		},
+		Ports: []corev1.ContainerPort{
+			{
+				Protocol:      corev1.ProtocolTCP,
+				Name:          "metrics",
+				ContainerPort: int32(metricsPort),
+			},
+		},
+	})
 
 	podLabels[consts.KubeLabelYataiSelector] = kubeName
 

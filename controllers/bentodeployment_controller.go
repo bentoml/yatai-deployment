@@ -534,7 +534,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 	} else {
 		logs.Info("Deployment found.", deploymentLogKeysAndValues...)
 
-		status := r.generateStatus(opt.bentoDeployment)
+		status := r.generateStatus(opt.bentoDeployment, opt.bento)
 
 		if !reflect.DeepEqual(status, opt.bentoDeployment.Status) {
 			opt.bentoDeployment.Status = status
@@ -846,8 +846,8 @@ func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context,
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alpha2.BentoDeployment) servingv1alpha2.BentoDeploymentStatus {
-	labels := r.getKubeLabels(bentoDeployment, nil)
+func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema) servingv1alpha2.BentoDeploymentStatus {
+	labels := r.getKubeLabels(bentoDeployment, bento, nil)
 	status := servingv1alpha2.BentoDeploymentStatus{
 		PodSelector: labels,
 	}
@@ -881,9 +881,11 @@ func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha2
 	return bentoDeployment.Name
 }
 
-func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alpha2.BentoDeployment, runnerName *string) map[string]string {
+func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) map[string]string {
 	labels := map[string]string{
 		consts.KubeLabelYataiBentoDeployment: bentoDeployment.Name,
+		consts.KubeLabelBentoRepository:      bento.Repository.Name,
+		consts.KubeLabelBentoVersion:         bento.Version,
 		consts.KubeLabelCreator:              "yatai-deployment",
 	}
 	if runnerName != nil {
@@ -932,7 +934,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 		return
 	}
 
-	labels := r.getKubeLabels(opt.bentoDeployment, opt.runnerName)
+	labels := r.getKubeLabels(opt.bentoDeployment, opt.bento, opt.runnerName)
 
 	annotations := r.getKubeAnnotations(opt.bento)
 
@@ -992,7 +994,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 }
 
 func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (hpa *autoscalingv2beta2.HorizontalPodAutoscaler, err error) {
-	labels := r.getKubeLabels(bentoDeployment, runnerName)
+	labels := r.getKubeLabels(bentoDeployment, bento, runnerName)
 
 	annotations := r.getKubeAnnotations(bento)
 
@@ -1276,7 +1278,7 @@ type generatePodTemplateSpecOption struct {
 }
 
 func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context, opt generatePodTemplateSpecOption) (podTemplateSpec *corev1.PodTemplateSpec, err error) {
-	podLabels := r.getKubeLabels(opt.bentoDeployment, opt.runnerName)
+	podLabels := r.getKubeLabels(opt.bentoDeployment, opt.bento, opt.runnerName)
 	if opt.runnerName != nil {
 		podLabels[consts.KubeLabelBentoRepository] = opt.bento.Repository.Name
 		podLabels[consts.KubeLabelBentoVersion] = opt.bento.Version
@@ -1671,7 +1673,7 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 		kubeName = r.getRunnerServiceName(bentoDeployment, bento, *runnerName)
 	}
 
-	labels := r.getKubeLabels(bentoDeployment, runnerName)
+	labels := r.getKubeLabels(bentoDeployment, bento, runnerName)
 
 	selector := make(map[string]string)
 
@@ -1765,7 +1767,7 @@ more_set_headers "X-Yatai-Bento: %s";
 
 	annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
 
-	labels := r.getKubeLabels(bentoDeployment, nil)
+	labels := r.getKubeLabels(bentoDeployment, bento, nil)
 
 	pathType := networkingv1.PathTypeImplementationSpecific
 

@@ -883,13 +883,14 @@ func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha2
 
 func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alpha2.BentoDeployment, runnerName *string) map[string]string {
 	labels := map[string]string{
-		consts.KubeLabelYataiDeployment: bentoDeployment.Name,
-		consts.KubeLabelCreator:         consts.KubeCreator,
+		consts.KubeLabelYataiBentoDeployment: bentoDeployment.Name,
+		consts.KubeLabelCreator:              "yatai-deployment",
 	}
 	if runnerName != nil {
-		labels[consts.KubeLabelYataiBentoRunner] = *runnerName
+		labels[consts.KubeLabelYataiBentoDeploymentRunner] = *runnerName
+		labels[consts.KubeLabelYataiBentoDeploymentComponent] = consts.YataiBentoDeploymentComponentRunner
 	} else {
-		labels[consts.KubeLabelYataiIsBentoApiServer] = "true"
+		labels[consts.KubeLabelYataiBentoDeploymentComponent] = consts.YataiBentoDeploymentComponentApiServer
 	}
 	return labels
 }
@@ -1309,6 +1310,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 				continue
 			}
 			if env.Key == consts.EnvBentoServicePort {
+				// nolint: gosec
 				containerPort, err = strconv.Atoi(env.Value)
 				if err != nil {
 					return nil, errors.Wrapf(err, "invalid port value %s", env.Value)
@@ -1366,7 +1368,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/livez",
-				Port: intstr.FromInt(containerPort),
+				Port: intstr.FromString(consts.BentoContainerPortName),
 			},
 		},
 	}
@@ -1378,7 +1380,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/readyz",
-				Port: intstr.FromInt(containerPort),
+				Port: intstr.FromString(consts.BentoContainerPortName),
 			},
 		},
 	}
@@ -1556,6 +1558,13 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		TTY:            true,
 		Stdin:          true,
 		VolumeMounts:   vms,
+		Ports: []corev1.ContainerPort{
+			{
+				Protocol:      corev1.ProtocolTCP,
+				Name:          consts.BentoContainerPortName,
+				ContainerPort: int32(containerPort),
+			},
+		},
 	}
 
 	containers = append(containers, container)
@@ -1662,33 +1671,6 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 		kubeName = r.getRunnerServiceName(bentoDeployment, bento, *runnerName)
 	}
 
-	targetPort := consts.BentoServicePort
-
-	var specEnvs *[]modelschemas.LabelItemSchema
-	if runnerName != nil {
-		for _, runner := range bentoDeployment.Spec.Runners {
-			if runner.Name == *runnerName {
-				specEnvs = runner.Envs
-				break
-			}
-		}
-	} else {
-		specEnvs = bentoDeployment.Spec.Envs
-	}
-
-	if specEnvs != nil {
-		for _, env := range *specEnvs {
-			if env.Key == consts.EnvBentoServicePort {
-				port_, err := strconv.Atoi(env.Value)
-				if err != nil {
-					return nil, errors.Wrapf(err, "convert port %s to int", env.Value)
-				}
-				targetPort = port_
-				break
-			}
-		}
-	}
-
 	labels := r.getKubeLabels(bentoDeployment, runnerName)
 
 	selector := make(map[string]string)
@@ -1706,9 +1688,9 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 		Selector: selector,
 		Ports: []corev1.ServicePort{
 			{
-				Name:       "http-default",
+				Name:       consts.BentoServicePortName,
 				Port:       consts.BentoServicePort,
-				TargetPort: intstr.FromInt(targetPort),
+				TargetPort: intstr.FromString(consts.BentoContainerPortName),
 				Protocol:   corev1.ProtocolTCP,
 			},
 		},
@@ -1834,7 +1816,7 @@ more_set_headers "X-Yatai-Bento: %s";
 										Service: &networkingv1.IngressServiceBackend{
 											Name: kubeName,
 											Port: networkingv1.ServiceBackendPort{
-												Number: consts.BentoServicePort,
+												Name: consts.BentoServicePortName,
 											},
 										},
 									},
@@ -1865,7 +1847,7 @@ func (r *BentoDeploymentReconciler) doCleanUpAbandonedRunnerServices() error {
 	for _, deploymentNamespace := range deploymentNamespaces {
 		serviceList := &corev1.ServiceList{}
 		serviceListOpts := []client.ListOption{
-			client.HasLabels{consts.KubeLabelYataiBentoRunner},
+			client.HasLabels{consts.KubeLabelYataiBentoDeploymentRunner},
 			client.InNamespace(deploymentNamespace),
 		}
 		err := r.List(ctx, serviceList, serviceListOpts...)

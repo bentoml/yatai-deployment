@@ -889,10 +889,10 @@ func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alph
 		consts.KubeLabelCreator:              "yatai-deployment",
 	}
 	if runnerName != nil {
-		labels[consts.KubeLabelYataiBentoDeploymentRunner] = *runnerName
-		labels[consts.KubeLabelYataiBentoDeploymentComponent] = consts.YataiBentoDeploymentComponentRunner
+		labels[consts.KubeLabelYataiBentoDeploymentComponentType] = consts.YataiBentoDeploymentComponentRunner
+		labels[consts.KubeLabelYataiBentoDeploymentComponentName] = *runnerName
 	} else {
-		labels[consts.KubeLabelYataiBentoDeploymentComponent] = consts.YataiBentoDeploymentComponentApiServer
+		labels[consts.KubeLabelYataiBentoDeploymentComponentType] = consts.YataiBentoDeploymentComponentApiServer
 	}
 	return labels
 }

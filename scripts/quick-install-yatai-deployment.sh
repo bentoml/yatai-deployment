@@ -70,19 +70,19 @@ deployment_namespace=yatai
 
 # check if namespace exists
 if ! kubectl get namespace "$namespace" >/dev/null 2>&1; then
-  echo "📥 creating namespace $namespace"
+  echo "🤖 creating namespace $namespace"
   kubectl create namespace "$namespace"
   echo "✅ namespace $namespace created"
 fi
 
 if ! kubectl get namespace "$builders_namespace" >/dev/null 2>&1; then
-  echo "📥 creating namespace $builders_namespace"
+  echo "🤖 creating namespace $builders_namespace"
   kubectl create namespace "$builders_namespace"
   echo "✅ namespace $builders_namespace created"
 fi
 
 if ! kubectl get namespace "$deployment_namespace" >/dev/null 2>&1; then
-  echo "📥 creating namespace $deployment_namespace"
+  echo "🤖 creating namespace $deployment_namespace"
   kubectl create namespace "$deployment_namespace"
   echo "✅ namespace $deployment_namespace created"
 fi

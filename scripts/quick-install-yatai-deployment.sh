@@ -64,12 +64,28 @@ if ! kubectl -n yatai-system wait --for=condition=ready --timeout=10s pod -l app
   exit 1
 fi
 
-# for yatai-deployment deployment
-kubectl create ns yatai-deployment
-# for bento image builder pods
-kubectl create ns yatai-builders
-# for bento deployment resources
-kubectl create ns yatai
+namespace=${namespace}
+builders_namespace=yatai-builders
+deployment_namespace=yatai
+
+# check if namespace exists
+if ! kubectl get namespace "$namespace" >/dev/null 2>&1; then
+  echo "📥 creating namespace $namespace"
+  kubectl create namespace "$namespace"
+  echo "✅ namespace $namespace created"
+fi
+
+if ! kubectl get namespace "$builders_namespace" >/dev/null 2>&1; then
+  echo "📥 creating namespace $builders_namespace"
+  kubectl create namespace "$builders_namespace"
+  echo "✅ namespace $builders_namespace created"
+fi
+
+if ! kubectl get namespace "$deployment_namespace" >/dev/null 2>&1; then
+  echo "📥 creating namespace $deployment_namespace"
+  kubectl create namespace "$deployment_namespace"
+  echo "✅ namespace $deployment_namespace created"
+fi
 
 if [ $(kubectl get pod -A -l app=cert-manager 2> /dev/null | wc -l) = 0 ]; then
   echo "🤖 installing cert-manager..."
@@ -132,10 +148,10 @@ echo "✅ metrics-server is ready"
 helm repo add twuni https://helm.twun.io
 helm repo update twuni
 echo "🤖 installing docker-registry..."
-helm install docker-registry twuni/docker-registry -n yatai-deployment
+helm upgrade --install docker-registry twuni/docker-registry -n ${namespace}
 
 echo "⏳ waiting for docker-registry to be ready..."
-kubectl -n yatai-deployment wait --for=condition=ready --timeout=600s pod -l app=docker-registry
+kubectl -n ${namespace} wait --for=condition=ready --timeout=600s pod -l app=docker-registry
 echo "✅ docker-registry is ready"
 
 echo "🤖 installing docker-private-registry-proxy..."
@@ -144,7 +160,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: docker-private-registry-proxy
-  namespace: yatai-deployment
+  namespace: ${namespace}
   labels:
     app: docker-private-registry-proxy
 spec:
@@ -161,7 +177,7 @@ spec:
       - args:
         - tcp
         - "5000"
-        - docker-registry.yatai-deployment.svc.cluster.local
+        - docker-registry.${namespace}.svc.cluster.local
         image: quay.io/bentoml/proxy-to-service:v2
         name: tcp-proxy
         ports:
@@ -176,11 +192,11 @@ spec:
 EOF
 
 echo "⏳ waiting for docker-private-registry-proxy to be ready..."
-kubectl -n yatai-deployment wait --for=condition=ready --timeout=600s pod -l app=docker-private-registry-proxy
+kubectl -n ${namespace} wait --for=condition=ready --timeout=600s pod -l app=docker-private-registry-proxy
 echo "✅ docker-private-registry-proxy is ready"
 
 DOCKER_REGISTRY_SERVER=127.0.0.1:5000
-DOCKER_REGISTRY_IN_CLUSTER_SERVER=docker-registry.yatai-deployment.svc.cluster.local:5000
+DOCKER_REGISTRY_IN_CLUSTER_SERVER=docker-registry.${namespace}.svc.cluster.local:5000
 DOCKER_REGISTRY_USERNAME=''
 DOCKER_REGISTRY_PASSWORD=''
 DOCKER_REGISTRY_SECURE=false
@@ -189,7 +205,7 @@ DOCKER_REGISTRY_BENTO_REPOSITORY_NAME=yatai-bentos
 helm repo add bentoml https://bentoml.github.io/charts
 helm repo update bentoml
 echo "🤖 installing yatai-deployment..."
-helm install yatai-deployment bentoml/yatai-deployment -n yatai-deployment \
+helm upgrade --install yatai-deployment bentoml/yatai-deployment -n ${namespace} \
     --set dockerRegistry.server=$DOCKER_REGISTRY_SERVER \
     --set dockerRegistry.inClusterServer=$DOCKER_REGISTRY_IN_CLUSTER_SERVER \
     --set dockerRegistry.username=$DOCKER_REGISTRY_USERNAME \
@@ -200,9 +216,9 @@ helm install yatai-deployment bentoml/yatai-deployment -n yatai-deployment \
     --devel=$DEVEL
 
 echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."
-kubectl -n yatai-deployment wait --for=condition=complete --timeout=600s job/yatai-deployment-default-domain
+kubectl -n ${namespace} wait --for=condition=complete --timeout=600s job/yatai-deployment-default-domain
 echo "✅ job yatai-deployment-default-domain is complete"
 
 echo "⏳ waiting for yatai-deployment to be ready..."
-kubectl -n yatai-deployment wait --for=condition=available --timeout=600s deploy/yatai-deployment
+kubectl -n ${namespace} wait --for=condition=available --timeout=600s deploy/yatai-deployment
 echo "✅ yatai-deployment is ready"

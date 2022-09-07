@@ -64,7 +64,7 @@ if ! kubectl -n yatai-system wait --for=condition=ready --timeout=10s pod -l app
   exit 1
 fi
 
-namespace=${namespace}
+namespace=yatai-deployment
 builders_namespace=yatai-builders
 deployment_namespace=yatai
 

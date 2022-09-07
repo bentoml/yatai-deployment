@@ -87,7 +87,10 @@ if ! kubectl get namespace ${deployment_namespace} >/dev/null 2>&1; then
   echo "✅ namespace ${deployment_namespace} created"
 fi
 
+new_cert_manager=0
+
 if [ $(kubectl get pod -A -l app=cert-manager 2> /dev/null | wc -l) = 0 ]; then
+  new_cert_manager=1
   echo "🤖 installing cert-manager..."
   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
 else
@@ -133,6 +136,12 @@ if ! kubectl describe certificate -n cert-manager-test | grep "The certificate h
 fi
 kubectl delete -f /tmp/cert-manager-test-resources.yaml
 echo "✅ cert-manager is working properly"
+
+if [ ${new_cert_manager} = 1 ]; then
+  echo "😴 sleep 10s to make cert-manager really work"
+  sleep 10
+  echo "✨ wake up"
+fi
 
 if [ $(kubectl get pod -A -l k8s-app=metrics-server 2> /dev/null | wc -l) = 0 ]; then
   echo "🤖 installing metrics-server..."

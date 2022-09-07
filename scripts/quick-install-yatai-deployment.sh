@@ -202,7 +202,8 @@ DOCKER_REGISTRY_PASSWORD=''
 DOCKER_REGISTRY_SECURE=false
 DOCKER_REGISTRY_BENTO_REPOSITORY_NAME=yatai-bentos
 
-helm repo add bentoml https://bentoml.github.io/charts
+helm repo remove bentoml 2> /dev/null || true
+helm repo add bentoml https://bentoml.github.io/helm-charts
 helm repo update bentoml
 echo "🤖 installing yatai-deployment..."
 helm upgrade --install yatai-deployment bentoml/yatai-deployment -n ${namespace} \

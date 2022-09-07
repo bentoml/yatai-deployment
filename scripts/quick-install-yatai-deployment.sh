@@ -69,22 +69,22 @@ builders_namespace=yatai-builders
 deployment_namespace=yatai
 
 # check if namespace exists
-if ! kubectl get namespace "$namespace" >/dev/null 2>&1; then
-  echo "🤖 creating namespace $namespace"
-  kubectl create namespace "$namespace"
-  echo "✅ namespace $namespace created"
+if ! kubectl get namespace ${namespace} >/dev/null 2>&1; then
+  echo "🤖 creating namespace ${namespace}"
+  kubectl create namespace ${namespace}
+  echo "✅ namespace ${namespace} created"
 fi
 
-if ! kubectl get namespace "$builders_namespace" >/dev/null 2>&1; then
-  echo "🤖 creating namespace $builders_namespace"
-  kubectl create namespace "$builders_namespace"
-  echo "✅ namespace $builders_namespace created"
+if ! kubectl get namespace ${builders_namespace} >/dev/null 2>&1; then
+  echo "🤖 creating namespace ${builders_namespace}"
+  kubectl create namespace ${builders_namespace}
+  echo "✅ namespace ${builders_namespace} created"
 fi
 
-if ! kubectl get namespace "$deployment_namespace" >/dev/null 2>&1; then
-  echo "🤖 creating namespace $deployment_namespace"
-  kubectl create namespace "$deployment_namespace"
-  echo "✅ namespace $deployment_namespace created"
+if ! kubectl get namespace ${deployment_namespace} >/dev/null 2>&1; then
+  echo "🤖 creating namespace ${deployment_namespace}"
+  kubectl create namespace ${deployment_namespace}
+  echo "✅ namespace ${deployment_namespace} created"
 fi
 
 if [ $(kubectl get pod -A -l app=cert-manager 2> /dev/null | wc -l) = 0 ]; then

@@ -3,6 +3,7 @@
 set -e
 
 DEVEL=${DEVEL:-false}
+DEVEL_HELM_REPO=${DEVEL_HELM_REPO:-false}
 
 # check if jq command exists
 if ! command -v jq &> /dev/null; then
@@ -212,11 +213,20 @@ DOCKER_REGISTRY_PASSWORD=''
 DOCKER_REGISTRY_SECURE=false
 DOCKER_REGISTRY_BENTO_REPOSITORY_NAME=yatai-bentos
 
-helm repo remove bentoml 2> /dev/null || true
-helm repo add bentoml https://bentoml.github.io/helm-charts
-helm repo update bentoml
+helm_repo_name=bentoml
+helm_repo_url=https://bentoml.github.io/helm-charts
+
+# check if DEVEL_HELM_REPO is true
+if [ "${DEVEL_HELM_REPO}" = "true" ]; then
+  helm_repo_name=bentoml-devel
+  helm_repo_url=https://bentoml.github.io/helm-charts-devel
+fi
+
+helm repo remove ${helm_repo_name} 2> /dev/null || true
+helm repo add ${helm_repo_name} ${helm_repo_url}
+helm repo update ${helm_repo_name}
 echo "🤖 installing yatai-deployment..."
-helm upgrade --install yatai-deployment bentoml/yatai-deployment -n ${namespace} \
+helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${namespace} \
     --set dockerRegistry.server=$DOCKER_REGISTRY_SERVER \
     --set dockerRegistry.inClusterServer=$DOCKER_REGISTRY_IN_CLUSTER_SERVER \
     --set dockerRegistry.username=$DOCKER_REGISTRY_USERNAME \

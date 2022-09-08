@@ -100,6 +100,13 @@ fi
 echo "⏳ waiting for cert-manager to be ready..."
 kubectl wait --for=condition=ready --timeout=600s pod -l app.kubernetes.io/instance=cert-manager -A
 echo "✅ cert-manager is ready"
+
+if [ ${new_cert_manager} = 1 ]; then
+  echo "😴 sleep 10s to make cert-manager really work 🤷"
+  sleep 10
+  echo "✨ wake up"
+fi
+
 cat <<EOF > /tmp/cert-manager-test-resources.yaml
 apiVersion: v1
 kind: Namespace
@@ -136,12 +143,6 @@ if ! kubectl describe certificate -n cert-manager-test | grep "The certificate h
 fi
 kubectl delete -f /tmp/cert-manager-test-resources.yaml
 echo "✅ cert-manager is working properly"
-
-if [ ${new_cert_manager} = 1 ]; then
-  echo "😴 sleep 10s to make cert-manager really work"
-  sleep 10
-  echo "✨ wake up"
-fi
 
 if [ $(kubectl get pod -A -l k8s-app=metrics-server 2> /dev/null | wc -l) = 0 ]; then
   echo "🤖 installing metrics-server..."

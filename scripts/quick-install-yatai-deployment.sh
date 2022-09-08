@@ -230,6 +230,8 @@ echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."
 kubectl -n ${namespace} wait --for=condition=complete --timeout=600s job/yatai-deployment-default-domain
 echo "✅ job yatai-deployment-default-domain is complete"
 
+kubectl -n ${namespace} rollout restart deploy/yatai-deployment
+
 echo "⏳ waiting for yatai-deployment to be ready..."
 kubectl -n ${namespace} wait --for=condition=available --timeout=600s deploy/yatai-deployment
 echo "✅ yatai-deployment is ready"

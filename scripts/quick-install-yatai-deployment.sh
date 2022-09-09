@@ -5,6 +5,11 @@ set -e
 DEVEL=${DEVEL:-false}
 DEVEL_HELM_REPO=${DEVEL_HELM_REPO:-false}
 
+is_minikube=false
+if kubectl config view --minify | grep 'minikube.sigs.k8s.io' > /dev/null; then
+  is_minikube=true
+fi
+
 # check if jq command exists
 if ! command -v jq &> /dev/null; then
   # download jq from github by different arch
@@ -51,6 +56,19 @@ fi
 if ! command -v helm >/dev/null 2>&1; then
   echo "😱 helm command is not found, please install it first!" >&2
   exit 1
+fi
+
+INGRESS_CLASS=$(kubectl get ingressclass -o jsonpath='{.items[0].metadata.name}' 2> /dev/null || true)
+# check if ingress class is empty
+if [ -z "$INGRESS_CLASS" ]; then
+  if [ "$is_minikube" != "true" ]; then
+    echo "😱 ingress controller is not found, please install it first!" >&2
+    exit 1
+  else
+    echo "🤖 installing ingress for minikube"
+    minikube addons enable ingress
+    echo "✅ ingress installed"
+  fi
 fi
 
 INGRESS_CLASS=$(kubectl get ingressclass -o jsonpath='{.items[0].metadata.name}' 2> /dev/null || true)
@@ -142,7 +160,11 @@ echo "✅ cert-manager is working properly"
 
 if [ $(kubectl get pod -A -l k8s-app=metrics-server 2> /dev/null | wc -l) = 0 ]; then
   echo "🤖 installing metrics-server..."
-  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  if [ "${is_minikube}" = "true" ]; then
+    minikube addons enable metrics-server
+  else
+    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  fi
 else
   echo "😀 metrics-server is already installed"
 fi

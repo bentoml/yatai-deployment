@@ -403,13 +403,15 @@ rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}
 				err = errors.Wrapf(err, "failed to delete pod %s", kubeName)
 				return
 			}
-			_, err = podsCli.Create(ctx, pod, metav1.CreateOptions{})
+			pod, err = podsCli.Create(ctx, pod, metav1.CreateOptions{})
 			isExists := apierrors.IsAlreadyExists(err)
 			if err != nil && !isExists {
 				err = errors.Wrapf(err, "failed to create pod %s", kubeName)
 				return
 			}
 			err = nil
+		} else {
+			pod = oldPod
 		}
 	}
 

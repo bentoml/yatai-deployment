@@ -93,11 +93,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+	if os.Getenv("DISABLE_WEBHOOKS") != "true" {
 		if err = (&servingv1alpha2.BentoDeployment{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "BentoDeployment")
 			os.Exit(1)
 		}
+	} else {
+		setupLog.Info("Webhooks are disabled")
 	}
 	//+kubebuilder:scaffold:builder
 

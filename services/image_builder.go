@@ -253,7 +253,7 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		var downloadCommandOutput bytes.Buffer
 		err = template.Must(template.New("script").Parse(`
 mkdir -p {{.ModelDirPath}} &&
-curl -H "X-YATAI-API-TOKEN: {{.ApiTokenPrefix}}:{{.ClusterName}}:$YATAI_API_TOKEN" "{{.Endpoint}}/api/v1/model_repositories/{{.ModelRepositoryName}}/models/{{.ModelVersion}}/download" --output /tmp/downloaded.tar &&
+curl --fail -H "X-YATAI-API-TOKEN: {{.ApiTokenPrefix}}:{{.ClusterName}}:$YATAI_API_TOKEN" "{{.Endpoint}}/api/v1/model_repositories/{{.ModelRepositoryName}}/models/{{.ModelVersion}}/download" --output /tmp/downloaded.tar &&
 cd {{.ModelDirPath}} &&
 tar -xvf /tmp/downloaded.tar &&
 echo -n '{{.ModelVersion}}' > {{.ModelRepositoryDirPath}}/latest &&

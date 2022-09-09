@@ -2195,13 +2195,32 @@ func GetDeploymentNamespaces() []string {
 	return deploymentNamespaces
 }
 
+const (
+	trueStr = "true"
+)
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	logs := log.Log.WithValues("func", "SetupWithManager")
 	version.Print()
 
-	go r.buildBentoImages()
-	go r.cleanUpAbandonedRunnerServices()
-	go r.registerYataiComponent()
+	if os.Getenv("DISABLE_AUTOMATE_BENTO_IMAGE_BUILDER") != trueStr {
+		go r.buildBentoImages()
+	} else {
+		logs.Info("auto image builder is disabled")
+	}
+
+	if os.Getenv("DISABLE_CLEANUP_ABANDONED_RUNNER_SERVICES") != trueStr {
+		go r.cleanUpAbandonedRunnerServices()
+	} else {
+		logs.Info("cleanup abandoned runner services is disabled")
+	}
+
+	if os.Getenv("DISABLE_YATAI_COMPONENT_REGISTRATION") != trueStr {
+		go r.registerYataiComponent()
+	} else {
+		logs.Info("yatai component registration is disabled")
+	}
 
 	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).

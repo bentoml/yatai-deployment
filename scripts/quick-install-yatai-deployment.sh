@@ -109,16 +109,11 @@ if [ ${new_cert_manager} = 1 ]; then
 fi
 
 cat <<EOF > /tmp/cert-manager-test-resources.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: cert-manager-test
----
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: test-selfsigned
-  namespace: cert-manager-test
+  namespace: ${namespace}
 spec:
   selfSigned: {}
 ---
@@ -126,7 +121,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: selfsigned-cert
-  namespace: cert-manager-test
+  namespace: ${namespace}
 spec:
   dnsNames:
     - example.com
@@ -138,7 +133,7 @@ EOF
 kubectl apply -f /tmp/cert-manager-test-resources.yaml
 echo "🧪 verifying that the cert-manager is working properly"
 sleep 5
-if ! kubectl describe certificate -n cert-manager-test | grep "The certificate has been successfully issued"; then
+if ! kubectl describe certificate -n ${namespace} | grep "The certificate has been successfully issued"; then
   echo "😱 self-signed certificate is not issued, please check cert-manager installation!" >&2
   exit 1;
 fi

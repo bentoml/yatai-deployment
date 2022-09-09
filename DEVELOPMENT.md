@@ -12,7 +12,7 @@ As you know, Kubernetes has a complex network environment, so developing cloud-n
 
     > NOTE: Since you are developing, **you must not use the production environment**, so we recommend using the quick install script to install yatai and yatai-deployment in the local minikube
 
-    A pre-installed yatai-deployment for development purposes is designed to provide an infrastructure that we can use directly
+    Using a development environment with pre-installed yatai-deployment, the goal is to quickly provide a set of out-of-the-box infrastructure dependencies
 
     You can start by reading this [installation document](https://docs.bentoml.org/projects/yatai/en/latest/installation/yatai_deployment.html) to install yatai-deployment. It is highly recommended to use the [quick install script](https://docs.bentoml.org/projects/yatai/en/latest/installation/yatai_deployment.html#quick-install) to install yatai-deployment
 

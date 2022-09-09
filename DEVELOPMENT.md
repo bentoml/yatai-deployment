@@ -10,7 +10,7 @@ As you know, Kubernetes has a complex network environment, so developing cloud-n
 
 - A yatai-deployment installed in the **development environment** for development and debugging
 
-    > NOTE: Since we are developing, **we must not use the production environment**, so we recommend using the quick install script to install yatai and yatai-deployment in the local minikube
+    > NOTE: Since you are developing, **you must not use the production environment**, so we recommend using the quick install script to install yatai and yatai-deployment in the local minikube
 
     A pre-installed yatai-deployment for development purposes is designed to provide an infrastructure that we can use directly
 
@@ -38,6 +38,7 @@ As you know, Kubernetes has a complex network environment, so developing cloud-n
 
 ## Start Developing
 
+<details>
 1. Fork the yatai-deployment project on [GitHub](https://github.com/bentoml/yatai-deployment)
 
 2. Clone the source code from your fork of yatai-deployment's GitHub repository:
@@ -57,9 +58,11 @@ As you know, Kubernetes has a complex network environment, so developing cloud-n
     ```bash
     go mod download
     ```
+</details>
 
 ## Making Changes
 
+<details>
 1. Make sure you're on the main branch.
 
    ```bash
@@ -103,6 +106,7 @@ As you know, Kubernetes has a complex network environment, so developing cloud-n
    ```bash
    git push origin your-new-branch-name
    ```
+</details>
 
 ## Run yatai-deployment
 
@@ -125,7 +129,7 @@ As you know, Kubernetes has a complex network environment, so developing cloud-n
     > NOTE: The following command uses the infrastructure of the Kubernetes environment in the current kubectl context and replaces the behavior of yatai-deployment in the current Kubernetes environment, so please proceed with caution
 
     ```bash
-    env $(kubectl -n yatai-deployment get secret env -o jsonpath='{.data}' | /tmp/yatai-jq 'to_entries|map("\(.key)=\(.value|@base64d)")|.[]' | xargs) SYSTEM_NAMESPACE=yatai-deployment DISABLE_WEBHOOKS=true make run
+    env $(kubectl -n yatai-deployment get secret env -o jsonpath='{.data}' | jq 'to_entries|map("\(.key)=\(.value|@base64d)")|.[]' | xargs) SYSTEM_NAMESPACE=yatai-deployment DISABLE_WEBHOOKS=true make run
     ```
 
 4. ✨ Enjoy it!

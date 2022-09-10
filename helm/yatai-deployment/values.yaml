@@ -107,4 +107,7 @@ dockerRegistry:
   secure: true
   bentoRepositoryName: yatai-bentos
 
+dockerImageBuilder:
+  privileged: false
+
 deploymentNamespaces: ['yatai']

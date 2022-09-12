@@ -10,6 +10,6 @@ roleRef:
   name: yatai
 subjects:
   - kind: ServiceAccount
-    name: yatai
-    namespace: yatai-system
+    name: {{ .Values.yataiServiceAccount.name }}
+    namespace: {{ .Values.yataiServiceAccount.namespace }}
 {{- end }}

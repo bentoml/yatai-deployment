@@ -103,8 +103,8 @@ github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLj
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/bentoml/yatai-common v0.0.0-20220913011805-6c642712fde7 h1:nDk2A4ItL1XYf8WZBgGqYtyisUacQ65sEsN36FA9zpI=
 github.com/bentoml/yatai-common v0.0.0-20220913011805-6c642712fde7/go.mod h1:pox0XYk/bVUwKkadn0XwWHEbJmxSEeN3+HwGA4a8uOQ=
-github.com/bentoml/yatai-schemas v0.0.0-20220816014402-e1efcc5a8e9f h1:xScXGQzJAtV5GWScjhCUc00VxfTCuqn8hOFEY2pgN6g=
-github.com/bentoml/yatai-schemas v0.0.0-20220816014402-e1efcc5a8e9f/go.mod h1:q7tt064G8YIiAwQabKyVaKEdSIHYDQA9Oyt+kyCsflU=
+github.com/bentoml/yatai-schemas v0.0.0-20220913104627-2548f50222e0 h1:ckm6HC/8YZeivasAkK6ZiA8Hcad7Yf9cSoT9OvmACps=
+github.com/bentoml/yatai-schemas v0.0.0-20220913104627-2548f50222e0/go.mod h1:q7tt064G8YIiAwQabKyVaKEdSIHYDQA9Oyt+kyCsflU=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=

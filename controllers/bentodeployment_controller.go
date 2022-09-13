@@ -70,7 +70,7 @@ import (
 
 	commonconfig "github.com/bentoml/yatai-common/config"
 
-	servingv1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
+	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
 	"github.com/bentoml/yatai-deployment/services"
 	"github.com/bentoml/yatai-deployment/version"
 	yataiclient "github.com/bentoml/yatai-deployment/yatai-client"
@@ -111,7 +111,7 @@ type BentoDeploymentReconciler struct {
 func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	logs := log.FromContext(ctx)
 
-	bentoDeployment := &servingv1alpha2.BentoDeployment{}
+	bentoDeployment := &servingv1alpha3.BentoDeployment{}
 	err = r.Get(ctx, req.NamespacedName, bentoDeployment)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -477,7 +477,7 @@ func (r *BentoDeploymentReconciler) getDockerRegistry(ctx context.Context) (dock
 
 type createOrUpdateDeploymentOption struct {
 	yataiClient     *yataiclient.YataiClient
-	bentoDeployment *servingv1alpha2.BentoDeployment
+	bentoDeployment *servingv1alpha3.BentoDeployment
 	organization    *schemasv1.OrganizationFullSchema
 	cluster         *schemasv1.ClusterFullSchema
 	bento           *schemasv1.BentoFullSchema
@@ -592,7 +592,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 	return
 }
 
-func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (modified bool, err error) {
+func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (modified bool, err error) {
 	logs := log.FromContext(ctx)
 
 	hpa, err := r.generateHPA(bentoDeployment, bento, runnerName)
@@ -662,7 +662,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 }
 
 type createOrUpdateServiceOption struct {
-	bentoDeployment *servingv1alpha2.BentoDeployment
+	bentoDeployment *servingv1alpha3.BentoDeployment
 	bento           *schemasv1.BentoFullSchema
 	runnerName      *string
 }
@@ -740,7 +740,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateService(ctx context.Context, o
 
 type createOrUpdateIngressOption struct {
 	organization    *schemasv1.OrganizationFullSchema
-	bentoDeployment *servingv1alpha2.BentoDeployment
+	bentoDeployment *servingv1alpha3.BentoDeployment
 	bento           *schemasv1.BentoFullSchema
 }
 
@@ -846,9 +846,9 @@ func (r *BentoDeploymentReconciler) createOrUpdateIngresses(ctx context.Context,
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema) servingv1alpha2.BentoDeploymentStatus {
+func (r *BentoDeploymentReconciler) generateStatus(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema) servingv1alpha3.BentoDeploymentStatus {
 	labels := r.getKubeLabels(bentoDeployment, bento, nil)
-	status := servingv1alpha2.BentoDeploymentStatus{
+	status := servingv1alpha3.BentoDeploymentStatus{
 		PodSelector: labels,
 	}
 	return status
@@ -861,7 +861,7 @@ func hash(text string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func (r *BentoDeploymentReconciler) getRunnerServiceName(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName string) string {
+func (r *BentoDeploymentReconciler) getRunnerServiceName(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName string) string {
 	hashStr := hash(fmt.Sprintf("%s:%s-%s", bento.Repository.Name, bento.Version, runnerName))
 	svcName := fmt.Sprintf("%s-runner-%s", bentoDeployment.Name, hashStr)
 	if len(svcName) > 63 {
@@ -870,7 +870,7 @@ func (r *BentoDeploymentReconciler) getRunnerServiceName(bentoDeployment *servin
 	return svcName
 }
 
-func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) string {
+func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) string {
 	if runnerName != nil && bento.Manifest != nil {
 		for idx, runner := range bento.Manifest.Runners {
 			if runner.Name == *runnerName {
@@ -881,7 +881,7 @@ func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha2
 	return bentoDeployment.Name
 }
 
-func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) map[string]string {
+func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) map[string]string {
 	labels := map[string]string{
 		consts.KubeLabelYataiBentoDeployment: bentoDeployment.Name,
 		consts.KubeLabelBentoRepository:      bento.Repository.Name,
@@ -906,7 +906,7 @@ func (r *BentoDeploymentReconciler) getKubeAnnotations(bento *schemasv1.BentoFul
 }
 
 type generateDeploymentOption struct {
-	bentoDeployment *servingv1alpha2.BentoDeployment
+	bentoDeployment *servingv1alpha3.BentoDeployment
 	bento           *schemasv1.BentoFullSchema
 	dockerRegistry  modelschemas.DockerRegistrySchema
 	majorCluster    *schemasv1.ClusterFullSchema
@@ -993,7 +993,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (hpa *autoscalingv2beta2.HorizontalPodAutoscaler, err error) {
+func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (hpa *autoscalingv2beta2.HorizontalPodAutoscaler, err error) {
 	labels := r.getKubeLabels(bentoDeployment, bento, runnerName)
 
 	annotations := r.getKubeAnnotations(bento)
@@ -1267,7 +1267,7 @@ func (r *BentoDeploymentReconciler) waitImageBuilderPodComplete(ctx context.Cont
 }
 
 type generatePodTemplateSpecOption struct {
-	bentoDeployment *servingv1alpha2.BentoDeployment
+	bentoDeployment *servingv1alpha3.BentoDeployment
 	bento           *schemasv1.BentoFullSchema
 	dockerRegistry  modelschemas.DockerRegistrySchema
 	majorCluster    *schemasv1.ClusterFullSchema
@@ -1535,13 +1535,21 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 	}
 
-	var resources corev1.ResourceRequirements
-	if opt.bentoDeployment.Spec.Resources != nil {
-		resources, err = getResourcesConfig(opt.bentoDeployment.Spec.Resources)
-		if err != nil {
-			err = errors.Wrap(err, "failed to get resources config")
-			return
+	yataiResources := opt.bentoDeployment.Spec.Resources
+	if opt.runnerName != nil {
+		for _, runner := range opt.bentoDeployment.Spec.Runners {
+			if runner.Name != *opt.runnerName {
+				continue
+			}
+			yataiResources = runner.Resources
+			break
 		}
+	}
+
+	resources, err := getResourcesConfig(yataiResources)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get resources config")
+		return nil, err
 	}
 
 	imageName := GetBentoImageName(opt.dockerRegistry, &opt.bento.BentoWithRepositorySchema, false)
@@ -1675,67 +1683,88 @@ func getResourcesConfig(resources *modelschemas.DeploymentTargetResources) (core
 		},
 	}
 
-	resourceConf := resources
-	if resourceConf != nil {
-		if resourceConf.Limits != nil {
-			if resourceConf.Limits.CPU != "" {
-				q, err := resource.ParseQuantity(resourceConf.Limits.CPU)
-				if err != nil {
-					return currentResources, errors.Wrapf(err, "parse limits cpu quantity")
-				}
-				if currentResources.Limits == nil {
-					currentResources.Limits = make(corev1.ResourceList)
-				}
-				currentResources.Limits[corev1.ResourceCPU] = q
+	if resources == nil {
+		return currentResources, nil
+	}
+
+	if resources.Limits != nil {
+		if resources.Limits.CPU != "" {
+			q, err := resource.ParseQuantity(resources.Limits.CPU)
+			if err != nil {
+				return currentResources, errors.Wrapf(err, "parse limits cpu quantity")
 			}
-			if resourceConf.Limits.Memory != "" {
-				q, err := resource.ParseQuantity(resourceConf.Limits.Memory)
-				if err != nil {
-					return currentResources, errors.Wrapf(err, "parse limits memory quantity")
-				}
-				if currentResources.Limits == nil {
-					currentResources.Limits = make(corev1.ResourceList)
-				}
-				currentResources.Limits[corev1.ResourceMemory] = q
+			if currentResources.Limits == nil {
+				currentResources.Limits = make(corev1.ResourceList)
 			}
-			if resourceConf.Limits.GPU != "" {
-				q, err := resource.ParseQuantity(resourceConf.Limits.GPU)
-				if err != nil {
-					return currentResources, errors.Wrapf(err, "parse limits gpu quantity")
-				}
-				if currentResources.Limits == nil {
-					currentResources.Limits = make(corev1.ResourceList)
-				}
-				currentResources.Limits[consts.KubeResourceGPUNvidia] = q
-			}
+			currentResources.Limits[corev1.ResourceCPU] = q
 		}
-		if resourceConf.Requests != nil {
-			if resourceConf.Requests.CPU != "" {
-				q, err := resource.ParseQuantity(resourceConf.Requests.CPU)
-				if err != nil {
-					return currentResources, errors.Wrapf(err, "parse requests cpu quantity")
-				}
-				if currentResources.Requests == nil {
-					currentResources.Requests = make(corev1.ResourceList)
-				}
-				currentResources.Requests[corev1.ResourceCPU] = q
+		if resources.Limits.Memory != "" {
+			q, err := resource.ParseQuantity(resources.Limits.Memory)
+			if err != nil {
+				return currentResources, errors.Wrapf(err, "parse limits memory quantity")
 			}
-			if resourceConf.Requests.Memory != "" {
-				q, err := resource.ParseQuantity(resourceConf.Requests.Memory)
-				if err != nil {
-					return currentResources, errors.Wrapf(err, "parse requests memory quantity")
-				}
-				if currentResources.Requests == nil {
-					currentResources.Requests = make(corev1.ResourceList)
-				}
-				currentResources.Requests[corev1.ResourceMemory] = q
+			if currentResources.Limits == nil {
+				currentResources.Limits = make(corev1.ResourceList)
 			}
+			currentResources.Limits[corev1.ResourceMemory] = q
+		}
+		if resources.Limits.GPU != "" {
+			q, err := resource.ParseQuantity(resources.Limits.GPU)
+			if err != nil {
+				return currentResources, errors.Wrapf(err, "parse limits gpu quantity")
+			}
+			if currentResources.Limits == nil {
+				currentResources.Limits = make(corev1.ResourceList)
+			}
+			currentResources.Limits[consts.KubeResourceGPUNvidia] = q
+		}
+		for k, v := range resources.Limits.Custom {
+			q, err := resource.ParseQuantity(v)
+			if err != nil {
+				return currentResources, errors.Wrapf(err, "parse limits %s quantity", k)
+			}
+			if currentResources.Limits == nil {
+				currentResources.Limits = make(corev1.ResourceList)
+			}
+			currentResources.Limits[corev1.ResourceName(k)] = q
+		}
+	}
+	if resources.Requests != nil {
+		if resources.Requests.CPU != "" {
+			q, err := resource.ParseQuantity(resources.Requests.CPU)
+			if err != nil {
+				return currentResources, errors.Wrapf(err, "parse requests cpu quantity")
+			}
+			if currentResources.Requests == nil {
+				currentResources.Requests = make(corev1.ResourceList)
+			}
+			currentResources.Requests[corev1.ResourceCPU] = q
+		}
+		if resources.Requests.Memory != "" {
+			q, err := resource.ParseQuantity(resources.Requests.Memory)
+			if err != nil {
+				return currentResources, errors.Wrapf(err, "parse requests memory quantity")
+			}
+			if currentResources.Requests == nil {
+				currentResources.Requests = make(corev1.ResourceList)
+			}
+			currentResources.Requests[corev1.ResourceMemory] = q
+		}
+		for k, v := range resources.Requests.Custom {
+			q, err := resource.ParseQuantity(v)
+			if err != nil {
+				return currentResources, errors.Wrapf(err, "parse requests %s quantity", k)
+			}
+			if currentResources.Requests == nil {
+				currentResources.Requests = make(corev1.ResourceList)
+			}
+			currentResources.Requests[corev1.ResourceName(k)] = q
 		}
 	}
 	return currentResources, nil
 }
 
-func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1alpha2.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (kubeService *corev1.Service, err error) {
+func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (kubeService *corev1.Service, err error) {
 	kubeName := r.getKubeName(bentoDeployment, bento, runnerName)
 	if runnerName != nil {
 		kubeName = r.getRunnerServiceName(bentoDeployment, bento, *runnerName)
@@ -1785,11 +1814,11 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateIngressHost(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment) (string, error) {
+func (r *BentoDeploymentReconciler) generateIngressHost(ctx context.Context, bentoDeployment *servingv1alpha3.BentoDeployment) (string, error) {
 	return r.generateDefaultHostname(ctx, bentoDeployment)
 }
 
-func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context, bentoDeployment *servingv1alpha2.BentoDeployment) (string, error) {
+func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context, bentoDeployment *servingv1alpha3.BentoDeployment) (string, error) {
 	restConfig := config.GetConfigOrDie()
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
@@ -1805,7 +1834,7 @@ func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context,
 
 type generateIngressesOption struct {
 	organization    *schemasv1.OrganizationFullSchema
-	bentoDeployment *servingv1alpha2.BentoDeployment
+	bentoDeployment *servingv1alpha3.BentoDeployment
 	bento           *schemasv1.BentoFullSchema
 }
 
@@ -1864,6 +1893,24 @@ more_set_headers "X-Yatai-Bento: %s";
 		annotations[k] = v
 	}
 
+	for k, v := range opt.bentoDeployment.Spec.Ingress.Annotations {
+		annotations[k] = v
+	}
+
+	for k, v := range opt.bentoDeployment.Spec.Ingress.Labels {
+		labels[k] = v
+	}
+
+	var tls []networkingv1.IngressTLS
+
+	if opt.bentoDeployment.Spec.Ingress.TLS != nil && opt.bentoDeployment.Spec.Ingress.TLS.SecretName != "" {
+		tls = make([]networkingv1.IngressTLS, 0, 1)
+		tls = append(tls, networkingv1.IngressTLS{
+			Hosts:      []string{internalHost},
+			SecretName: opt.bentoDeployment.Spec.Ingress.TLS.SecretName,
+		})
+	}
+
 	interIng := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,
@@ -1873,6 +1920,7 @@ more_set_headers "X-Yatai-Bento: %s";
 		},
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: ingressClassName,
+			TLS:              tls,
 			Rules: []networkingv1.IngressRule{
 				{
 					Host: internalHost,
@@ -2224,7 +2272,7 @@ func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&servingv1alpha2.BentoDeployment{}).
+		For(&servingv1alpha3.BentoDeployment{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&autoscalingv2beta2.HorizontalPodAutoscaler{}).
 		Owns(&corev1.Service{}).

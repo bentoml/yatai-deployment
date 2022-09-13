@@ -15,7 +15,7 @@ APIS_PKG=apis
 OUTPUT_PKG=generated/serving
 # group-version such as foo:v1alpha1
 GROUP=serving
-VERSION=v1alpha2
+VERSION=v1alpha3
 GROUP_VERSION=${GROUP}:${VERSION}
 
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..

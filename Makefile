@@ -131,7 +131,7 @@ controller-gen: ## Download controller-gen locally if necessary.
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
@@ -214,4 +214,10 @@ update-codegen:
 build-curl-image:
 	docker build -t quay.io/bentoml/curl:0.0.1 -f Dockerfile-curl .
 	docker push quay.io/bentoml/curl:0.0.1
+
+start-dev:
+	./scripts/start-dev.sh
+
+stop-dev:
+	kubectl -n yatai-deployment patch deploy/yatai-deployment -p '{"spec":{"replicas":1}}'
 

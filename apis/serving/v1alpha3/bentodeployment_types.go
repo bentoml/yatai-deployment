@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha3
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/bentoml/yatai-schemas/modelschemas"
@@ -25,6 +26,13 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type ExtraPodSpec struct {
+	SchedulerName string              `json:"schedulerName,omitempty"`
+	NodeSelector  map[string]string   `json:"nodeSelector,omitempty"`
+	Affinity      *corev1.Affinity    `json:"affinity,omitempty"`
+	Tolerations   []corev1.Toleration `json:"tolerations,omitempty"`
+}
+
 type BentoDeploymentRunnerSpec struct {
 	Name        string                                  `json:"name,omitempty"`
 	Annotations map[string]string                       `json:"annotations,omitempty"`
@@ -32,6 +40,8 @@ type BentoDeploymentRunnerSpec struct {
 	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
 	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
 	Envs        *[]modelschemas.LabelItemSchema         `json:"envs,omitempty"`
+
+	ExtraPodSpec *ExtraPodSpec `json:"extraPodSpec,omitempty"`
 }
 
 type BentoDeploymentIngressTLSSpec struct {
@@ -59,6 +69,8 @@ type BentoDeploymentSpec struct {
 	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
 
 	Ingress BentoDeploymentIngressSpec `json:"ingress,omitempty"`
+
+	ExtraPodSpec *ExtraPodSpec `json:"extraPodSpec,omitempty"`
 }
 
 // BentoDeploymentStatus defines the observed state of BentoDeployment

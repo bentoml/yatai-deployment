@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // Package v1alpha3 contains API Schema definitions for the serving v1alpha3 API group
-//+kubebuilder:object:generate=true
-//+groupName=serving.yatai.ai
+// +kubebuilder:object:generate=true
+// +groupName=serving.yatai.ai
 package v1alpha3
 
 import (

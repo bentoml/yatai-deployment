@@ -34,7 +34,7 @@ type imageBuilderService struct{}
 var ImageBuilderService = &imageBuilderService{}
 
 func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clientset, namespace string, dockerRegistry modelschemas.DockerRegistrySchema) (dockerConfigSecret *corev1.Secret, err error) {
-	dockerConfigCMKubeName := "docker-config"
+	dockerConfigSecretName := "docker-config"
 	dockerConfigObj := struct {
 		Auths map[string]struct {
 			Auth string `json:"auth"`
@@ -58,7 +58,7 @@ func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clients
 
 	secretsCli := kubeCli.CoreV1().Secrets(namespace)
 
-	dockerConfigSecret, err = secretsCli.Get(ctx, dockerConfigCMKubeName, metav1.GetOptions{})
+	dockerConfigSecret, err = secretsCli.Get(ctx, dockerConfigSecretName, metav1.GetOptions{})
 	dockerConfigIsNotFound := apierrors.IsNotFound(err)
 	// nolint: gocritic
 	if err != nil && !dockerConfigIsNotFound {
@@ -67,14 +67,14 @@ func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clients
 	err = nil
 	if dockerConfigIsNotFound {
 		dockerConfigSecret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: dockerConfigCMKubeName},
+			ObjectMeta: metav1.ObjectMeta{Name: dockerConfigSecretName},
 			StringData: map[string]string{
 				"config.json": string(dockerConfigContent),
 			},
 		}
 		_, err_ := secretsCli.Create(ctx, dockerConfigSecret, metav1.CreateOptions{})
 		if err_ != nil {
-			dockerConfigSecret, err = secretsCli.Get(ctx, dockerConfigCMKubeName, metav1.GetOptions{})
+			dockerConfigSecret, err = secretsCli.Get(ctx, dockerConfigSecretName, metav1.GetOptions{})
 			dockerConfigIsNotFound = apierrors.IsNotFound(err)
 			if err != nil && !dockerConfigIsNotFound {
 				return nil, err

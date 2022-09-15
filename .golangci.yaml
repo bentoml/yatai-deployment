@@ -46,16 +46,14 @@ linters:
     - bugs
     - unused
   disable:
-    - unused
     - scopelint
+    - logrlint
   enable:
     - bodyclose
-    - deadcode
-    - varcheck
     - ineffassign
     - exportloopref
     - sqlclosecheck
-    - structcheck
+    - unused
     - typecheck
     - gofmt
     - unconvert

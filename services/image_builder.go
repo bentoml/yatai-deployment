@@ -34,6 +34,7 @@ type imageBuilderService struct{}
 var ImageBuilderService = &imageBuilderService{}
 
 func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clientset, namespace string, dockerRegistry modelschemas.DockerRegistrySchema) (dockerConfigSecret *corev1.Secret, err error) {
+	// nolint: gosec
 	dockerConfigSecretName := "docker-config"
 	dockerConfigObj := struct {
 		Auths map[string]struct {

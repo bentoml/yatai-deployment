@@ -1572,7 +1572,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 			{
 				Protocol:      corev1.ProtocolTCP,
 				Name:          consts.BentoContainerPortName,
-				ContainerPort: int32(containerPort),
+				ContainerPort: int32(containerPort), // nolint: gosec
 			},
 		},
 	}

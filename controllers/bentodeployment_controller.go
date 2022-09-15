@@ -1649,23 +1649,44 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	podLabels[consts.KubeLabelYataiSelector] = kubeName
 
+	podSpec := corev1.PodSpec{
+		Containers: containers,
+		Volumes:    vs,
+	}
+
+	if opt.dockerRegistry.Username != "" {
+		podSpec.ImagePullSecrets = []corev1.LocalObjectReference{
+			{
+				Name: consts.KubeSecretNameRegcred,
+			},
+		}
+	}
+
+	extraPodSpec := opt.bentoDeployment.Spec.ExtraPodSpec
+
+	if opt.runnerName != nil {
+		for _, runner := range opt.bentoDeployment.Spec.Runners {
+			if runner.Name != *opt.runnerName {
+				continue
+			}
+			extraPodSpec = runner.ExtraPodSpec
+			break
+		}
+	}
+
+	if extraPodSpec != nil {
+		podSpec.SchedulerName = extraPodSpec.SchedulerName
+		podSpec.NodeSelector = extraPodSpec.NodeSelector
+		podSpec.Affinity = extraPodSpec.Affinity
+		podSpec.Tolerations = extraPodSpec.Tolerations
+	}
+
 	podTemplateSpec = &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      podLabels,
 			Annotations: annotations,
 		},
-		Spec: corev1.PodSpec{
-			Containers: containers,
-			Volumes:    vs,
-		},
-	}
-
-	if opt.dockerRegistry.Username != "" {
-		podTemplateSpec.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
-			{
-				Name: consts.KubeSecretNameRegcred,
-			},
-		}
+		Spec: podSpec,
 	}
 
 	return

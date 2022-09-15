@@ -46,9 +46,9 @@ linters:
     - bugs
     - unused
   disable:
-    - scopelint
     - logrlint
   enable:
+    - scopelint
     - bodyclose
     - ineffassign
     - exportloopref

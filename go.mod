@@ -15,10 +15,10 @@ require (
 	github.com/prune998/docker-registry-client v0.0.0-20200114164314-f8cd511a014c
 	github.com/sirupsen/logrus v1.8.1
 	go.uber.org/multierr v1.8.0
-	k8s.io/api v0.24.0-beta.0
-	k8s.io/apimachinery v0.24.0-beta.0
-	k8s.io/client-go v0.24.0-beta.0
-	k8s.io/code-generator v0.24.0-alpha.4
+	k8s.io/api v0.24.3
+	k8s.io/apimachinery v0.24.3
+	k8s.io/client-go v0.24.3
+	k8s.io/code-generator v0.24.3
 	sigs.k8s.io/controller-runtime v0.11.2
 )
 

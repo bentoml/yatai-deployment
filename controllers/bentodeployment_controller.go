@@ -1690,6 +1690,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		podSpec.NodeSelector = extraPodSpec.NodeSelector
 		podSpec.Affinity = extraPodSpec.Affinity
 		podSpec.Tolerations = extraPodSpec.Tolerations
+		podSpec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
 	}
 
 	podTemplateSpec = &corev1.PodTemplateSpec{

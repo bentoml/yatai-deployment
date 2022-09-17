@@ -27,10 +27,11 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 type ExtraPodSpec struct {
-	SchedulerName string              `json:"schedulerName,omitempty"`
-	NodeSelector  map[string]string   `json:"nodeSelector,omitempty"`
-	Affinity      *corev1.Affinity    `json:"affinity,omitempty"`
-	Tolerations   []corev1.Toleration `json:"tolerations,omitempty"`
+	SchedulerName             string                            `json:"schedulerName,omitempty"`
+	NodeSelector              map[string]string                 `json:"nodeSelector,omitempty"`
+	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
+	Tolerations               []corev1.Toleration               `json:"tolerations,omitempty"`
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
 type BentoDeploymentRunnerSpec struct {

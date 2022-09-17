@@ -905,13 +905,39 @@ func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alph
 	} else {
 		labels[consts.KubeLabelYataiBentoDeploymentComponentType] = consts.YataiBentoDeploymentComponentApiServer
 	}
+	extraLabels := bentoDeployment.Spec.Labels
+	if runnerName != nil {
+		for _, runner := range bentoDeployment.Spec.Runners {
+			if runner.Name != *runnerName {
+				continue
+			}
+			extraLabels = runner.Labels
+			break
+		}
+	}
+	for k, v := range extraLabels {
+		labels[k] = v
+	}
 	return labels
 }
 
-func (r *BentoDeploymentReconciler) getKubeAnnotations(bento *schemasv1.BentoFullSchema) map[string]string {
+func (r *BentoDeploymentReconciler) getKubeAnnotations(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) map[string]string {
 	annotations := map[string]string{
 		consts.KubeAnnotationBentoRepository: bento.Repository.Name,
 		consts.KubeAnnotationBentoVersion:    bento.Version,
+	}
+	extraAnnotations := bentoDeployment.Spec.Annotations
+	if runnerName != nil {
+		for _, runner := range bentoDeployment.Spec.Runners {
+			if runner.Name != *runnerName {
+				continue
+			}
+			extraAnnotations = runner.Annotations
+			break
+		}
+	}
+	for k, v := range extraAnnotations {
+		annotations[k] = v
 	}
 	return annotations
 }
@@ -947,7 +973,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 
 	labels := r.getKubeLabels(opt.bentoDeployment, opt.bento, opt.runnerName)
 
-	annotations := r.getKubeAnnotations(opt.bento)
+	annotations := r.getKubeAnnotations(opt.bentoDeployment, opt.bento, opt.runnerName)
 
 	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName)
 
@@ -1007,7 +1033,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (hpa *autoscalingv2beta2.HorizontalPodAutoscaler, err error) {
 	labels := r.getKubeLabels(bentoDeployment, bento, runnerName)
 
-	annotations := r.getKubeAnnotations(bento)
+	annotations := r.getKubeAnnotations(bentoDeployment, bento, runnerName)
 
 	kubeName := r.getKubeName(bentoDeployment, bento, runnerName)
 
@@ -1295,7 +1321,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		podLabels[consts.KubeLabelBentoVersion] = opt.bento.Version
 	}
 
-	annotations := r.getKubeAnnotations(opt.bento)
+	podAnnotations := r.getKubeAnnotations(opt.bentoDeployment, opt.bento, opt.runnerName)
 
 	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName)
 
@@ -1691,12 +1717,20 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		podSpec.Affinity = extraPodSpec.Affinity
 		podSpec.Tolerations = extraPodSpec.Tolerations
 		podSpec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
+
+		for k, v := range extraPodSpec.Annotations {
+			podAnnotations[k] = v
+		}
+
+		for k, v := range extraPodSpec.Labels {
+			podLabels[k] = v
+		}
 	}
 
 	podTemplateSpec = &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      podLabels,
-			Annotations: annotations,
+			Annotations: podAnnotations,
 		},
 		Spec: podSpec,
 	}
@@ -1828,7 +1862,7 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 		},
 	}
 
-	annotations := r.getKubeAnnotations(bento)
+	annotations := r.getKubeAnnotations(bentoDeployment, bento, runnerName)
 
 	kubeNs := bentoDeployment.Namespace
 
@@ -1885,7 +1919,7 @@ func (r *BentoDeploymentReconciler) generateIngresses(ctx context.Context, opt g
 	}
 	r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GenerateIngressHost", "Generated hostname for ingress: %s", internalHost)
 
-	annotations := r.getKubeAnnotations(bento)
+	annotations := r.getKubeAnnotations(bentoDeployment, bento, nil)
 
 	tag := fmt.Sprintf("%s:%s", bento.Repository.Name, bento.Version)
 

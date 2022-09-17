@@ -991,6 +991,10 @@ spec:
           spec:
             description: BentoDeploymentSpec defines the desired state of BentoDeployment
             properties:
+              annotations:
+                additionalProperties:
+                  type: string
+                type: object
               autoscaling:
                 properties:
                   cpu:
@@ -1884,6 +1888,14 @@ spec:
                             type: array
                         type: object
                     type: object
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -2120,6 +2132,10 @@ spec:
                       secretName:
                         type: string
                     type: object
+                type: object
+              labels:
+                additionalProperties:
+                  type: string
                 type: object
               resources:
                 properties:
@@ -3106,6 +3122,14 @@ spec:
                                     type: object
                                   type: array
                               type: object
+                          type: object
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
                           type: object
                         nodeSelector:
                           additionalProperties:

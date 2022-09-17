@@ -27,6 +27,8 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 type ExtraPodSpec struct {
+	Annotations               map[string]string                 `json:"annotations,omitempty"`
+	Labels                    map[string]string                 `json:"labels,omitempty"`
 	SchedulerName             string                            `json:"schedulerName,omitempty"`
 	NodeSelector              map[string]string                 `json:"nodeSelector,omitempty"`
 	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
@@ -60,6 +62,9 @@ type BentoDeploymentIngressSpec struct {
 type BentoDeploymentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
 
 	BentoTag string `json:"bento_tag"`
 

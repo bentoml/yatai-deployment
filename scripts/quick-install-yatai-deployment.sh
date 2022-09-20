@@ -82,10 +82,12 @@ if [ -z "$INGRESS_CLASS" ]; then
   exit 1
 fi
 
+echo "🧪 verifying that the yatai is running"
 if ! kubectl -n yatai-system wait --for=condition=ready --timeout=10s pod -l app.kubernetes.io/name=yatai; then
   echo "😱 yatai is not ready, please wait for it to be ready!" >&2
   exit 1
 fi
+echo "✅ yatai is ready"
 
 namespace=yatai-deployment
 builders_namespace=yatai-builders
@@ -155,7 +157,7 @@ EOF
 kubectl apply -f /tmp/cert-manager-test-resources.yaml
 echo "🧪 verifying that the cert-manager is working properly"
 sleep 5
-if ! kubectl describe certificate -n ${namespace} | grep "The certificate has been successfully issued"; then
+if ! kubectl -n ${namespace} wait --for=condition=ready --timeout=30s certificate selfsigned-cert; then
   echo "😱 self-signed certificate is not issued, please check cert-manager installation!" >&2
   exit 1;
 fi
@@ -243,6 +245,12 @@ if [ "${DEVEL_HELM_REPO}" = "true" ]; then
   helm_repo_url=https://bentoml.github.io/helm-charts-devel
 fi
 
+echo "🤖 installing yatai-deployment CRDs..."
+kubectl apply -f https://raw.githubusercontent.com/bentoml/yatai-deployment/main/helm/yatai-deployment/crds/bentodeployment.yaml
+echo "⏳ waiting for yatai-deployment CRDs to be established..."
+kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
+echo "✅ yatai-deployment CRDs are established"
+
 helm repo remove ${helm_repo_name} 2> /dev/null || true
 helm repo add ${helm_repo_name} ${helm_repo_url}
 helm repo update ${helm_repo_name}
@@ -255,6 +263,7 @@ helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${
     --set dockerRegistry.secure=$DOCKER_REGISTRY_SECURE \
     --set dockerRegistry.bentoRepositoryName=$DOCKER_REGISTRY_BENTO_REPOSITORY_NAME \
     --set layers.network.ingressClass=$INGRESS_CLASS \
+    --skip-crds \
     --devel=$DEVEL
 
 echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."

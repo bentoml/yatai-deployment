@@ -114,4 +114,4 @@ dockerRegistry:
 dockerImageBuilder:
   privileged: false
 
-deploymentNamespaces: ['yatai']
+bentoDeploymentNamespaces: ['yatai']

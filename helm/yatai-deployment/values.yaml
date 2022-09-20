@@ -96,6 +96,8 @@ layers:
     #   Then set `yatai.example.com` as domainSuffix field here. If you don't set it, Yatai will automatically generate a domain suffix for your bento deployment.
     domainSuffix: ''
 
+    automaticDomainSuffixGeneration: true
+
 yatai:
   endpoint: http://yatai.yatai-system.svc.cluster.local
   apiToken: ''

@@ -12,30 +12,34 @@ fi
 
 # check if jq command exists
 if ! command -v jq &> /dev/null; then
+  arch=$(uname -m)
   # download jq from github by different arch
-  case "$(uname -m)" in
-    x86_64)
-      JQ_ARCH=jq-linux64
-      ;;
-    aarch64)
-      JQ_ARCH=jq-linux64
-      ;;
-    armv7l)
-      JQ_ARCH=jq-linux32
-      ;;
-    Darwin)
-      JQ_ARCH=jq-osx-amd64
-      ;;
-    *)
-      echo "Unsupported architecture $(uname -m)"
-      exit 1
-      ;;
-  esac
+  if [[ $arch == "x86_64" && $OSTYPE == 'darwin'* ]]; then
+    jq_archived_name="gojq_v0.12.9_darwin_amd64"
+  elif [[ $arch == "arm64" && $OSTYPE == 'darwin'* ]]; then
+    jq_archived_name="gojq_v0.12.9_darwin_arm64"
+  elif [[ $arch == "x86_64" && $OSTYPE == 'linux'* ]]; then
+    jq_archived_name="gojq_v0.12.9_linux_amd64"
+  elif [[ $arch == "aarch64" && $OSTYPE == 'linux'* ]]; then
+    jq_archived_name="gojq_v0.12.9_linux_arm64"
+  else
+    echo "jq command not found, please install it first"
+    exit 1
+  fi
   echo "📥 downloading jq from github"
-  curl -sL -o /tmp/yatai-jq "https://github.com/stedolan/jq/releases/download/jq-1.6/${JQ_ARCH}"
-  echo "✅ downloaded jq to /tmp/yatai-jq"
-  chmod +x /tmp/yatai-jq
-  jq=/tmp/yatai-jq
+  if [[ $OSTYPE == 'darwin'* ]]; then
+    curl -sL -o /tmp/yatai-jq.zip "https://github.com/itchyny/gojq/releases/download/v0.12.9/${jq_archived_name}.zip"
+    echo "✅ downloaded jq to /tmp/yatai-jq.zip"
+    echo "📦 extracting yatai-jq.zip"
+    unzip -q /tmp/yatai-jq.zip -d /tmp
+  else
+    curl -sL -o /tmp/yatai-jq.tar.gz "https://github.com/itchyny/gojq/releases/download/v0.12.9/${jq_archived_name}.tar.gz"
+    echo "✅ downloaded jq to /tmp/yatai-jq.tar.gz"
+    echo "📦 extracting yatai-jq.tar.gz"
+    tar zxf /tmp/yatai-jq.tar.gz -C /tmp
+  fi
+  echo "✅ extracted jq to /tmp/${jq_archived_name}"
+  jq="/tmp/${jq_archived_name}/gojq"
 else
   jq=$(which jq)
 fi
@@ -78,10 +82,12 @@ if [ -z "$INGRESS_CLASS" ]; then
   exit 1
 fi
 
+echo "🧪 verifying that the yatai is running"
 if ! kubectl -n yatai-system wait --for=condition=ready --timeout=10s pod -l app.kubernetes.io/name=yatai; then
   echo "😱 yatai is not ready, please wait for it to be ready!" >&2
   exit 1
 fi
+echo "✅ yatai is ready"
 
 namespace=yatai-deployment
 builders_namespace=yatai-builders
@@ -151,7 +157,7 @@ EOF
 kubectl apply -f /tmp/cert-manager-test-resources.yaml
 echo "🧪 verifying that the cert-manager is working properly"
 sleep 5
-if ! kubectl describe certificate -n ${namespace} | grep "The certificate has been successfully issued"; then
+if ! kubectl -n ${namespace} wait --for=condition=ready --timeout=30s certificate selfsigned-cert; then
   echo "😱 self-signed certificate is not issued, please check cert-manager installation!" >&2
   exit 1;
 fi
@@ -239,6 +245,12 @@ if [ "${DEVEL_HELM_REPO}" = "true" ]; then
   helm_repo_url=https://bentoml.github.io/helm-charts-devel
 fi
 
+echo "🤖 installing yatai-deployment CRDs..."
+kubectl apply -f https://raw.githubusercontent.com/bentoml/yatai-deployment/main/helm/yatai-deployment/crds/bentodeployment.yaml
+echo "⏳ waiting for yatai-deployment CRDs to be established..."
+kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
+echo "✅ yatai-deployment CRDs are established"
+
 helm repo remove ${helm_repo_name} 2> /dev/null || true
 helm repo add ${helm_repo_name} ${helm_repo_url}
 helm repo update ${helm_repo_name}
@@ -251,6 +263,7 @@ helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${
     --set dockerRegistry.secure=$DOCKER_REGISTRY_SECURE \
     --set dockerRegistry.bentoRepositoryName=$DOCKER_REGISTRY_BENTO_REPOSITORY_NAME \
     --set layers.network.ingressClass=$INGRESS_CLASS \
+    --skip-crds \
     --devel=$DEVEL
 
 echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."

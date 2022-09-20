@@ -1,4 +1,4 @@
-{{- if not .Values.layers.network.domainSuffix }}
+{{- if and .Values.layers.network.automaticDomainSuffixGeneration (not .Values.layers.network.domainSuffix) }}
 apiVersion: batch/v1
 kind: Job
 metadata:

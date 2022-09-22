@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	goversion "github.com/hashicorp/go-version"
+	pep440version "github.com/aquasecurity/go-pep440-version"
 	"github.com/prune998/docker-registry-client/registry"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
@@ -1481,14 +1481,14 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	isOldVersion := false
 	if opt.bento.Manifest != nil && opt.bento.Manifest.BentomlVersion != "" {
-		var currentVersion *goversion.Version
-		currentVersion, err = goversion.NewVersion(opt.bento.Manifest.BentomlVersion)
+		var currentVersion pep440version.Version
+		currentVersion, err = pep440version.Parse(opt.bento.Manifest.BentomlVersion)
 		if err != nil {
 			err = errors.Wrapf(err, "invalid bentoml version %s", opt.bento.Manifest.BentomlVersion)
 			return
 		}
-		var targetVersion *goversion.Version
-		targetVersion, err = goversion.NewVersion("1.0.0a7")
+		var targetVersion pep440version.Version
+		targetVersion, err = pep440version.Parse("1.0.0a7")
 		if err != nil {
 			err = errors.Wrapf(err, "invalid target version %s", opt.bento.Manifest.BentomlVersion)
 			return

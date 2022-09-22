@@ -220,10 +220,45 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		}
 	}
 
-	downloadCommand := fmt.Sprintf("mkdir -p /workspace/buildcontext && curl -H \"X-YATAI-API-TOKEN: %s:%s:$YATAI_API_TOKEN\" '%s/api/v1/bento_repositories/%s/bentos/%s/download' --output /tmp/downloaded.tar && cd /workspace/buildcontext && tar -xvf /tmp/downloaded.tar && rm /tmp/downloaded.tar", consts.YataiApiTokenPrefixYataiDeploymentOperator, opt.ClusterName, yataiConfig.Endpoint, opt.Bento.Repository.Name, opt.Bento.Version)
-	if !privileged {
-		downloadCommand += " && chown -R 1000:1000 /workspace"
+	downloadCommandTemplate, err := template.New("downloadCommand").Parse(`
+set -e
+
+mkdir -p /workspace/buildcontext
+url="{{.YataiEndpoint}}/api/v1/bento_repositories/{{.Bento.Repository.Name}}/bentos/{{.Bento.Version}}/download"
+echo "Downloading bento {{.Bento.Repository.Name}}:{{.Bento.Version}} tar file from ${url} to /tmp/downloaded.tar..."
+curl --fail -H "X-YATAI-API-TOKEN: {{.ApiTokenPrefix}}:{{.ClusterName}}:$YATAI_API_TOKEN" ${url} --output /tmp/downloaded.tar --progress-bar
+cd /workspace/buildcontext
+echo "Extracting bento tar file..."
+tar -xvf /tmp/downloaded.tar
+echo "Removing bento tar file..."
+rm /tmp/downloaded.tar
+{{if not .Privileged}}
+echo "Changing directory permission..."
+chown -R 1000:1000 /workspace
+{{end}}
+echo "Done"
+	`)
+
+	if err != nil {
+		err = errors.Wrap(err, "failed to parse download command template")
+		return
 	}
+
+	var downloadCommandBuffer bytes.Buffer
+
+	err = downloadCommandTemplate.Execute(&downloadCommandBuffer, map[string]interface{}{
+		"ApiTokenPrefix": consts.YataiApiTokenPrefixYataiDeploymentOperator,
+		"ClusterName":    opt.ClusterName,
+		"YataiEndpoint":  yataiConfig.Endpoint,
+		"Bento":          opt.Bento,
+		"Privileged":     privileged,
+	})
+	if err != nil {
+		err = errors.Wrap(err, "failed to execute download command template")
+		return
+	}
+
+	downloadCommand := downloadCommandBuffer.String()
 
 	initContainers := []corev1.Container{
 		{
@@ -253,28 +288,38 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		modelDirPath := filepath.Join(modelRepositoryDirPath, modelVersion)
 		var downloadCommandOutput bytes.Buffer
 		err = template.Must(template.New("script").Parse(`
-mkdir -p {{.ModelDirPath}} &&
-curl --fail -H "X-YATAI-API-TOKEN: {{.ApiTokenPrefix}}:{{.ClusterName}}:$YATAI_API_TOKEN" "{{.Endpoint}}/api/v1/model_repositories/{{.ModelRepositoryName}}/models/{{.ModelVersion}}/download" --output /tmp/downloaded.tar &&
-cd {{.ModelDirPath}} &&
-tar -xvf /tmp/downloaded.tar &&
-echo -n '{{.ModelVersion}}' > {{.ModelRepositoryDirPath}}/latest &&
-rm /tmp/downloaded.tar`)).Execute(&downloadCommandOutput, map[string]interface{}{
+set -e
+
+mkdir -p {{.ModelDirPath}}
+url="{{.YataiEndpoint}}/api/v1/model_repositories/{{.ModelRepositoryName}}/models/{{.ModelVersion}}/download"
+echo "Downloading model {{.ModelRepositoryName}}:{{.ModelVersion}} tar file from ${url} to /tmp/downloaded.tar..."
+curl --fail -H "X-YATAI-API-TOKEN: {{.ApiTokenPrefix}}:{{.ClusterName}}:$YATAI_API_TOKEN" ${url} --output /tmp/downloaded.tar --progress-bar
+cd {{.ModelDirPath}}
+echo "Extracting model tar file..."
+tar -xvf /tmp/downloaded.tar
+echo -n '{{.ModelVersion}}' > {{.ModelRepositoryDirPath}}/latest
+echo "Removing model tar file..."
+rm /tmp/downloaded.tar
+{{if not .Privileged}}
+echo "Changing directory permission..."
+chown -R 1000:1000 /workspace
+{{end}}
+echo "Done"
+`)).Execute(&downloadCommandOutput, map[string]interface{}{
 			"ModelDirPath":           modelDirPath,
 			"ApiTokenPrefix":         consts.YataiApiTokenPrefixYataiDeploymentOperator,
 			"ClusterName":            opt.ClusterName,
 			"ModelRepositoryDirPath": modelRepositoryDirPath,
 			"ModelRepositoryName":    modelRepositoryName,
 			"ModelVersion":           modelVersion,
-			"Endpoint":               yataiConfig.Endpoint,
+			"YataiEndpoint":          yataiConfig.Endpoint,
+			"Privileged":             privileged,
 		})
 		if err != nil {
 			err = errors.Wrap(err, "failed to generate download command")
 			return
 		}
 		downloadCommand := downloadCommandOutput.String()
-		if !privileged {
-			downloadCommand += " && chown -R 1000:1000 /workspace"
-		}
 		initContainers = append(initContainers, corev1.Container{
 			Name:  fmt.Sprintf("model-downloader-%d", idx),
 			Image: "quay.io/bentoml/curl:0.0.1",

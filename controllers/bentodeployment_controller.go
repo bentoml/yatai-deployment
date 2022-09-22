@@ -988,24 +988,6 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 		},
 	}
 
-	replicas := utils.Int32Ptr(2)
-	var autoscaling *modelschemas.DeploymentTargetHPAConf
-
-	if opt.runnerName != nil {
-		for _, runner := range opt.bentoDeployment.Spec.Runners {
-			if runner.Name == *opt.runnerName {
-				autoscaling = runner.Autoscaling
-				break
-			}
-		}
-	} else {
-		autoscaling = opt.bentoDeployment.Spec.Autoscaling
-	}
-
-	if autoscaling != nil {
-		replicas = autoscaling.MinReplicas
-	}
-
 	kubeDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,
@@ -1014,7 +996,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 			Annotations: annotations,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: replicas,
+			Replicas: nil,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					consts.KubeLabelYataiSelector: kubeName,

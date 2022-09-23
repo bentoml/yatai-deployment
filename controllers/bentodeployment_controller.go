@@ -1681,6 +1681,28 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 	}
 
+	extraPodMetadata := opt.bentoDeployment.Spec.ExtraPodMetadata
+
+	if opt.runnerName != nil {
+		for _, runner := range opt.bentoDeployment.Spec.Runners {
+			if runner.Name != *opt.runnerName {
+				continue
+			}
+			extraPodMetadata = runner.ExtraPodMetadata
+			break
+		}
+	}
+
+	if extraPodMetadata != nil {
+		for k, v := range extraPodMetadata.Annotations {
+			podAnnotations[k] = v
+		}
+
+		for k, v := range extraPodMetadata.Labels {
+			podLabels[k] = v
+		}
+	}
+
 	extraPodSpec := opt.bentoDeployment.Spec.ExtraPodSpec
 
 	if opt.runnerName != nil {
@@ -1699,14 +1721,6 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		podSpec.Affinity = extraPodSpec.Affinity
 		podSpec.Tolerations = extraPodSpec.Tolerations
 		podSpec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
-
-		for k, v := range extraPodSpec.Annotations {
-			podAnnotations[k] = v
-		}
-
-		for k, v := range extraPodSpec.Labels {
-			podLabels[k] = v
-		}
 	}
 
 	podTemplateSpec = &corev1.PodTemplateSpec{

@@ -26,9 +26,12 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type ExtraPodMetadata struct {
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+}
+
 type ExtraPodSpec struct {
-	Annotations               map[string]string                 `json:"annotations,omitempty"`
-	Labels                    map[string]string                 `json:"labels,omitempty"`
 	SchedulerName             string                            `json:"schedulerName,omitempty"`
 	NodeSelector              map[string]string                 `json:"nodeSelector,omitempty"`
 	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
@@ -44,7 +47,10 @@ type BentoDeploymentRunnerSpec struct {
 	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
 	Envs        *[]modelschemas.LabelItemSchema         `json:"envs,omitempty"`
 
-	ExtraPodSpec *ExtraPodSpec `json:"extraPodSpec,omitempty"`
+	// +optional
+	ExtraPodMetadata *ExtraPodMetadata `json:"extra_pod_metadata,omitempty"`
+	// +optional
+	ExtraPodSpec *ExtraPodSpec `json:"extra_pod_spec,omitempty"`
 }
 
 type BentoDeploymentIngressTLSSpec struct {
@@ -76,7 +82,10 @@ type BentoDeploymentSpec struct {
 
 	Ingress BentoDeploymentIngressSpec `json:"ingress,omitempty"`
 
-	ExtraPodSpec *ExtraPodSpec `json:"extraPodSpec,omitempty"`
+	// +optional
+	ExtraPodMetadata *ExtraPodMetadata `json:"extra_pod_metadata,omitempty"`
+	// +optional
+	ExtraPodSpec *ExtraPodSpec `json:"extra_pod_spec,omitempty"`
 }
 
 // BentoDeploymentStatus defines the observed state of BentoDeployment

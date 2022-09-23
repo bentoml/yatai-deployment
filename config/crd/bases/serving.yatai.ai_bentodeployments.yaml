@@ -1018,7 +1018,18 @@ spec:
                   - value
                   type: object
                 type: array
-              extraPodSpec:
+              extra_pod_metadata:
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
+              extra_pod_spec:
                 properties:
                   affinity:
                     description: Affinity is a group of affinity scheduling rules.
@@ -1877,14 +1888,6 @@ spec:
                             type: array
                         type: object
                     type: object
-                  annotations:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  labels:
-                    additionalProperties:
-                      type: string
-                    type: object
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -2194,7 +2197,18 @@ spec:
                         - value
                         type: object
                       type: array
-                    extraPodSpec:
+                    extra_pod_metadata:
+                      properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
+                          type: object
+                      type: object
+                    extra_pod_spec:
                       properties:
                         affinity:
                           description: Affinity is a group of affinity scheduling
@@ -3111,14 +3125,6 @@ spec:
                                     type: object
                                   type: array
                               type: object
-                          type: object
-                        annotations:
-                          additionalProperties:
-                            type: string
-                          type: object
-                        labels:
-                          additionalProperties:
-                            type: string
                           type: object
                         nodeSelector:
                           additionalProperties:

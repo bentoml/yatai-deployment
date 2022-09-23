@@ -431,13 +431,38 @@ echo "Done"
 		return
 	}
 
+	var extraPodMetadata *servingv1alpha3.ExtraPodMetadata
 	var extraPodSpec *servingv1alpha3.ExtraPodSpec
+
 	if !configCmIsNotFound {
+		extraPodMetadata = &servingv1alpha3.ExtraPodMetadata{}
+
+		if val, ok := configCm.Data["extra_pod_metadata"]; ok {
+			err = json.Unmarshal([]byte(val), extraPodMetadata)
+			if err != nil {
+				err = errors.Wrapf(err, "failed to unmarshal extra_pod_metadata, please check the configmap %s in namespace %s", configCmName, kubeNamespace)
+				return
+			}
+		}
+
 		extraPodSpec = &servingv1alpha3.ExtraPodSpec{}
-		err = json.Unmarshal([]byte(configCm.Data["extraPodSpec"]), extraPodSpec)
-		if err != nil {
-			err = errors.Wrapf(err, "failed to unmarshal extraPodSpec for image-builder, please check the configmap %s in namespace %s", configCmName, kubeNamespace)
-			return
+
+		if val, ok := configCm.Data["extra_pod_spec"]; ok {
+			err = json.Unmarshal([]byte(val), extraPodSpec)
+			if err != nil {
+				err = errors.Wrapf(err, "failed to unmarshal extra_pod_spec, please check the configmap %s in namespace %s", configCmName, kubeNamespace)
+				return
+			}
+		}
+	}
+
+	if extraPodMetadata != nil {
+		for k, v := range extraPodMetadata.Annotations {
+			pod.Annotations[k] = v
+		}
+
+		for k, v := range extraPodMetadata.Labels {
+			pod.Labels[k] = v
 		}
 	}
 
@@ -447,14 +472,6 @@ echo "Done"
 		pod.Spec.Affinity = extraPodSpec.Affinity
 		pod.Spec.Tolerations = extraPodSpec.Tolerations
 		pod.Spec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
-
-		for k, v := range extraPodSpec.Annotations {
-			pod.Annotations[k] = v
-		}
-
-		for k, v := range extraPodSpec.Labels {
-			pod.Labels[k] = v
-		}
 	}
 
 	oldPod, err := podsCli.Get(ctx, kubeName, metav1.GetOptions{})

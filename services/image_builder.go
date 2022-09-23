@@ -27,6 +27,8 @@ import (
 	"github.com/bentoml/yatai-common/utils"
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
+
+	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
 )
 
 type imageBuilderService struct{}
@@ -420,6 +422,39 @@ echo "Done"
 				},
 			},
 		},
+	}
+
+	configCmName := "yatai-image-builder-config"
+	configCm, err := kubeCli.CoreV1().ConfigMaps(kubeNamespace).Get(ctx, configCmName, metav1.GetOptions{})
+	configCmIsNotFound := apierrors.IsNotFound(err)
+	if err != nil && !configCmIsNotFound {
+		return
+	}
+
+	var extraPodSpec *servingv1alpha3.ExtraPodSpec
+	if !configCmIsNotFound {
+		extraPodSpec = &servingv1alpha3.ExtraPodSpec{}
+		err = json.Unmarshal([]byte(configCm.Data["extraPodSpec"]), extraPodSpec)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to unmarshal extraPodSpec for image-builder, please check the configmap %s in namespace %s", configCmName, kubeNamespace)
+			return
+		}
+	}
+
+	if extraPodSpec != nil {
+		pod.Spec.SchedulerName = extraPodSpec.SchedulerName
+		pod.Spec.NodeSelector = extraPodSpec.NodeSelector
+		pod.Spec.Affinity = extraPodSpec.Affinity
+		pod.Spec.Tolerations = extraPodSpec.Tolerations
+		pod.Spec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
+
+		for k, v := range extraPodSpec.Annotations {
+			pod.Annotations[k] = v
+		}
+
+		for k, v := range extraPodSpec.Labels {
+			pod.Labels[k] = v
+		}
 	}
 
 	oldPod, err := podsCli.Get(ctx, kubeName, metav1.GetOptions{})

@@ -245,26 +245,30 @@ if [ "${DEVEL_HELM_REPO}" = "true" ]; then
   helm_repo_url=https://bentoml.github.io/helm-charts-devel
 fi
 
-# echo "🤖 installing yatai-deployment CRDs..."
-# kubectl apply -f https://raw.githubusercontent.com/bentoml/yatai-deployment/main/helm/yatai-deployment/crds/bentodeployment.yaml
-# echo "⏳ waiting for yatai-deployment CRDs to be established..."
-# kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
-# echo "✅ yatai-deployment CRDs are established"
+SKIP_CRDS=${SKIP_CRDS:-false}
+
+if [ "${SKIP_CRDS}" = "true" ]; then
+  echo "🤖 installing yatai-deployment CRDs..."
+  kubectl apply -f https://raw.githubusercontent.com/bentoml/yatai-deployment/main/helm/yatai-deployment/crds/bentodeployment.yaml
+  echo "⏳ waiting for yatai-deployment CRDs to be established..."
+  kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
+  echo "✅ yatai-deployment CRDs are established"
+fi
 
 helm repo remove ${helm_repo_name} 2> /dev/null || true
 helm repo add ${helm_repo_name} ${helm_repo_url}
 helm repo update ${helm_repo_name}
 echo "🤖 installing yatai-deployment..."
 helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${namespace} \
-    --set dockerRegistry.server=$DOCKER_REGISTRY_SERVER \
-    --set dockerRegistry.inClusterServer=$DOCKER_REGISTRY_IN_CLUSTER_SERVER \
-    --set dockerRegistry.username=$DOCKER_REGISTRY_USERNAME \
-    --set dockerRegistry.password=$DOCKER_REGISTRY_PASSWORD \
-    --set dockerRegistry.secure=$DOCKER_REGISTRY_SECURE \
-    --set dockerRegistry.bentoRepositoryName=$DOCKER_REGISTRY_BENTO_REPOSITORY_NAME \
-    --set layers.network.ingressClass=$INGRESS_CLASS \
-    # --skip-crds \
-    --devel=$DEVEL
+  --set dockerRegistry.server=$DOCKER_REGISTRY_SERVER \
+  --set dockerRegistry.inClusterServer=$DOCKER_REGISTRY_IN_CLUSTER_SERVER \
+  --set dockerRegistry.username=$DOCKER_REGISTRY_USERNAME \
+  --set dockerRegistry.password=$DOCKER_REGISTRY_PASSWORD \
+  --set dockerRegistry.secure=$DOCKER_REGISTRY_SECURE \
+  --set dockerRegistry.bentoRepositoryName=$DOCKER_REGISTRY_BENTO_REPOSITORY_NAME \
+  --set layers.network.ingressClass=$INGRESS_CLASS \
+  --skip-crds=${SKIP_CRDS} \
+  --devel=${DEVEL}
 
 echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."
 kubectl -n ${namespace} wait --for=condition=complete --timeout=600s job/yatai-deployment-default-domain

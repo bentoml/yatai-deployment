@@ -245,11 +245,11 @@ if [ "${DEVEL_HELM_REPO}" = "true" ]; then
   helm_repo_url=https://bentoml.github.io/helm-charts-devel
 fi
 
-echo "🤖 installing yatai-deployment CRDs..."
-kubectl apply -f https://raw.githubusercontent.com/bentoml/yatai-deployment/main/helm/yatai-deployment/crds/bentodeployment.yaml
-echo "⏳ waiting for yatai-deployment CRDs to be established..."
-kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
-echo "✅ yatai-deployment CRDs are established"
+# echo "🤖 installing yatai-deployment CRDs..."
+# kubectl apply -f https://raw.githubusercontent.com/bentoml/yatai-deployment/main/helm/yatai-deployment/crds/bentodeployment.yaml
+# echo "⏳ waiting for yatai-deployment CRDs to be established..."
+# kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
+# echo "✅ yatai-deployment CRDs are established"
 
 helm repo remove ${helm_repo_name} 2> /dev/null || true
 helm repo add ${helm_repo_name} ${helm_repo_url}
@@ -263,7 +263,7 @@ helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${
     --set dockerRegistry.secure=$DOCKER_REGISTRY_SECURE \
     --set dockerRegistry.bentoRepositoryName=$DOCKER_REGISTRY_BENTO_REPOSITORY_NAME \
     --set layers.network.ingressClass=$INGRESS_CLASS \
-    --skip-crds \
+    # --skip-crds \
     --devel=$DEVEL
 
 echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."

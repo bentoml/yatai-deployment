@@ -245,9 +245,9 @@ if [ "${DEVEL_HELM_REPO}" = "true" ]; then
   helm_repo_url=https://bentoml.github.io/helm-charts-devel
 fi
 
-SKIP_CRDS=${SKIP_CRDS:-false}
+UPGRADE_CRDS=${UPGRADE_CRDS:-false}
 
-if [ "${SKIP_CRDS}" = "true" ]; then
+if [ "${UPGRADE_CRDS}" = "true" ]; then
   echo "🤖 installing yatai-deployment CRDs..."
   kubectl apply -f https://raw.githubusercontent.com/bentoml/yatai-deployment/main/helm/yatai-deployment/crds/bentodeployment.yaml
   echo "⏳ waiting for yatai-deployment CRDs to be established..."
@@ -267,7 +267,7 @@ helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${
   --set dockerRegistry.secure=$DOCKER_REGISTRY_SECURE \
   --set dockerRegistry.bentoRepositoryName=$DOCKER_REGISTRY_BENTO_REPOSITORY_NAME \
   --set layers.network.ingressClass=$INGRESS_CLASS \
-  --skip-crds=${SKIP_CRDS} \
+  --skip-crds=${UPGRADE_CRDS} \
   --devel=${DEVEL}
 
 echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."

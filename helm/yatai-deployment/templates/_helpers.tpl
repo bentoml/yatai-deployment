@@ -65,7 +65,7 @@ Create the name of the service account to use
 Generate k8s robot token
 */}}
 {{- define "yatai-deployment.yataiApiToken" -}}
-    {{- $secretObj := (lookup "v1" "Secret" .Release.Namespace "config") | default dict }}
+    {{- $secretObj := (lookup "v1" "Secret" .Release.Namespace "env") | default dict }}
     {{- $secretData := (get $secretObj "data") | default dict }}
     {{- (get $secretData "YATAI_API_TOKEN") | default (randAlphaNum 16 | nospace | b64enc) | b64dec }}
 {{- end -}}

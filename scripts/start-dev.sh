@@ -34,7 +34,29 @@ else
   jq=$(which jq)
 fi
 
+echo "⌛ telepresence connecting..."
 telepresence connect
+echo "✅ telepresence connected"
+
+echo "⌛ stopping yatai-deployment in the k8s..."
 kubectl -n yatai-deployment patch deploy/yatai-deployment -p '{"spec":{"replicas":0}}'
+echo "✅ stopped yatai-deployment in the k8s"
+
+# YATAI_ENDPOINT="https://$(telepresence -n yatai-system list -i --output json | $jq '.stdout.[] | select(.agent_info.name == "yatai") | .intercept_infos[0].preview_domain' | tr -d '"')"
+# if [ -z "$YATAI_ENDPOINT" ]; then
+#   YATAI_ENDPOINT=http://yatai.yatai-system.svc.cluster.local
+# fi
+# echo "🔗 YATAI_ENDPOINT: $YATAI_ENDPOINT"
+
+function trap_handler() {
+  echo "⌛ starting yatai-deployment in the k8s..."
+  kubectl -n yatai-deployment patch deploy/yatai-deployment -p '{"spec":{"replicas":1}}'
+  echo "✅ started yatai-deployment in the k8s"
+  exit 0
+}
+
+trap trap_handler EXIT
+
+echo "⌛ starting yatai-deployment..."
 env $(kubectl -n yatai-deployment get secret env -o jsonpath='{.data}' | $jq 'to_entries|map("\(.key)=\(.value|@base64d)")|.[]' | xargs) SYSTEM_NAMESPACE=yatai-deployment DISABLE_WEBHOOKS=true make run
 

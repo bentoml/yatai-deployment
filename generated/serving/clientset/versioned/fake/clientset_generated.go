@@ -25,6 +25,8 @@ import (
 	"k8s.io/client-go/testing"
 
 	clientset "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned"
+	servingv1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha2"
+	fakeservingv1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha2/fake"
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha3"
 	fakeservingv1alpha3 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha3/fake"
 )
@@ -78,6 +80,11 @@ var (
 	_ clientset.Interface = &Clientset{}
 	_ testing.FakeClient  = &Clientset{}
 )
+
+// ServingV1alpha2 retrieves the ServingV1alpha2Client
+func (c *Clientset) ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface {
+	return &fakeservingv1alpha2.FakeServingV1alpha2{Fake: &c.Fake}
+}
 
 // ServingV1alpha3 retrieves the ServingV1alpha3Client
 func (c *Clientset) ServingV1alpha3() servingv1alpha3.ServingV1alpha3Interface {

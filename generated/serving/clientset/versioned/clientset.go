@@ -25,11 +25,13 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
+	servingv1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha2"
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha3"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface
 	ServingV1alpha3() servingv1alpha3.ServingV1alpha3Interface
 }
 
@@ -37,7 +39,13 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
+	servingV1alpha2 *servingv1alpha2.ServingV1alpha2Client
 	servingV1alpha3 *servingv1alpha3.ServingV1alpha3Client
+}
+
+// ServingV1alpha2 retrieves the ServingV1alpha2Client
+func (c *Clientset) ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface {
+	return c.servingV1alpha2
 }
 
 // ServingV1alpha3 retrieves the ServingV1alpha3Client
@@ -60,6 +68,10 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 // where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*Clientset, error) {
 	configShallowCopy := *c
+
+	if configShallowCopy.UserAgent == "" {
+		configShallowCopy.UserAgent = rest.DefaultKubernetesUserAgent()
+	}
 
 	// share the transport between all clients
 	httpClient, err := rest.HTTPClientFor(&configShallowCopy)
@@ -85,6 +97,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
+	cs.servingV1alpha2, err = servingv1alpha2.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.servingV1alpha3, err = servingv1alpha3.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -110,6 +126,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.servingV1alpha2 = servingv1alpha2.New(c)
 	cs.servingV1alpha3 = servingv1alpha3.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

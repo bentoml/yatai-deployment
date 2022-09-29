@@ -2276,6 +2276,12 @@ func (r *BentoDeploymentReconciler) doRegisterYataiComponent() (err error) {
 		SelectorLabels: map[string]string{
 			"app.kubernetes.io/name": "yatai-deployment",
 		},
+		Manifest: &modelschemas.YataiComponentManifestSchema{
+			SelectorLabels: map[string]string{
+				"app.kubernetes.io/name": "yatai-deployment",
+			},
+			LatestCRDVersion: "v1alpha3",
+		},
 	})
 
 	return err

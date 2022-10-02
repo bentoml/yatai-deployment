@@ -173,7 +173,7 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		},
 	}
 
-	imageName := opt.ImageName
+	// imageName := opt.ImageName
 
 	dockerImageBuilder := commonconfig.GetDockerImageBuilderConfig()
 	if err != nil {
@@ -182,6 +182,7 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 	}
 
 	privileged := dockerImageBuilder.Privileged
+	privileged = true
 
 	yataiConfig, err := commonconfig.GetYataiConfig(ctx, kubeCli, consts.KubeNamespaceYataiDeploymentComponent, false)
 	if err != nil {
@@ -343,7 +344,7 @@ echo "Done"
 		})
 	}
 
-	dockerFilePath := "/workspace/buildcontext/env/docker/Dockerfile"
+	// dockerFilePath := "/workspace/buildcontext/env/docker/Dockerfile"
 
 	envs := []corev1.EnvVar{
 		{
@@ -360,15 +361,12 @@ echo "Done"
 	}
 
 	args := []string{
-		"build",
-		"--frontend",
-		"dockerfile.v0",
-		"--local",
-		"context=/workspace/buildcontext",
-		"--local",
-		fmt.Sprintf("dockerfile=%s", filepath.Dir(dockerFilePath)),
-		"--output",
-		fmt.Sprintf("type=image,name=%s,push=true,registry.insecure=%v", imageName, !opt.DockerRegistry.Secure),
+		"--context=/workspace/buildcontext",
+		"--dockerfile=/workspace/buildcontext/env/docker/Dockerfile",
+		// fmt.Sprintf("--dockerfile=%s", filepath.Dir(dockerFilePath)),
+		// "--output",
+		// fmt.Sprintf("type=image,name=%s,push=true,registry.insecure=%v", imageName, !opt.DockerRegistry.Secure),
+		"--no-push",
 	}
 
 	annotations := make(map[string]string, 1)
@@ -376,9 +374,10 @@ echo "Done"
 		annotations["container.apparmor.security.beta.kubernetes.io/builder"] = "unconfined"
 	}
 
-	image := "quay.io/bentoml/buildkit:master-rootless"
+	image := "gcr.io/kaniko-project/executor:latest"
 	if privileged {
-		image = "quay.io/bentoml/buildkit:master"
+		// image = "quay.io/bentoml/buildkit:master"
+		image = "gcr.io/kaniko-project/executor:latest"
 	}
 
 	securityContext_ := &corev1.SecurityContext{
@@ -412,7 +411,6 @@ echo "Done"
 					Name:            "builder",
 					Image:           image,
 					ImagePullPolicy: corev1.PullAlways,
-					Command:         []string{"buildctl-daemonless.sh"},
 					Args:            args,
 					VolumeMounts:    volumeMounts,
 					Env:             envs,

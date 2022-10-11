@@ -342,7 +342,7 @@ echo "Done"
 		fmt.Sprintf("--destination=%s", imageName),
 	}
 
-	builder_image := "gcr.io/kaniko-project/executor:latest"
+	builder_image := "quay.io/bentoml/kaniko:latest"
 
 	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
 

@@ -173,11 +173,6 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 	}
 
 	imageName := opt.ImageName
-	// dockerImageBuilder := commonconfig.GetDockerImageBuilderConfig()
-	if err != nil {
-		err = errors.Wrap(err, "failed to get docker image builder config")
-		return
-	}
 
 	yataiConfig, err := commonconfig.GetYataiConfig(ctx, kubeCli, consts.KubeNamespaceYataiDeploymentComponent, false)
 	if err != nil {

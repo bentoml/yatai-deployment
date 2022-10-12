@@ -35,7 +35,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -616,7 +616,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 
 	r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetHPA", "Getting HPA %s", hpaNamespacedName)
 
-	oldHPA := &autoscalingv2beta2.HorizontalPodAutoscaler{}
+	oldHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 	err = r.Get(ctx, types.NamespacedName{Name: hpa.Name, Namespace: hpa.Namespace}, oldHPA)
 	oldHPAIsNotFound := k8serrors.IsNotFound(err)
 	if err != nil && !oldHPAIsNotFound {
@@ -1012,7 +1012,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (hpa *autoscalingv2beta2.HorizontalPodAutoscaler, err error) {
+func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (hpa *autoscalingv2.HorizontalPodAutoscaler, err error) {
 	labels := r.getKubeLabels(bentoDeployment, bento, runnerName)
 
 	annotations := r.getKubeAnnotations(bentoDeployment, bento, runnerName)
@@ -1039,16 +1039,16 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3
 		maxReplicas = hpaConf.MaxReplicas
 	}
 
-	var metrics []autoscalingv2beta2.MetricSpec
+	var metrics []autoscalingv2.MetricSpec
 	if hpaConf != nil && hpaConf.QPS != nil && *hpaConf.QPS > 0 {
-		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
-			Type: autoscalingv2beta2.PodsMetricSourceType,
-			Pods: &autoscalingv2beta2.PodsMetricSource{
-				Metric: autoscalingv2beta2.MetricIdentifier{
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.PodsMetricSourceType,
+			Pods: &autoscalingv2.PodsMetricSource{
+				Metric: autoscalingv2.MetricIdentifier{
 					Name: consts.KubeHPAQPSMetric,
 				},
-				Target: autoscalingv2beta2.MetricTarget{
-					Type:         autoscalingv2beta2.UtilizationMetricType,
+				Target: autoscalingv2.MetricTarget{
+					Type:         autoscalingv2.UtilizationMetricType,
 					AverageValue: resource.NewQuantity(*hpaConf.QPS, resource.DecimalSI),
 				},
 			},
@@ -1056,12 +1056,12 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3
 	}
 
 	if hpaConf != nil && hpaConf.CPU != nil && *hpaConf.CPU > 0 {
-		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
-			Type: autoscalingv2beta2.ResourceMetricSourceType,
-			Resource: &autoscalingv2beta2.ResourceMetricSource{
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.ResourceMetricSourceType,
+			Resource: &autoscalingv2.ResourceMetricSource{
 				Name: corev1.ResourceCPU,
-				Target: autoscalingv2beta2.MetricTarget{
-					Type:               autoscalingv2beta2.UtilizationMetricType,
+				Target: autoscalingv2.MetricTarget{
+					Type:               autoscalingv2.UtilizationMetricType,
 					AverageUtilization: hpaConf.CPU,
 				},
 			},
@@ -1075,12 +1075,12 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3
 			err = errors.Wrapf(err, "parse memory %s", *hpaConf.Memory)
 			return
 		}
-		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
-			Type: autoscalingv2beta2.ResourceMetricSourceType,
-			Resource: &autoscalingv2beta2.ResourceMetricSource{
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.ResourceMetricSourceType,
+			Resource: &autoscalingv2.ResourceMetricSource{
 				Name: corev1.ResourceMemory,
-				Target: autoscalingv2beta2.MetricTarget{
-					Type:         autoscalingv2beta2.UtilizationMetricType,
+				Target: autoscalingv2.MetricTarget{
+					Type:         autoscalingv2.UtilizationMetricType,
 					AverageValue: &quantity,
 				},
 			},
@@ -1089,13 +1089,13 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3
 
 	if len(metrics) == 0 {
 		averageUtilization := int32(consts.HPACPUDefaultAverageUtilization)
-		metrics = []autoscalingv2beta2.MetricSpec{
+		metrics = []autoscalingv2.MetricSpec{
 			{
-				Type: autoscalingv2beta2.ResourceMetricSourceType,
-				Resource: &autoscalingv2beta2.ResourceMetricSource{
+				Type: autoscalingv2.ResourceMetricSourceType,
+				Resource: &autoscalingv2.ResourceMetricSource{
 					Name: corev1.ResourceCPU,
-					Target: autoscalingv2beta2.MetricTarget{
-						Type:               autoscalingv2beta2.UtilizationMetricType,
+					Target: autoscalingv2.MetricTarget{
+						Type:               autoscalingv2.UtilizationMetricType,
 						AverageUtilization: &averageUtilization,
 					},
 				},
@@ -1108,17 +1108,17 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3
 		minReplicas = hpaConf.MinReplicas
 	}
 
-	kubeHpa := &autoscalingv2beta2.HorizontalPodAutoscaler{
+	kubeHpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,
 			Namespace:   kubeNs,
 			Labels:      labels,
 			Annotations: annotations,
 		},
-		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
 			MinReplicas: minReplicas,
 			MaxReplicas: *maxReplicas,
-			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       kubeName,
@@ -2343,7 +2343,7 @@ func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&servingv1alpha3.BentoDeployment{}).
 		Owns(&appsv1.Deployment{}).
-		Owns(&autoscalingv2beta2.HorizontalPodAutoscaler{}).
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
 		Owns(&corev1.Service{}).
 		Owns(&networkingv1.Ingress{}).
 		WithEventFilter(pred).

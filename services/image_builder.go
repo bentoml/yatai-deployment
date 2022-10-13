@@ -381,6 +381,7 @@ echo "Done"
 
 	var extraPodMetadata *servingv1alpha3.ExtraPodMetadata
 	var extraPodSpec *servingv1alpha3.ExtraPodSpec
+	var extraContainerEnv []corev1.EnvVar
 
 	if !configCmIsNotFound {
 		extraPodMetadata = &servingv1alpha3.ExtraPodMetadata{}
@@ -402,6 +403,16 @@ echo "Done"
 				return
 			}
 		}
+
+		extraContainerEnv = []corev1.EnvVar{}
+
+		if val, ok := configCm.Data["extra_container_env"]; ok {
+			err = json.Unmarshal([]byte(val), &extraContainerEnv)
+			if err != nil {
+				err = errors.Wrapf(err, "failed to unmarshal extra_container_env, please check the configmap %s in namespace %s", configCmName, kubeNamespace)
+				return
+			}
+		}
 	}
 
 	if extraPodMetadata != nil {
@@ -420,6 +431,19 @@ echo "Done"
 		pod.Spec.Affinity = extraPodSpec.Affinity
 		pod.Spec.Tolerations = extraPodSpec.Tolerations
 		pod.Spec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
+	}
+
+	if extraContainerEnv != nil {
+		for i, c := range pod.Spec.InitContainers {
+			env := c.Env
+			env = append(env, extraContainerEnv...)
+			pod.Spec.InitContainers[i].Env = env
+		}
+		for i, c := range pod.Spec.Containers {
+			env := c.Env
+			env = append(env, extraContainerEnv...)
+			pod.Spec.Containers[i].Env = env
+		}
 	}
 
 	oldPod, err := podsCli.Get(ctx, kubeName, metav1.GetOptions{})

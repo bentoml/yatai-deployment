@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -322,6 +323,55 @@ echo "Done"
 				},
 			},
 		})
+	}
+
+	dockerFilePath := "/workspace/buildcontext/env/docker/Dockerfile"
+
+	envs := []corev1.EnvVar{
+		{
+			Name:  "DOCKER_CONFIG",
+			Value: "/kaniko/.docker/",
+		},
+	}
+
+	var command []string
+	args := []string{
+		"--context=/workspace/buildcontext",
+		"--verbosity=info",
+		fmt.Sprintf("--dockerfile=%s", dockerFilePath),
+		fmt.Sprintf("--insecure=%v", !opt.DockerRegistry.Secure),
+		fmt.Sprintf("--destination=%s", imageName),
+	}
+
+	builder_image := os.Getenv("INTERNAL_IMAGES_KANIKO")
+	logrus.Infof("got image builder image %s", builder_image)
+
+	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
+
+	pod = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kubeName,
+			Namespace: kubeNamespace,
+			Labels:    kubeLabels,
+		},
+		Spec: corev1.PodSpec{
+			RestartPolicy:  corev1.RestartPolicyNever,
+			Volumes:        volumes,
+			InitContainers: initContainers,
+			Containers: []corev1.Container{
+				{
+					Name:            "builder",
+					Image:           builder_image,
+					ImagePullPolicy: corev1.PullAlways,
+					Command:         command,
+					Args:            args,
+					VolumeMounts:    volumeMounts,
+					Env:             envs,
+					TTY:             true,
+					Stdin:           true,
+				},
+			},
+		},
 	}
 
 	configCmName := "yatai-image-builder-config"

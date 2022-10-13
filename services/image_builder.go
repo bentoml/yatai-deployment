@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -214,6 +213,8 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		}
 	}
 
+	internalImages := commonconfig.GetInternalImages()
+
 	downloadCommandTemplate, err := template.New("downloadCommand").Parse(`
 set -e
 
@@ -252,7 +253,7 @@ echo "Done"
 	initContainers := []corev1.Container{
 		{
 			Name:  "bento-downloader",
-			Image: "quay.io/bentoml/curl:0.0.1",
+			Image: internalImages.Curl,
 			Command: []string{
 				"sh",
 				"-c",
@@ -306,7 +307,7 @@ echo "Done"
 		downloadCommand := downloadCommandOutput.String()
 		initContainers = append(initContainers, corev1.Container{
 			Name:  fmt.Sprintf("model-downloader-%d", idx),
-			Image: "quay.io/bentoml/curl:0.0.1",
+			Image: internalImages.Curl,
 			Command: []string{
 				"sh",
 				"-c",
@@ -343,9 +344,6 @@ echo "Done"
 		fmt.Sprintf("--destination=%s", imageName),
 	}
 
-	builder_image := os.Getenv("INTERNAL_IMAGES_KANIKO")
-	logrus.Infof("got image builder image %s", builder_image)
-
 	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
 
 	pod = &corev1.Pod{
@@ -361,7 +359,7 @@ echo "Done"
 			Containers: []corev1.Container{
 				{
 					Name:            "builder",
-					Image:           builder_image,
+					Image:           internalImages.Kaniko,
 					ImagePullPolicy: corev1.PullAlways,
 					Command:         command,
 					Args:            args,

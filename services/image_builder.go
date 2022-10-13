@@ -24,7 +24,6 @@ import (
 	commonconfig "github.com/bentoml/yatai-common/config"
 	"github.com/bentoml/yatai-common/consts"
 	"github.com/bentoml/yatai-common/k8sutils"
-	"github.com/bentoml/yatai-common/utils"
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 
@@ -175,14 +174,6 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 
 	imageName := opt.ImageName
 
-	dockerImageBuilder := commonconfig.GetDockerImageBuilderConfig()
-	if err != nil {
-		err = errors.Wrap(err, "failed to get docker image builder config")
-		return
-	}
-
-	privileged := dockerImageBuilder.Privileged
-
 	yataiConfig, err := commonconfig.GetYataiConfig(ctx, kubeCli, consts.KubeNamespaceYataiDeploymentComponent, false)
 	if err != nil {
 		err = errors.Wrap(err, "failed to get yatai config")
@@ -234,10 +225,6 @@ echo "Extracting bento tar file..."
 tar -xvf /tmp/downloaded.tar
 echo "Removing bento tar file..."
 rm /tmp/downloaded.tar
-{{if not .Privileged}}
-echo "Changing directory permission..."
-chown -R 1000:1000 /workspace
-{{end}}
 echo "Done"
 	`)
 
@@ -253,7 +240,6 @@ echo "Done"
 		"ClusterName":    opt.ClusterName,
 		"YataiEndpoint":  yataiConfig.Endpoint,
 		"Bento":          opt.Bento,
-		"Privileged":     privileged,
 	})
 	if err != nil {
 		err = errors.Wrap(err, "failed to execute download command template")
@@ -302,10 +288,6 @@ tar -xvf /tmp/downloaded.tar
 echo -n '{{.ModelVersion}}' > {{.ModelRepositoryDirPath}}/latest
 echo "Removing model tar file..."
 rm /tmp/downloaded.tar
-{{if not .Privileged}}
-echo "Changing directory permission..."
-chown -R 1000:1000 /workspace
-{{end}}
 echo "Done"
 `)).Execute(&downloadCommandOutput, map[string]interface{}{
 			"ModelDirPath":           modelDirPath,
@@ -315,7 +297,6 @@ echo "Done"
 			"ModelRepositoryName":    modelRepositoryName,
 			"ModelVersion":           modelVersion,
 			"YataiEndpoint":          yataiConfig.Endpoint,
-			"Privileged":             privileged,
 		})
 		if err != nil {
 			err = errors.Wrap(err, "failed to generate download command")
@@ -352,56 +333,24 @@ echo "Done"
 		},
 	}
 
-	if !privileged {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "BUILDKITD_FLAGS",
-			Value: "--oci-worker-no-process-sandbox",
-		})
-	}
-
+	var command []string
 	args := []string{
-		"build",
-		"--frontend",
-		"dockerfile.v0",
-		"--local",
-		"context=/workspace/buildcontext",
-		"--local",
-		fmt.Sprintf("dockerfile=%s", filepath.Dir(dockerFilePath)),
-		"--output",
-		fmt.Sprintf("type=image,name=%s,push=true,registry.insecure=%v", imageName, !opt.DockerRegistry.Secure),
+		"--context=/workspace/buildcontext",
+		"--verbosity=info",
+		fmt.Sprintf("--dockerfile=%s", dockerFilePath),
+		fmt.Sprintf("--insecure=%v", !opt.DockerRegistry.Secure),
+		fmt.Sprintf("--destination=%s", imageName),
 	}
 
-	annotations := make(map[string]string, 1)
-	if !privileged {
-		annotations["container.apparmor.security.beta.kubernetes.io/builder"] = "unconfined"
-	}
-
-	image := "quay.io/bentoml/buildkit:master-rootless"
-	if privileged {
-		image = "quay.io/bentoml/buildkit:master"
-	}
-
-	securityContext_ := &corev1.SecurityContext{
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeUnconfined,
-		},
-		RunAsUser:  utils.Int64Ptr(1000),
-		RunAsGroup: utils.Int64Ptr(1000),
-	}
-	if privileged {
-		securityContext_ = &corev1.SecurityContext{
-			Privileged: utils.BoolPtr(true),
-		}
-	}
+	builder_image := "quay.io/bentoml/kaniko:latest"
 
 	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
 
 	pod = &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        kubeName,
-			Namespace:   kubeNamespace,
-			Labels:      kubeLabels,
-			Annotations: annotations,
+			Name:      kubeName,
+			Namespace: kubeNamespace,
+			Labels:    kubeLabels,
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy:  corev1.RestartPolicyNever,
@@ -410,15 +359,14 @@ echo "Done"
 			Containers: []corev1.Container{
 				{
 					Name:            "builder",
-					Image:           image,
+					Image:           builder_image,
 					ImagePullPolicy: corev1.PullAlways,
-					Command:         []string{"buildctl-daemonless.sh"},
+					Command:         command,
 					Args:            args,
 					VolumeMounts:    volumeMounts,
 					Env:             envs,
 					TTY:             true,
 					Stdin:           true,
-					SecurityContext: securityContext_,
 				},
 			},
 		},

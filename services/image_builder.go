@@ -324,54 +324,6 @@ echo "Done"
 		})
 	}
 
-	dockerFilePath := "/workspace/buildcontext/env/docker/Dockerfile"
-
-	envs := []corev1.EnvVar{
-		{
-			Name:  "DOCKER_CONFIG",
-			Value: "/kaniko/.docker/",
-		},
-	}
-
-	var command []string
-	args := []string{
-		"--context=/workspace/buildcontext",
-		"--verbosity=info",
-		fmt.Sprintf("--dockerfile=%s", dockerFilePath),
-		fmt.Sprintf("--insecure=%v", !opt.DockerRegistry.Secure),
-		fmt.Sprintf("--destination=%s", imageName),
-	}
-
-	builder_image := "quay.io/bentoml/kaniko:latest"
-
-	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
-
-	pod = &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kubeName,
-			Namespace: kubeNamespace,
-			Labels:    kubeLabels,
-		},
-		Spec: corev1.PodSpec{
-			RestartPolicy:  corev1.RestartPolicyNever,
-			Volumes:        volumes,
-			InitContainers: initContainers,
-			Containers: []corev1.Container{
-				{
-					Name:            "builder",
-					Image:           builder_image,
-					ImagePullPolicy: corev1.PullAlways,
-					Command:         command,
-					Args:            args,
-					VolumeMounts:    volumeMounts,
-					Env:             envs,
-					TTY:             true,
-					Stdin:           true,
-				},
-			},
-		},
-	}
-
 	configCmName := "yatai-image-builder-config"
 	configCm, err := kubeCli.CoreV1().ConfigMaps(kubeNamespace).Get(ctx, configCmName, metav1.GetOptions{})
 	configCmIsNotFound := apierrors.IsNotFound(err)
@@ -382,6 +334,7 @@ echo "Done"
 	var extraPodMetadata *servingv1alpha3.ExtraPodMetadata
 	var extraPodSpec *servingv1alpha3.ExtraPodSpec
 	var extraContainerEnv []corev1.EnvVar
+	var buildArgs []string
 
 	if !configCmIsNotFound {
 		extraPodMetadata = &servingv1alpha3.ExtraPodMetadata{}
@@ -413,6 +366,72 @@ echo "Done"
 				return
 			}
 		}
+
+		buildArgs = []string{}
+
+		if val, ok := configCm.Data["build_args"]; ok {
+			err = json.Unmarshal([]byte(val), &buildArgs)
+			if err != nil {
+				err = errors.Wrapf(err, "failed to unmarshal build_args, please check the configmap %s in namespace %s", configCmName, kubeNamespace)
+				return
+			}
+		}
+	}
+
+	dockerFilePath := "/workspace/buildcontext/env/docker/Dockerfile"
+
+	envs := []corev1.EnvVar{
+		{
+			Name:  "DOCKER_CONFIG",
+			Value: "/kaniko/.docker/",
+		},
+		{
+			Name:  "IFS",
+			Value: "''",
+		},
+	}
+
+	var command []string
+	args := []string{
+		"--context=/workspace/buildcontext",
+		"--verbosity=info",
+		fmt.Sprintf("--dockerfile=%s", dockerFilePath),
+		fmt.Sprintf("--insecure=%v", !opt.DockerRegistry.Secure),
+		fmt.Sprintf("--destination=%s", imageName),
+	}
+
+	for _, buildArg := range buildArgs {
+		args = append(args, fmt.Sprintf("--build-arg=\"%s\"", buildArg))
+	}
+
+	builderImage := "quay.io/bentoml/kaniko:1.9.1"
+
+	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
+
+	pod = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kubeName,
+			Namespace: kubeNamespace,
+			Labels:    kubeLabels,
+		},
+		Spec: corev1.PodSpec{
+			RestartPolicy:  corev1.RestartPolicyNever,
+			Volumes:        volumes,
+			InitContainers: initContainers,
+			Containers: []corev1.Container{
+				{
+					Name:            "builder",
+					Image:           builderImage,
+					ImagePullPolicy: corev1.PullAlways,
+					Command:         command,
+					Args:            args,
+					VolumeMounts:    volumeMounts,
+					Env:             envs,
+					TTY:             true,
+					Stdin:           true,
+				},
+			},
+		},
 	}
 
 	if extraPodMetadata != nil {
@@ -473,7 +492,7 @@ echo "Done"
 				err = errors.Wrapf(err, "failed to delete pod %s", kubeName)
 				return
 			}
-			pod, err = podsCli.Create(ctx, pod, metav1.CreateOptions{})
+			_, err = podsCli.Create(ctx, pod, metav1.CreateOptions{})
 			isExists := apierrors.IsAlreadyExists(err)
 			if err != nil && !isExists {
 				err = errors.Wrapf(err, "failed to create pod %s", kubeName)

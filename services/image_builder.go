@@ -108,7 +108,7 @@ type CreateImageBuilderPodOption struct {
 }
 
 func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt CreateImageBuilderPodOption) (pod *corev1.Pod, err error) {
-	kubeName := strings.ReplaceAll(strcase.ToKebab(fmt.Sprintf("yatai-bento-image-builder-%s-%s", opt.Bento.Repository.Name, opt.Bento.Version)), ".", "-")
+	kubeName := strcase.ToKebab(fmt.Sprintf("yatai-bento-image-builder-%s-%s", opt.Bento.Repository.Name, opt.Bento.Version))
 	kubeLabels := map[string]string{
 		consts.KubeLabelYataiBentoRepository: opt.Bento.Repository.Name,
 		consts.KubeLabelYataiBento:           opt.Bento.Version,
@@ -327,17 +327,17 @@ echo "Done"
 		})
 	}
 
+	var extraPodMetadata *servingv1alpha3.ExtraPodMetadata
+	var extraPodSpec *servingv1alpha3.ExtraPodSpec
+	var extraContainerEnv []corev1.EnvVar
+	var buildArgs []string
+
 	configCmName := "yatai-image-builder-config"
 	configCm, err := kubeCli.CoreV1().ConfigMaps(kubeNamespace).Get(ctx, configCmName, metav1.GetOptions{})
 	configCmIsNotFound := apierrors.IsNotFound(err)
 	if err != nil && !configCmIsNotFound {
 		return
 	}
-
-	var extraPodMetadata *servingv1alpha3.ExtraPodMetadata
-	var extraPodSpec *servingv1alpha3.ExtraPodSpec
-	var extraContainerEnv []corev1.EnvVar
-	var buildArgs []string
 
 	if !configCmIsNotFound {
 		extraPodMetadata = &servingv1alpha3.ExtraPodMetadata{}
@@ -404,7 +404,34 @@ echo "Done"
 	}
 
 	for _, buildArg := range buildArgs {
-		args = append(args, fmt.Sprintf("--build-arg=\"%s\"", buildArg))
+		args = append(args, fmt.Sprintf("--build-arg=%s", buildArg))
+	}
+
+	// nolint: gosec
+	buildArgsSecretName := "yatai-image-builder-build-args"
+	buildArgsSecret, err := kubeCli.CoreV1().Secrets(kubeNamespace).Get(ctx, buildArgsSecretName, metav1.GetOptions{})
+	buildArgsSecretIsNotFound := apierrors.IsNotFound(err)
+	if err != nil && !configCmIsNotFound {
+		return
+	}
+
+	if !buildArgsSecretIsNotFound {
+		for key := range buildArgsSecret.Data {
+			envName := fmt.Sprintf("BENTOML_BUILD_ARG_%s", strings.ReplaceAll(strings.ToUpper(strcase.ToKebab(key)), "-", "_"))
+			envs = append(envs, corev1.EnvVar{
+				Name: envName,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: buildArgsSecretName,
+						},
+						Key: key,
+					},
+				},
+			})
+
+			args = append(args, fmt.Sprintf("--build-arg=%s=$(%s)", key, envName))
+		}
 	}
 
 	builderImage := internalImages.Kaniko

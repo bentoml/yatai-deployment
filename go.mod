@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/aquasecurity/go-pep440-version v0.0.0-20210121094942-22b2f8951d46
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
-	github.com/bentoml/yatai-common v0.0.0-20220913011805-6c642712fde7
+	github.com/bentoml/yatai-common v0.0.0-20221017105526-e23cdfd26a96
 	github.com/bentoml/yatai-schemas v0.0.0-20220929081535-497e588eac1f
 	github.com/huandu/xstrings v1.3.2
 	github.com/iancoleman/strcase v0.2.0

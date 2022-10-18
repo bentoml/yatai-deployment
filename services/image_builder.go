@@ -406,7 +406,7 @@ echo "Done"
 		args = append(args, fmt.Sprintf("--build-arg=\"%s\"", buildArg))
 	}
 
-	builderImage := "quay.io/bentoml/kaniko:1.9.1"
+	builderImage := internalImages.Kaniko
 
 	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
 

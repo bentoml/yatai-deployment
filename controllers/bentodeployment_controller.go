@@ -1602,7 +1602,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	containers = append(containers, corev1.Container{
 		Name:  "metrics-transformer",
-		Image: "quay.io/bentoml/yatai-bento-metrics-transformer:0.0.2",
+		Image: commonconfig.GetInternalImages().MetricsTransformer,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),

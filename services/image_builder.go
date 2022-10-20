@@ -213,6 +213,9 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 		}
 	}
 
+	internalImages := commonconfig.GetInternalImages()
+	logrus.Infof("Image builder is using the images %v", *internalImages)
+
 	downloadCommandTemplate, err := template.New("downloadCommand").Parse(`
 set -e
 
@@ -251,7 +254,7 @@ echo "Done"
 	initContainers := []corev1.Container{
 		{
 			Name:  "bento-downloader",
-			Image: "quay.io/bentoml/curl:0.0.1",
+			Image: internalImages.Curl,
 			Command: []string{
 				"sh",
 				"-c",
@@ -305,7 +308,7 @@ echo "Done"
 		downloadCommand := downloadCommandOutput.String()
 		initContainers = append(initContainers, corev1.Container{
 			Name:  fmt.Sprintf("model-downloader-%d", idx),
-			Image: "quay.io/bentoml/curl:0.0.1",
+			Image: internalImages.Curl,
 			Command: []string{
 				"sh",
 				"-c",
@@ -404,7 +407,7 @@ echo "Done"
 		args = append(args, fmt.Sprintf("--build-arg=\"%s\"", buildArg))
 	}
 
-	builderImage := "quay.io/bentoml/kaniko:1.9.1"
+	builderImage := internalImages.Kaniko
 
 	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
 

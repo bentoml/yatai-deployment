@@ -214,6 +214,7 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 	}
 
 	internalImages := commonconfig.GetInternalImages()
+	logrus.Infof("Image builder is using the images %v", *internalImages)
 
 	downloadCommandTemplate, err := template.New("downloadCommand").Parse(`
 set -e

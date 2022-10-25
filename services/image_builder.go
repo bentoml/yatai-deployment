@@ -411,7 +411,7 @@ echo "Done"
 	buildArgsSecretName := "yatai-image-builder-build-args"
 	buildArgsSecret, err := kubeCli.CoreV1().Secrets(kubeNamespace).Get(ctx, buildArgsSecretName, metav1.GetOptions{})
 	buildArgsSecretIsNotFound := apierrors.IsNotFound(err)
-	if err != nil && !configCmIsNotFound {
+	if err != nil && !buildArgsSecretIsNotFound {
 		return
 	}
 

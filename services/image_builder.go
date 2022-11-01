@@ -331,6 +331,7 @@ echo "Done"
 	var extraPodSpec *servingv1alpha3.ExtraPodSpec
 	var extraContainerEnv []corev1.EnvVar
 	var buildArgs []string
+	var builderArgs []string
 
 	configCmName := "yatai-image-builder-config"
 	configCm, err := kubeCli.CoreV1().ConfigMaps(kubeNamespace).Get(ctx, configCmName, metav1.GetOptions{})
@@ -379,6 +380,16 @@ echo "Done"
 				return
 			}
 		}
+
+		builderArgs = []string{}
+		if val, ok := configCm.Data["builder_args"]; ok {
+			err = json.Unmarshal([]byte(val), &builderArgs)
+			if err != nil {
+				err = errors.Wrapf(err, "failed to unmarshal builder_args, please check the configmap %s in namespace %s", configCmName, kubeNamespace)
+				return
+			}
+		}
+		logrus.Info("passed in builder args: ", builderArgs)
 	}
 
 	dockerFilePath := "/workspace/buildcontext/env/docker/Dockerfile"
@@ -403,9 +414,13 @@ echo "Done"
 		fmt.Sprintf("--destination=%s", imageName),
 	}
 
+	// add build args to pass via --build-arg
 	for _, buildArg := range buildArgs {
 		args = append(args, fmt.Sprintf("--build-arg=%s", buildArg))
 	}
+	// add other arguments to builder
+	args = append(args, builderArgs...)
+	logrus.Info("yatai-image-builder args: ", args)
 
 	// nolint: gosec
 	buildArgsSecretName := "yatai-image-builder-build-args"

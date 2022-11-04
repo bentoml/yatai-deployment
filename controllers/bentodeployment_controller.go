@@ -2303,7 +2303,7 @@ func (r *BentoDeploymentReconciler) registerYataiComponent() {
 }
 
 func GetDeploymentNamespaces() []string {
-	deploymentNamespacesStr := os.Getenv("DEPLOYMENT_NAMESPACES")
+	deploymentNamespacesStr := os.Getenv("BENTO_DEPLOYMENT_NAMESPACES")
 	pieces := strings.Split(deploymentNamespacesStr, ",")
 	deploymentNamespaces := make([]string, 0, len(pieces))
 	for _, piece := range pieces {

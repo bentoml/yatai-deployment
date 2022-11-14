@@ -1521,7 +1521,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 				ProbeHandler: corev1.ProbeHandler{
 					Exec: &corev1.ExecAction{
 						Command: []string{
-							"python",
+							"python3",
 							"-c",
 							fmt.Sprintf(`"from urllib.request import urlopen; %s"`, strings.Join(livenessProbePythonCommandPieces, "; ")),
 						},
@@ -1536,7 +1536,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 				ProbeHandler: corev1.ProbeHandler{
 					Exec: &corev1.ExecAction{
 						Command: []string{
-							"python",
+							"python3",
 							"-c",
 							fmt.Sprintf(`"from urllib.request import urlopen; %s"`, strings.Join(readinessProbePythonCommandPieces, "; ")),
 						},

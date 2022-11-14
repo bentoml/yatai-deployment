@@ -27,6 +27,8 @@ import (
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 
+	yataiclient "github.com/bentoml/yatai-deployment/yatai-client"
+
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
 )
 
@@ -102,6 +104,7 @@ func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clients
 type CreateImageBuilderPodOption struct {
 	ImageName        string
 	Bento            *schemasv1.BentoWithRepositorySchema
+	YataiClient      *yataiclient.YataiClient
 	DockerRegistry   modelschemas.DockerRegistrySchema
 	ClusterName      string
 	RecreateIfFailed bool
@@ -216,13 +219,26 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 	internalImages := commonconfig.GetInternalImages()
 	logrus.Infof("Image builder is using the images %v", *internalImages)
 
+	downloadHeader := fmt.Sprintf("%s: %s:%s:$YATAI_API_TOKEN", consts.YataiApiTokenHeaderName, consts.YataiApiTokenPrefixYataiDeploymentOperator, yataiConfig.ClusterName)
+	downloadUrl := fmt.Sprintf("%s/api/v1/bento_repositories/%s/bentos/%s/download", yataiConfig.Endpoint, opt.Bento.Repository.Name, opt.Bento.Version)
+	if opt.Bento.TransmissionStrategy == modelschemas.TransmissionStrategyPresignedURL {
+		var bento *schemasv1.BentoSchema
+		bento, err = opt.YataiClient.PresignBentoDownloadURL(ctx, opt.Bento.Repository.Name, opt.Bento.Version)
+		if err != nil {
+			err = errors.Wrap(err, "failed to presign bento download url")
+			return
+		}
+		downloadUrl = bento.PresignedDownloadUrl
+		downloadHeader = ""
+	}
+
 	downloadCommandTemplate, err := template.New("downloadCommand").Parse(`
 set -e
 
 mkdir -p /workspace/buildcontext
-url="{{.YataiEndpoint}}/api/v1/bento_repositories/{{.Bento.Repository.Name}}/bentos/{{.Bento.Version}}/download"
+url="{{.DownloadUrl}}"
 echo "Downloading bento {{.Bento.Repository.Name}}:{{.Bento.Version}} tar file from ${url} to /tmp/downloaded.tar..."
-curl --fail -H "X-YATAI-API-TOKEN: {{.ApiTokenPrefix}}:{{.ClusterName}}:$YATAI_API_TOKEN" ${url} --output /tmp/downloaded.tar --progress-bar
+curl --fail -H "{{.DownloadHeader}}" ${url} --output /tmp/downloaded.tar --progress-bar
 cd /workspace/buildcontext
 echo "Extracting bento tar file..."
 tar -xvf /tmp/downloaded.tar
@@ -239,9 +255,8 @@ echo "Done"
 	var downloadCommandBuffer bytes.Buffer
 
 	err = downloadCommandTemplate.Execute(&downloadCommandBuffer, map[string]interface{}{
-		"ApiTokenPrefix": consts.YataiApiTokenPrefixYataiDeploymentOperator,
-		"ClusterName":    opt.ClusterName,
-		"YataiEndpoint":  yataiConfig.Endpoint,
+		"DownloadUrl":    downloadUrl,
+		"DownloadHeader": downloadHeader,
 		"Bento":          opt.Bento,
 	})
 	if err != nil {
@@ -277,14 +292,26 @@ echo "Done"
 		modelRepositoryName, _, modelVersion := xstrings.Partition(model, ":")
 		modelRepositoryDirPath := fmt.Sprintf("/workspace/buildcontext/models/%s", modelRepositoryName)
 		modelDirPath := filepath.Join(modelRepositoryDirPath, modelVersion)
+		downloadHeader := fmt.Sprintf("%s: %s:%s:$YATAI_API_TOKEN", consts.YataiApiTokenHeaderName, consts.YataiApiTokenPrefixYataiDeploymentOperator, yataiConfig.ClusterName)
+		downloadUrl := fmt.Sprintf("%s/api/v1/model_repositories/%s/models/%s/download", yataiConfig.Endpoint, modelRepositoryDirPath, modelVersion)
+		if opt.Bento.TransmissionStrategy == modelschemas.TransmissionStrategyPresignedURL {
+			var model_ *schemasv1.ModelSchema
+			model_, err = opt.YataiClient.PresignModelDownloadURL(ctx, modelRepositoryName, modelVersion)
+			if err != nil {
+				err = errors.Wrap(err, "failed to presign model download url")
+				return
+			}
+			downloadUrl = model_.PresignedDownloadUrl
+			downloadHeader = ""
+		}
 		var downloadCommandOutput bytes.Buffer
 		err = template.Must(template.New("script").Parse(`
 set -e
 
 mkdir -p {{.ModelDirPath}}
-url="{{.YataiEndpoint}}/api/v1/model_repositories/{{.ModelRepositoryName}}/models/{{.ModelVersion}}/download"
+url="{{.DownloadUrl}}"
 echo "Downloading model {{.ModelRepositoryName}}:{{.ModelVersion}} tar file from ${url} to /tmp/downloaded.tar..."
-curl --fail -H "X-YATAI-API-TOKEN: {{.ApiTokenPrefix}}:{{.ClusterName}}:$YATAI_API_TOKEN" ${url} --output /tmp/downloaded.tar --progress-bar
+curl --fail -H "{{.DownloadHeader}}" ${url} --output /tmp/downloaded.tar --progress-bar
 cd {{.ModelDirPath}}
 echo "Extracting model tar file..."
 tar -xvf /tmp/downloaded.tar
@@ -294,12 +321,11 @@ rm /tmp/downloaded.tar
 echo "Done"
 `)).Execute(&downloadCommandOutput, map[string]interface{}{
 			"ModelDirPath":           modelDirPath,
-			"ApiTokenPrefix":         consts.YataiApiTokenPrefixYataiDeploymentOperator,
-			"ClusterName":            opt.ClusterName,
 			"ModelRepositoryDirPath": modelRepositoryDirPath,
 			"ModelRepositoryName":    modelRepositoryName,
 			"ModelVersion":           modelVersion,
-			"YataiEndpoint":          yataiConfig.Endpoint,
+			"DownloadUrl":            downloadUrl,
+			"DownloadHeader":         downloadHeader,
 		})
 		if err != nil {
 			err = errors.Wrap(err, "failed to generate download command")

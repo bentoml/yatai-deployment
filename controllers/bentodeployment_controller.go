@@ -504,6 +504,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 	deployment, err := r.generateDeployment(ctx, generateDeploymentOption{
 		bentoDeployment: opt.bentoDeployment,
 		bento:           opt.bento,
+		yataiClient:     opt.yataiClient,
 		dockerRegistry:  opt.dockerRegistry,
 		majorCluster:    opt.majorCluster,
 		version:         opt.version,
@@ -945,6 +946,7 @@ func (r *BentoDeploymentReconciler) getKubeAnnotations(bentoDeployment *servingv
 type generateDeploymentOption struct {
 	bentoDeployment *servingv1alpha3.BentoDeployment
 	bento           *schemasv1.BentoFullSchema
+	yataiClient     *yataiclient.YataiClient
 	dockerRegistry  modelschemas.DockerRegistrySchema
 	majorCluster    *schemasv1.ClusterFullSchema
 	version         *schemasv1.VersionSchema
@@ -960,6 +962,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 	podTemplateSpec, err := r.generatePodTemplateSpec(ctx, generatePodTemplateSpecOption{
 		bentoDeployment: opt.bentoDeployment,
 		bento:           opt.bento,
+		yataiClient:     opt.yataiClient,
 		dockerRegistry:  opt.dockerRegistry,
 		majorCluster:    opt.majorCluster,
 		version:         opt.version,
@@ -1288,6 +1291,7 @@ func (r *BentoDeploymentReconciler) waitImageBuilderPodComplete(ctx context.Cont
 type generatePodTemplateSpecOption struct {
 	bentoDeployment *servingv1alpha3.BentoDeployment
 	bento           *schemasv1.BentoFullSchema
+	yataiClient     *yataiclient.YataiClient
 	dockerRegistry  modelschemas.DockerRegistrySchema
 	majorCluster    *schemasv1.ClusterFullSchema
 	version         *schemasv1.VersionSchema
@@ -1430,6 +1434,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		pod, err := services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
 			ImageName:        imageName,
 			Bento:            &opt.bento.BentoWithRepositorySchema,
+			YataiClient:      opt.yataiClient,
 			DockerRegistry:   opt.dockerRegistry,
 			RecreateIfFailed: true,
 			ClusterName:      opt.cluster.Name,
@@ -2192,6 +2197,7 @@ out:
 			_, err = services.ImageBuilderService.CreateImageBuilderPod(ctx, services.CreateImageBuilderPodOption{
 				ImageName:      imageName,
 				Bento:          bento,
+				YataiClient:    yataiClient,
 				DockerRegistry: dockerRegistry,
 				ClusterName:    clusterName,
 			})

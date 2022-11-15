@@ -2027,13 +2027,13 @@ func (r *BentoDeploymentReconciler) doCleanUpAbandonedRunnerServices() error {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*10)
 	defer cancel()
 
-	deploymentNamespaces := GetDeploymentNamespaces()
+	bentoDeploymentNamespaces := GetBentoDeploymentNamespaces()
 
-	for _, deploymentNamespace := range deploymentNamespaces {
+	for _, bentoDeploymentNamespace := range bentoDeploymentNamespaces {
 		serviceList := &corev1.ServiceList{}
 		serviceListOpts := []client.ListOption{
 			client.HasLabels{consts.KubeLabelYataiBentoDeploymentRunner},
-			client.InNamespace(deploymentNamespace),
+			client.InNamespace(bentoDeploymentNamespace),
 		}
 		err := r.List(ctx, serviceList, serviceListOpts...)
 		if err != nil {
@@ -2306,14 +2306,14 @@ func (r *BentoDeploymentReconciler) registerYataiComponent() {
 	}
 }
 
-func GetDeploymentNamespaces() []string {
-	deploymentNamespacesStr := os.Getenv("BENTO_DEPLOYMENT_NAMESPACES")
-	pieces := strings.Split(deploymentNamespacesStr, ",")
-	deploymentNamespaces := make([]string, 0, len(pieces))
+func GetBentoDeploymentNamespaces() []string {
+	bentoDeploymentNamespacesStr := os.Getenv("BENTO_DEPLOYMENT_NAMESPACES")
+	pieces := strings.Split(bentoDeploymentNamespacesStr, ",")
+	bentoDeploymentNamespaces := make([]string, 0, len(pieces))
 	for _, piece := range pieces {
-		deploymentNamespaces = append(deploymentNamespaces, strings.TrimSpace(piece))
+		bentoDeploymentNamespaces = append(bentoDeploymentNamespaces, strings.TrimSpace(piece))
 	}
-	return deploymentNamespaces
+	return bentoDeploymentNamespaces
 }
 
 const (

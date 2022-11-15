@@ -70,7 +70,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	deploymentNamespaces := controllers.GetDeploymentNamespaces()
+	bentoDeploymentNamespaces := controllers.GetBentoDeploymentNamespaces()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -79,7 +79,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "b292d523.yatai.ai",
-		NewCache:               cache.MultiNamespacedCacheBuilder(deploymentNamespaces),
+		NewCache:               cache.MultiNamespacedCacheBuilder(bentoDeploymentNamespaces),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

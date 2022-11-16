@@ -291,7 +291,7 @@ echo "Done"
 		modelRepositoryDirPath := fmt.Sprintf("/workspace/buildcontext/models/%s", modelRepositoryName)
 		modelDirPath := filepath.Join(modelRepositoryDirPath, modelVersion)
 		downloadHeader := fmt.Sprintf("%s: %s:%s:$YATAI_API_TOKEN", consts.YataiApiTokenHeaderName, consts.YataiApiTokenPrefixYataiDeploymentOperator, yataiConfig.ClusterName)
-		downloadUrl := fmt.Sprintf("%s/api/v1/model_repositories/%s/models/%s/download", yataiConfig.Endpoint, modelRepositoryDirPath, modelVersion)
+		downloadUrl := fmt.Sprintf("%s/api/v1/model_repositories/%s/models/%s/download", yataiConfig.Endpoint, modelRepositoryName, modelVersion)
 		if opt.Bento.TransmissionStrategy == modelschemas.TransmissionStrategyPresignedURL {
 			var model_ *schemasv1.ModelSchema
 			model_, err = opt.YataiClient.PresignModelDownloadURL(ctx, modelRepositoryName, modelVersion)

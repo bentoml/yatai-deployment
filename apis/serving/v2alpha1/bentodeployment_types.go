@@ -14,13 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha3
+package v2alpha1
 
 import (
+	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/bentoml/yatai-schemas/modelschemas"
+)
+
+const (
+	BentoDeploymentConditionTypeAvailable         = "Available"
+	BentoDeploymentConditionTypeBentoFound        = "BentoFound"
+	BentoDeploymentConditionTypeBentoRequestFound = "BentoRequestFound"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -37,6 +44,14 @@ type ExtraPodSpec struct {
 	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
 	Tolerations               []corev1.Toleration               `json:"tolerations,omitempty"`
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	Containers                []corev1.Container                `json:"containers,omitempty"`
+}
+
+type Autoscaling struct {
+	MinReplicas int32                                               `json:"minReplicas"`
+	MaxReplicas int32                                               `json:"maxReplicas"`
+	Metrics     []autoscalingv2beta2.MetricSpec                     `json:"metrics,omitempty"`
+	Behavior    *autoscalingv2beta2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
 type BentoDeploymentRunnerSpec struct {
@@ -44,8 +59,8 @@ type BentoDeploymentRunnerSpec struct {
 	Annotations map[string]string                       `json:"annotations,omitempty"`
 	Labels      map[string]string                       `json:"labels,omitempty"`
 	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
-	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
-	Envs        *[]modelschemas.LabelItemSchema         `json:"envs,omitempty"`
+	Autoscaling *Autoscaling                            `json:"autoscaling,omitempty"`
+	Envs        []corev1.EnvVar                         `json:"envs,omitempty"`
 
 	// +optional
 	ExtraPodMetadata *ExtraPodMetadata `json:"extra_pod_metadata,omitempty"`
@@ -72,11 +87,11 @@ type BentoDeploymentSpec struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
 
-	BentoTag string `json:"bento_tag"`
+	Bento string `json:"bento"`
 
 	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
-	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
-	Envs        *[]modelschemas.LabelItemSchema         `json:"envs,omitempty"`
+	Autoscaling *Autoscaling                            `json:"autoscaling,omitempty"`
+	Envs        []corev1.EnvVar                         `json:"envs,omitempty"`
 
 	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
 
@@ -92,41 +107,17 @@ type BentoDeploymentSpec struct {
 type BentoDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Conditions []metav1.Condition `json:"conditions"`
+
 	PodSelector map[string]string `json:"podSelector,omitempty"`
-
-	// +optional
-	PrinterReady string `json:"printerReady,omitempty"`
-
-	// Total number of non-terminated pods targeted by this deployment (their labels match the selector).
-	// +optional
-	Replicas int32 `json:"replicas,omitempty"`
-
-	// Total number of non-terminated pods targeted by this deployment that have the desired template spec.
-	// +optional
-	UpdatedReplicas int32 `json:"updatedReplicas,omitempty"`
-
-	// readyReplicas is the number of pods targeted by this Deployment with a Ready Condition.
-	// +optional
-	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
-
-	// Total number of available pods (ready for at least minReadySeconds) targeted by this deployment.
-	// +optional
-	AvailableReplicas int32 `json:"availableReplicas,omitempty"`
-
-	// Total number of unavailable pods targeted by this deployment. This is the total number of
-	// pods that are still required for the deployment to have 100% available capacity. They may
-	// either be pods that are running but not yet available or pods that still have not been created.
-	// +optional
-	UnavailableReplicas int32 `json:"unavailableReplicas,omitempty"`
 }
 
 //+genclient
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 //+kubebuilder:printcolumn:name="Bento",type="string",JSONPath=".spec.bento_tag",description="BentoTag"
-//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.printerReady",description="Ready"
-//+kubebuilder:printcolumn:name="MinReplicas",type="integer",JSONPath=".spec.autoscaling.min_replicas",description="MinReplicas"
-//+kubebuilder:printcolumn:name="MaxReplicas",type="integer",JSONPath=".spec.autoscaling.max_replicas",description="MaxReplicas"
+//+kubebuilder:printcolumn:name="Available",type="string",JSONPath=".status.conditions[?(@.type=='Available')].status",description="Available"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // BentoDeployment is the Schema for the bentodeployments API

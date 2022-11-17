@@ -26,6 +26,7 @@ import (
 
 	servingv1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
+	servingv2alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v2alpha1"
 )
 
 var scheme = runtime.NewScheme()
@@ -34,6 +35,7 @@ var codecs = serializer.NewCodecFactory(scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	servingv1alpha2.AddToScheme,
 	servingv1alpha3.AddToScheme,
+	servingv2alpha1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

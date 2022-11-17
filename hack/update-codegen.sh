@@ -15,7 +15,7 @@ APIS_PKG=apis
 OUTPUT_PKG=generated/serving
 # group-version such as foo:v1alpha1
 GROUP=serving
-GROUP_VERSIONS="${GROUP}:v1alpha2 ${GROUP}:v1alpha3"
+GROUP_VERSIONS="${GROUP}:v1alpha2 ${GROUP}:v1alpha3 ${GROUP}:v2alpha1"
 
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 CODEGEN_PKG=${CODEGEN_PKG:-${GOPATH}/pkg/mod/k8s.io/code-generator@v0.25.0}

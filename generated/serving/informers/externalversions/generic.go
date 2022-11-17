@@ -25,6 +25,7 @@ import (
 
 	v1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
 	v1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
+	v2alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v2alpha1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -60,6 +61,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=serving.yatai.ai, Version=v1alpha3
 	case v1alpha3.SchemeGroupVersion.WithResource("bentodeployments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha3().BentoDeployments().Informer()}, nil
+
+		// Group=serving.yatai.ai, Version=v2alpha1
+	case v2alpha1.SchemeGroupVersion.WithResource("bentodeployments"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V2alpha1().BentoDeployments().Informer()}, nil
 
 	}
 

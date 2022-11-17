@@ -29,6 +29,8 @@ import (
 	fakeservingv1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha2/fake"
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha3"
 	fakeservingv1alpha3 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha3/fake"
+	servingv2alpha1 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v2alpha1"
+	fakeservingv2alpha1 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v2alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -89,4 +91,9 @@ func (c *Clientset) ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface {
 // ServingV1alpha3 retrieves the ServingV1alpha3Client
 func (c *Clientset) ServingV1alpha3() servingv1alpha3.ServingV1alpha3Interface {
 	return &fakeservingv1alpha3.FakeServingV1alpha3{Fake: &c.Fake}
+}
+
+// ServingV2alpha1 retrieves the ServingV2alpha1Client
+func (c *Clientset) ServingV2alpha1() servingv2alpha1.ServingV2alpha1Interface {
+	return &fakeservingv2alpha1.FakeServingV2alpha1{Fake: &c.Fake}
 }

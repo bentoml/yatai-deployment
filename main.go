@@ -32,9 +32,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	resourcesv1alpha1 "github.com/bentoml/yatai-image-builder/apis/resources/v1alpha1"
+
 	servingv1alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha1"
 	servingv1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
+	servingv2alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v2alpha1"
 	"github.com/bentoml/yatai-deployment/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -50,6 +53,8 @@ func init() {
 	utilruntime.Must(servingv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servingv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(servingv1alpha3.AddToScheme(scheme))
+	utilruntime.Must(servingv2alpha1.AddToScheme(scheme))
+	utilruntime.Must(resourcesv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

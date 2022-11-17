@@ -21,6 +21,7 @@ import (
 	internalinterfaces "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/internalinterfaces"
 	v1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/serving/v1alpha2"
 	v1alpha3 "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/serving/v1alpha3"
+	v2alpha1 "github.com/bentoml/yatai-deployment/generated/serving/informers/externalversions/serving/v2alpha1"
 )
 
 // Interface provides access to each of this group's versions.
@@ -29,6 +30,8 @@ type Interface interface {
 	V1alpha2() v1alpha2.Interface
 	// V1alpha3 provides access to shared informers for resources in V1alpha3.
 	V1alpha3() v1alpha3.Interface
+	// V2alpha1 provides access to shared informers for resources in V2alpha1.
+	V2alpha1() v2alpha1.Interface
 }
 
 type group struct {
@@ -50,4 +53,9 @@ func (g *group) V1alpha2() v1alpha2.Interface {
 // V1alpha3 returns a new v1alpha3.Interface.
 func (g *group) V1alpha3() v1alpha3.Interface {
 	return v1alpha3.New(g.factory, g.namespace, g.tweakListOptions)
+}
+
+// V2alpha1 returns a new v2alpha1.Interface.
+func (g *group) V2alpha1() v2alpha1.Interface {
+	return v2alpha1.New(g.factory, g.namespace, g.tweakListOptions)
 }

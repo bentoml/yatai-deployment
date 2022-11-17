@@ -90,8 +90,7 @@ fi
 echo "✅ yatai is ready"
 
 namespace=yatai-deployment
-builders_namespace=yatai-builders
-deployment_namespace=yatai
+bento_deployment_namespace=yatai
 
 # check if namespace exists
 if ! kubectl get namespace ${namespace} >/dev/null 2>&1; then
@@ -106,10 +105,10 @@ if ! kubectl get namespace ${builders_namespace} >/dev/null 2>&1; then
   echo "✅ namespace ${builders_namespace} created"
 fi
 
-if ! kubectl get namespace ${deployment_namespace} >/dev/null 2>&1; then
-  echo "🤖 creating namespace ${deployment_namespace}"
-  kubectl create namespace ${deployment_namespace}
-  echo "✅ namespace ${deployment_namespace} created"
+if ! kubectl get namespace ${bento_deployment_namespace} >/dev/null 2>&1; then
+  echo "🤖 creating namespace ${bento_deployment_namespace}"
+  kubectl create namespace ${bento_deployment_namespace}
+  echo "✅ namespace ${bento_deployment_namespace} created"
 fi
 
 new_cert_manager=0
@@ -179,63 +178,6 @@ echo "⏳ waiting for metrics-server to be ready..."
 kubectl wait --for=condition=ready --timeout=600s pod -l k8s-app=metrics-server -A
 echo "✅ metrics-server is ready"
 
-helm repo add twuni https://helm.twun.io
-helm repo update twuni
-echo "🤖 installing docker-registry..."
-helm upgrade --install docker-registry twuni/docker-registry -n ${namespace}
-
-echo "⏳ waiting for docker-registry to be ready..."
-kubectl -n ${namespace} wait --for=condition=ready --timeout=600s pod -l app=docker-registry
-echo "✅ docker-registry is ready"
-
-echo "🤖 installing docker-private-registry-proxy..."
-cat <<EOF | kubectl apply -f -
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: docker-private-registry-proxy
-  namespace: ${namespace}
-  labels:
-    app: docker-private-registry-proxy
-spec:
-  selector:
-    matchLabels:
-      app: docker-private-registry-proxy
-  template:
-    metadata:
-      creationTimestamp: null
-      labels:
-        app: docker-private-registry-proxy
-    spec:
-      containers:
-      - args:
-        - tcp
-        - "5000"
-        - docker-registry.${namespace}.svc.cluster.local
-        image: quay.io/bentoml/proxy-to-service:v2
-        name: tcp-proxy
-        ports:
-        - containerPort: 5000
-          hostPort: 5000
-          name: tcp
-          protocol: TCP
-        resources:
-          limits:
-            cpu: 100m
-            memory: 100Mi
-EOF
-
-echo "⏳ waiting for docker-private-registry-proxy to be ready..."
-kubectl -n ${namespace} wait --for=condition=ready --timeout=600s pod -l app=docker-private-registry-proxy
-echo "✅ docker-private-registry-proxy is ready"
-
-DOCKER_REGISTRY_SERVER=127.0.0.1:5000
-DOCKER_REGISTRY_IN_CLUSTER_SERVER=docker-registry.${namespace}.svc.cluster.local:5000
-DOCKER_REGISTRY_USERNAME=''
-DOCKER_REGISTRY_PASSWORD=''
-DOCKER_REGISTRY_SECURE=false
-DOCKER_REGISTRY_BENTO_REPOSITORY_NAME=yatai-bentos
-
 helm_repo_name=bentoml
 helm_repo_url=https://bentoml.github.io/helm-charts
 
@@ -266,12 +208,6 @@ fi
 
 echo "🤖 installing yatai-deployment ${VERSION} from helm repo ${helm_repo_name}..."
 helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${namespace} \
-  --set dockerRegistry.server=$DOCKER_REGISTRY_SERVER \
-  --set dockerRegistry.inClusterServer=$DOCKER_REGISTRY_IN_CLUSTER_SERVER \
-  --set dockerRegistry.username=$DOCKER_REGISTRY_USERNAME \
-  --set dockerRegistry.password=$DOCKER_REGISTRY_PASSWORD \
-  --set dockerRegistry.secure=$DOCKER_REGISTRY_SECURE \
-  --set dockerRegistry.bentoRepositoryName=$DOCKER_REGISTRY_BENTO_REPOSITORY_NAME \
   --set layers.network.ingressClass=$INGRESS_CLASS \
   --skip-crds=${UPGRADE_CRDS} \
   --version=${VERSION} \

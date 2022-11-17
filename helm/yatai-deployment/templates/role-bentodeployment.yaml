@@ -135,4 +135,32 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentorequests
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentorequests/status
+  verbs:
+  - get
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentoes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentoes/status
+  verbs:
+  - get
 {{- end }}

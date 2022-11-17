@@ -17,11 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,12 +31,19 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/pkg/errors"
+
+	commonconfig "github.com/bentoml/yatai-common/config"
+	resourcesv1alpha1 "github.com/bentoml/yatai-image-builder/apis/resources/v1alpha1"
 
 	servingv1alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha1"
 	servingv1alpha2 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha2"
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
+	servingv2alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v2alpha1"
 	"github.com/bentoml/yatai-deployment/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -50,6 +59,8 @@ func init() {
 	utilruntime.Must(servingv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servingv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(servingv1alpha3.AddToScheme(scheme))
+	utilruntime.Must(servingv2alpha1.AddToScheme(scheme))
+	utilruntime.Must(resourcesv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -70,7 +81,20 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	bentoDeploymentNamespaces := controllers.GetBentoDeploymentNamespaces()
+	restConf := config.GetConfigOrDie()
+	cliset, err := kubernetes.NewForConfig(restConf)
+	if err != nil {
+		err = errors.Wrapf(err, "create kubernetes client for %s", restConf.Host)
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	bentoDeploymentNamespaces, err := commonconfig.GetBentoDeploymentNamespaces(context.TODO(), cliset)
+	if err != nil {
+		err = errors.Wrapf(err, "get bento deployment namespaces")
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,

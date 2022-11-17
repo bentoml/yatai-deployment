@@ -7,7 +7,7 @@ import (
 )
 
 func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1alpha3.BentoDeployment)
+	dst := &v1alpha3.BentoDeployment{}
 	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.BentoTag = src.Spec.BentoTag
 	dst.Spec.Resources = src.Spec.Resources
@@ -25,11 +25,11 @@ func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Ingress = v1alpha3.BentoDeploymentIngressSpec{
 		Enabled: src.Spec.Ingress.Enabled,
 	}
-	return nil
+	return dst.ConvertTo(dstRaw)
 }
 
 func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1alpha3.BentoDeployment)
+	src := v1alpha3.BentoDeployment{}
 	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.BentoTag = src.Spec.BentoTag
 	dst.Spec.Resources = src.Spec.Resources
@@ -47,5 +47,5 @@ func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Spec.Ingress = BentoDeploymentIngressSpec{
 		Enabled: src.Spec.Ingress.Enabled,
 	}
-	return nil
+	return src.ConvertFrom(srcRaw)
 }

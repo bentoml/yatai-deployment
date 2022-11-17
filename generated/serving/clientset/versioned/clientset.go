@@ -27,12 +27,14 @@ import (
 
 	servingv1alpha2 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha2"
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v1alpha3"
+	servingv2alpha1 "github.com/bentoml/yatai-deployment/generated/serving/clientset/versioned/typed/serving/v2alpha1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface
 	ServingV1alpha3() servingv1alpha3.ServingV1alpha3Interface
+	ServingV2alpha1() servingv2alpha1.ServingV2alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -41,6 +43,7 @@ type Clientset struct {
 	*discovery.DiscoveryClient
 	servingV1alpha2 *servingv1alpha2.ServingV1alpha2Client
 	servingV1alpha3 *servingv1alpha3.ServingV1alpha3Client
+	servingV2alpha1 *servingv2alpha1.ServingV2alpha1Client
 }
 
 // ServingV1alpha2 retrieves the ServingV1alpha2Client
@@ -51,6 +54,11 @@ func (c *Clientset) ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface {
 // ServingV1alpha3 retrieves the ServingV1alpha3Client
 func (c *Clientset) ServingV1alpha3() servingv1alpha3.ServingV1alpha3Interface {
 	return c.servingV1alpha3
+}
+
+// ServingV2alpha1 retrieves the ServingV2alpha1Client
+func (c *Clientset) ServingV2alpha1() servingv2alpha1.ServingV2alpha1Interface {
+	return c.servingV2alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -105,6 +113,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.servingV2alpha1, err = servingv2alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -128,6 +140,7 @@ func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.servingV1alpha2 = servingv1alpha2.New(c)
 	cs.servingV1alpha3 = servingv1alpha3.New(c)
+	cs.servingV2alpha1 = servingv2alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

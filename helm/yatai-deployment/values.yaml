@@ -101,20 +101,9 @@ layers:
 
     automaticDomainSuffixGeneration: true
 
-yatai:
-  endpoint: http://yatai.yatai-system.svc.cluster.local
-  apiToken: ''
-  clusterName: default
-
-dockerRegistry:
-  server: ''
-  inClusterServer: ''
-  username: ''
-  password: ''
-  passwordExistingSecretName: ''
-  passwordExistingSecretKey: ''
-  secure: true
-  bentoRepositoryName: yatai-bentos
+yataiSystem:
+  namespace: "yatai-system"
+  serviceAccountName: "yatai"
 
   useAWSECRWithIAMRole: false
   awsECRRegion: ap-northeast-3
@@ -122,8 +111,6 @@ dockerRegistry:
 bentoDeploymentNamespaces: ['yatai']
 
 internalImages:
-  curl: quay.io/bentoml/curl:0.0.1
-  kaniko: quay.io/bentoml/kaniko:1.9.1
   metricsTransformer: quay.io/bentoml/yatai-bento-metrics-transformer:0.0.2
   debugger: quay.io/bentoml/bento-debugger:0.0.5
 

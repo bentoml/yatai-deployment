@@ -23,6 +23,14 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 {{- end }}
 
+{{- define "yatai-deployment.envname" -}}
+yatai-deployment-env
+{{- end }}
+
+{{- define "yatai-deployment.shared-envname" -}}
+yatai-deployment-shared-env
+{{- end }}
+
 {{/*
 Create chart name and version as used by the chart label.
 */}}
@@ -65,7 +73,7 @@ Create the name of the service account to use
 Generate k8s robot token
 */}}
 {{- define "yatai-deployment.yataiApiToken" -}}
-    {{- $secretObj := (lookup "v1" "Secret" .Release.Namespace "env") | default dict }}
+    {{- $secretObj := (lookup "v1" "Secret" .Release.Namespace (include "yatai-deployment.envname" .)) | default (lookup "v1" "Secret" .Release.Namespace "env") | default dict }}
     {{- $secretData := (get $secretObj "data") | default dict }}
     {{- (get $secretData "YATAI_API_TOKEN") | default (randAlphaNum 16 | nospace | b64enc) | b64dec }}
 {{- end -}}

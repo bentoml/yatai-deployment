@@ -1815,7 +1815,18 @@ func (r *BentoDeploymentReconciler) doCleanUpAbandonedRunnerServices() error {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*10)
 	defer cancel()
 
-	bentoDeploymentNamespaces := GetBentoDeploymentNamespaces()
+	restConf := config.GetConfigOrDie()
+	cliset, err := kubernetes.NewForConfig(restConf)
+	if err != nil {
+		err = errors.Wrapf(err, "create kubernetes client for %s", restConf.Host)
+		return err
+	}
+
+	bentoDeploymentNamespaces, err := commonconfig.GetBentoDeploymentNamespaces(ctx, cliset)
+	if err != nil {
+		err = errors.Wrapf(err, "get bento deployment namespaces")
+		return err
+	}
 
 	for _, bentoDeploymentNamespace := range bentoDeploymentNamespaces {
 		serviceList := &corev1.ServiceList{}
@@ -1935,16 +1946,6 @@ func (r *BentoDeploymentReconciler) registerYataiComponent() {
 			logs.Error(err, "registerYataiComponent")
 		}
 	}
-}
-
-func GetBentoDeploymentNamespaces() []string {
-	bentoDeploymentNamespacesStr := os.Getenv("BENTO_DEPLOYMENT_NAMESPACES")
-	pieces := strings.Split(bentoDeploymentNamespacesStr, ",")
-	bentoDeploymentNamespaces := make([]string, 0, len(pieces))
-	for _, piece := range pieces {
-		bentoDeploymentNamespaces = append(bentoDeploymentNamespaces, strings.TrimSpace(piece))
-	}
-	return bentoDeploymentNamespaces
 }
 
 const (

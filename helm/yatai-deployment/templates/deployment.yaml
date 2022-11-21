@@ -41,16 +41,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            {{- if .Values.dockerRegistry.passwordExistingSecretName }}
-            - name: DOCKER_REGISTRY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.dockerRegistry.passwordExistingSecretName | quote }}
-                  key: {{ .Values.dockerRegistry.passwordExistingSecretKey | quote }}
-            {{- end }}
           envFrom:
             - secretRef:
-                name: env
+                name: {{ include "yatai-deployment.envname" . }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"

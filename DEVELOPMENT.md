@@ -110,26 +110,42 @@ As you know, Kubernetes has a complex network environment, so developing cloud-n
 
 ## Run yatai-deployment
 
-1. Connect to the Kubernetes cluster network
+1. Run yatai-deployment
+
+    > WARNING: The following command uses the infrastructure of the Kubernetes environment in the current kubectl context and replaces the behavior of yatai-deployment in the current Kubernetes environment, so please proceed with caution
+
+    > NOTE: The following command will automatically run `telepresence connect` to connet to the k8s network
 
     ```bash
-    telepresence connect
+    make start-dev
     ```
 
-2. Shut down yatai-deployment running in the Kubernetes cluster
+    If you get something wrong, you should check the [Troubleshooting](#troubleshooting)
 
-    > NOTE: The following command will stop the BentoDeployment scheduling, so remember to restart yatai-deployment in the cluster after development is finished: `kubectl -n yatai-deployment patch deploy/yatai-deployment -p '{"spec":{"replicas":1}}'`
+2. ✨ Enjoy it!
 
-    ```bash
-    kubectl -n yatai-deployment patch deploy/yatai-deployment -p '{"spec":{"replicas":0}}'
-    ```
+## Troubleshooting
 
-3. Run yatai-deployment
+You can test the telepresence connection with the following command:
 
-    > NOTE: The following command uses the infrastructure of the Kubernetes environment in the current kubectl context and replaces the behavior of yatai-deployment in the current Kubernetes environment, so please proceed with caution
+```bash
+curl http://yatai.yatai-system.svc.cluster.local/api/v1/info
+```
 
-    ```bash
-    env $(kubectl -n yatai-deployment get secret env -o jsonpath='{.data}' | jq 'to_entries|map("\(.key)=\(.value|@base64d)")|.[]' | xargs) SYSTEM_NAMESPACE=yatai-deployment DISABLE_WEBHOOKS=true make run
-    ```
+The above command will return:
 
-4. ✨ Enjoy it!
+```bash
+{"is_saas":false,"saas_domain_suffix":""}
+```
+
+If you can't communicate with the yatai service in the k8s cluster using the above command, you should kill all processes of telepresence:
+
+```bash
+ps aux | grep telepresence | grep -v grep | awk '{print $2}' | xargs -i sudo kill {}
+```
+
+Then run yatai-deployment again:
+
+```bash
+make start-dev
+```

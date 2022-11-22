@@ -63,9 +63,9 @@ type BentoDeploymentRunnerSpec struct {
 	Envs        []corev1.EnvVar                         `json:"envs,omitempty"`
 
 	// +optional
-	ExtraPodMetadata *ExtraPodMetadata `json:"extra_pod_metadata,omitempty"`
+	ExtraPodMetadata *ExtraPodMetadata `json:"extraPodMetadata,omitempty"`
 	// +optional
-	ExtraPodSpec *ExtraPodSpec `json:"extra_pod_spec,omitempty"`
+	ExtraPodSpec *ExtraPodSpec `json:"extraPodSpec,omitempty"`
 }
 
 type BentoDeploymentIngressTLSSpec struct {
@@ -98,9 +98,9 @@ type BentoDeploymentSpec struct {
 	Ingress BentoDeploymentIngressSpec `json:"ingress,omitempty"`
 
 	// +optional
-	ExtraPodMetadata *ExtraPodMetadata `json:"extra_pod_metadata,omitempty"`
+	ExtraPodMetadata *ExtraPodMetadata `json:"extraPodMetadata,omitempty"`
 	// +optional
-	ExtraPodSpec *ExtraPodSpec `json:"extra_pod_spec,omitempty"`
+	ExtraPodSpec *ExtraPodSpec `json:"extraPodSpec,omitempty"`
 }
 
 // BentoDeploymentStatus defines the observed state of BentoDeployment

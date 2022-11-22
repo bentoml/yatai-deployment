@@ -236,16 +236,10 @@ func getBentoTagFromBentoName(namesapce, bentoName string) (string, error) {
 	return bentoRequest.Spec.BentoTag, nil
 }
 
-func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
-	restConf := clientconfig.GetConfigOrDie()
-	bentorequestcli, err := resourcesclient.NewForConfig(restConf)
-	if err != nil {
-		err = errors.Wrap(err, "create BentoRequest client")
-		return err
-	}
+func (src *BentoDeployment) ConvertToBentoRequest() *resourcesv1alpha1.BentoRequest {
 	bentoName := getBentoNameFromBentoTag(src.Spec.BentoTag)
 
-	bentoRequestCR := &resourcesv1alpha1.BentoRequest{
+	bentoRequest := &resourcesv1alpha1.BentoRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      bentoName,
 			Namespace: src.Namespace,
@@ -255,26 +249,10 @@ func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
 		},
 	}
 
-	_, err = bentorequestcli.BentoRequests(src.Namespace).Create(context.Background(), bentoRequestCR, metav1.CreateOptions{})
-	if k8serrors.IsAlreadyExists(err) {
-		oldBentoRequest, err := bentorequestcli.BentoRequests(src.Namespace).Get(context.Background(), bentoName, metav1.GetOptions{})
-		if err != nil {
-			err = errors.Wrap(err, "get BentoRequest")
-			return err
-		}
-		oldBentoRequest.Spec.BentoTag = src.Spec.BentoTag
-		_, err = bentorequestcli.BentoRequests(src.Namespace).Update(context.Background(), oldBentoRequest, metav1.UpdateOptions{})
-		if err != nil {
-			err = errors.Wrap(err, "update BentoRequest")
-			return err
-		}
-	}
+	return bentoRequest
+}
 
-	if err != nil {
-		err = errors.Wrap(err, "create BentoRequest")
-		return err
-	}
-
+func (src *BentoDeployment) ConvertToV2alpha1(dstRaw conversion.Hub, bentoName string) error {
 	dst := dstRaw.(*v2alpha1.BentoDeployment)
 	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.Bento = bentoName
@@ -341,6 +319,39 @@ func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
 	}
 
 	return nil
+}
+
+func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
+	restConf := clientconfig.GetConfigOrDie()
+	bentorequestcli, err := resourcesclient.NewForConfig(restConf)
+	if err != nil {
+		err = errors.Wrap(err, "create BentoRequest client")
+		return err
+	}
+
+	bentoRequest := src.ConvertToBentoRequest()
+
+	_, err = bentorequestcli.BentoRequests(src.Namespace).Create(context.Background(), bentoRequest, metav1.CreateOptions{})
+	if k8serrors.IsAlreadyExists(err) {
+		oldBentoRequest, err := bentorequestcli.BentoRequests(src.Namespace).Get(context.Background(), bentoRequest.Name, metav1.GetOptions{})
+		if err != nil {
+			err = errors.Wrap(err, "get BentoRequest")
+			return err
+		}
+		oldBentoRequest.Spec.BentoTag = src.Spec.BentoTag
+		_, err = bentorequestcli.BentoRequests(src.Namespace).Update(context.Background(), oldBentoRequest, metav1.UpdateOptions{})
+		if err != nil {
+			err = errors.Wrap(err, "update BentoRequest")
+			return err
+		}
+	}
+
+	if err != nil {
+		err = errors.Wrap(err, "create BentoRequest")
+		return err
+	}
+
+	return src.ConvertToV2alpha1(dstRaw, bentoRequest.Name)
 }
 
 func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error {

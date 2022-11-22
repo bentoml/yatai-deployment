@@ -4,45 +4,11 @@ yatai-deployment is a yatai component dedicated to deploying Bento to Kubernetes
 
 ## Description
 
-yatai-deployment runs in k8s, it is the operator of `BentoDeployment` CRD, it is responsible for reconcile `BentoDeployment` CR and then create workloads and services for Bento.
+yatai-deployment runs in k8s, it is the operator of `BentoDeployment` CRD, it is responsible for reconcile `BentoDeployment` CR and then create workloads and services for Bento. It relies on `Bento` CR to get the image and runners information, so it should install after the [yatai-image-builder](https://github.com/bentoml/yatai-image-builder) component installation.
 
-## Getting Started
+## Installation
 
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
-
-### Running on the cluster
-1. Install Instances of Custom Resources:
-
-```sh
-kubectl apply -f config/samples/
-```
-
-2. Build and push your image to the location specified by `IMG`:
-	
-```sh
-make docker-build docker-push IMG=<some-registry>/yatai-deployment:tag
-```
-	
-3. Deploy the controller to the cluster with the image specified by `IMG`:
-
-```sh
-make deploy IMG=<some-registry>/yatai-deployment:tag
-```
-
-### Uninstall CRDs
-To delete the CRDs from the cluster:
-
-```sh
-make uninstall
-```
-
-### Undeploy controller
-UnDeploy the controller to the cluster:
-
-```sh
-make undeploy
-```
+You should read the [installation guide](https://docs.bentoml.org/projects/yatai/en/latest/installation/yatai_deployment.html) to install yatai-deployment in a production environment.
 
 ## Contributing
 

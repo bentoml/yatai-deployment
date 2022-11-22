@@ -4200,7 +4200,7 @@ spec:
                   - name
                   type: object
                 type: array
-              extra_pod_metadata:
+              extraPodMetadata:
                 properties:
                   annotations:
                     additionalProperties:
@@ -4211,7 +4211,7 @@ spec:
                       type: string
                     type: object
                 type: object
-              extra_pod_spec:
+              extraPodSpec:
                 properties:
                   affinity:
                     description: Affinity is a group of affinity scheduling rules.
@@ -7339,7 +7339,7 @@ spec:
                         - name
                         type: object
                       type: array
-                    extra_pod_metadata:
+                    extraPodMetadata:
                       properties:
                         annotations:
                           additionalProperties:
@@ -7350,7 +7350,7 @@ spec:
                             type: string
                           type: object
                       type: object
-                    extra_pod_spec:
+                    extraPodSpec:
                       properties:
                         affinity:
                           description: Affinity is a group of affinity scheduling

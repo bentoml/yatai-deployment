@@ -1410,7 +1410,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	containers := make([]corev1.Container, 0, 2)
 
 	container := corev1.Container{
-		Name:           kubeName,
+		Name:           "main",
 		Image:          imageName,
 		Command:        []string{"sh", "-c"},
 		Args:           []string{strings.Join(args, " ")},
@@ -1549,6 +1549,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		podSpec.Affinity = extraPodSpec.Affinity
 		podSpec.Tolerations = extraPodSpec.Tolerations
 		podSpec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
+		podSpec.Containers = append(podSpec.Containers, extraPodSpec.Containers...)
 	}
 
 	podTemplateSpec = &corev1.PodTemplateSpec{

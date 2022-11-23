@@ -236,7 +236,7 @@ set -e
 mkdir -p /workspace/buildcontext
 url="{{.DownloadUrl}}"
 echo "Downloading bento {{.Bento.Repository.Name}}:{{.Bento.Version}} tar file from ${url} to /tmp/downloaded.tar..."
-curl --fail -H "{{.DownloadHeader}}" ${url} --output /tmp/downloaded.tar --progress-bar
+curl --fail -L -H "{{.DownloadHeader}}" ${url} --output /tmp/downloaded.tar --progress-bar
 cd /workspace/buildcontext
 echo "Extracting bento tar file..."
 tar -xvf /tmp/downloaded.tar
@@ -309,7 +309,7 @@ set -e
 mkdir -p {{.ModelDirPath}}
 url="{{.DownloadUrl}}"
 echo "Downloading model {{.ModelRepositoryName}}:{{.ModelVersion}} tar file from ${url} to /tmp/downloaded.tar..."
-curl --fail -H "{{.DownloadHeader}}" ${url} --output /tmp/downloaded.tar --progress-bar
+curl --fail -L -H "{{.DownloadHeader}}" ${url} --output /tmp/downloaded.tar --progress-bar
 cd {{.ModelDirPath}}
 echo "Extracting model tar file..."
 tar -xvf /tmp/downloaded.tar

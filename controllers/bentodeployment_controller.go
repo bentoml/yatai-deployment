@@ -122,19 +122,24 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
+	logs = logs.WithValues("bentoDeployment", bentoDeployment.Name, "namespace", bentoDeployment.Namespace)
+
 	if bentoDeployment.Status.Conditions == nil || len(bentoDeployment.Status.Conditions) == 0 {
+		logs.Info("Starting to reconcile BentoDeployment")
+		logs.Info("Initializing BentoDeployment status")
+		r.Recorder.Event(bentoDeployment, corev1.EventTypeNormal, "Reconciling", "Starting to reconcile BentoDeployment")
 		bentoDeployment, err = r.setStatusConditions(ctx, req,
 			metav1.Condition{
 				Type:    servingv2alpha1.BentoDeploymentConditionTypeAvailable,
 				Status:  metav1.ConditionUnknown,
 				Reason:  "Reconciling",
-				Message: "Staring to reconcile BentoDeployment",
+				Message: "Starting to reconcile BentoDeployment",
 			},
 			metav1.Condition{
 				Type:    servingv2alpha1.BentoDeploymentConditionTypeBentoFound,
 				Status:  metav1.ConditionUnknown,
 				Reason:  "Reconciling",
-				Message: "Staring to reconcile BentoDeployment",
+				Message: "Starting to reconcile BentoDeployment",
 			},
 		)
 		if err != nil {
@@ -169,6 +174,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	bentoFoundCondition := meta.FindStatusCondition(bentoDeployment.Status.Conditions, servingv2alpha1.BentoDeploymentConditionTypeBentoFound)
 	if bentoFoundCondition != nil && bentoFoundCondition.Status == metav1.ConditionUnknown {
+		logs.Info(fmt.Sprintf("Getting Bento %s", bentoDeployment.Spec.Bento))
 		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetBento", "Getting Bento %s", bentoDeployment.Spec.Bento)
 	}
 	bentoCR := &resourcesv1alpha1.Bento{}
@@ -183,6 +189,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 	if bentoIsNotFound {
 		if bentoFoundCondition != nil && bentoFoundCondition.Status == metav1.ConditionUnknown {
+			logs.Info(fmt.Sprintf("Bento %s not found", bentoDeployment.Spec.Bento))
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetBento", "Bento %s not found", bentoDeployment.Spec.Bento)
 		}
 		bentoDeployment, err = r.setStatusConditions(ctx, req,
@@ -239,6 +246,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			}
 		}
 		if bentoRequestFoundCondition != nil && bentoRequestFoundCondition.Status == metav1.ConditionUnknown {
+			logs.Info(fmt.Sprintf("BentoRequest %s found", bentoDeployment.Spec.Bento))
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetBentoRequest", "BentoRequest %s is found and waiting for its bento to be provided", bentoDeployment.Spec.Bento)
 		}
 		bentoDeployment, err = r.setStatusConditions(ctx, req,
@@ -263,6 +271,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	} else {
 		if bentoFoundCondition != nil && bentoFoundCondition.Status != metav1.ConditionTrue {
+			logs.Info(fmt.Sprintf("Bento %s found", bentoDeployment.Spec.Bento))
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetBento", "Bento %s is found", bentoDeployment.Spec.Bento)
 		}
 		bentoDeployment, err = r.setStatusConditions(ctx, req,

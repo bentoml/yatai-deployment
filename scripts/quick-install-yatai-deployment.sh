@@ -82,12 +82,12 @@ if [ -z "$INGRESS_CLASS" ]; then
   exit 1
 fi
 
-echo "🧪 verifying that the yatai is running"
-if ! kubectl -n yatai-system wait --for=condition=ready --timeout=10s pod -l app.kubernetes.io/name=yatai; then
-  echo "😱 yatai is not ready, please wait for it to be ready!" >&2
+echo "🧪 verifying that the yatai-image-builder is running"
+if ! kubectl -n yatai-image-builder wait --for=condition=ready --timeout=10s pod -l app.kubernetes.io/name=yatai-image-builder; then
+  echo "😱 yatai-image-builder is not ready, please wait for it to be ready!" >&2
   exit 1
 fi
-echo "✅ yatai is ready"
+echo "✅ yatai-image-builder is ready"
 
 namespace=yatai-deployment
 bento_deployment_namespace=yatai
@@ -97,12 +97,6 @@ if ! kubectl get namespace ${namespace} >/dev/null 2>&1; then
   echo "🤖 creating namespace ${namespace}"
   kubectl create namespace ${namespace}
   echo "✅ namespace ${namespace} created"
-fi
-
-if ! kubectl get namespace ${builders_namespace} >/dev/null 2>&1; then
-  echo "🤖 creating namespace ${builders_namespace}"
-  kubectl create namespace ${builders_namespace}
-  echo "✅ namespace ${builders_namespace} created"
 fi
 
 if ! kubectl get namespace ${bento_deployment_namespace} >/dev/null 2>&1; then

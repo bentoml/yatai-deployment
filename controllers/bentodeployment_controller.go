@@ -1926,14 +1926,12 @@ func GetIngressConfig(ctx context.Context, cliset *kubernetes.Clientset) (ingres
 	annotations := make(map[string]string)
 
 	annotations_ := strings.TrimSpace(configMap.Data[consts.KubeConfigMapKeyNetworkConfigIngressAnnotations])
-	if annotations_ == "" {
-		return
-	}
-
-	err = json.Unmarshal([]byte(annotations_), &annotations)
-	if err != nil {
-		err = errors.Wrapf(err, "failed to json unmarshal %s in configmap %s: %s", consts.KubeConfigMapKeyNetworkConfigIngressAnnotations, consts.KubeConfigMapNameNetworkConfig, annotations_)
-		return
+	if annotations_ != "" {
+		err = json.Unmarshal([]byte(annotations_), &annotations)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to json unmarshal %s in configmap %s: %s", consts.KubeConfigMapKeyNetworkConfigIngressAnnotations, consts.KubeConfigMapNameNetworkConfig, annotations_)
+			return
+		}
 	}
 
 	path := strings.TrimSpace(configMap.Data["ingress-path"])

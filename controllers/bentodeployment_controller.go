@@ -1902,6 +1902,62 @@ func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context,
 	return fmt.Sprintf("%s-%s.%s", bentoDeployment.Name, bentoDeployment.Namespace, domainSuffix), nil
 }
 
+type IngressConfig struct {
+	ClassName   *string
+	Annotations map[string]string
+	Path        string
+	PathType    networkingv1.PathType
+}
+
+func GetIngressConfig(ctx context.Context, cliset *kubernetes.Clientset) (ingressConfig *IngressConfig, err error) {
+	configMap, err := system.GetNetworkConfigConfigMap(ctx, cliset)
+	if err != nil {
+		err = errors.Wrapf(err, "failed to get configmap %s", consts.KubeConfigMapNameNetworkConfig)
+		return
+	}
+
+	var className *string
+
+	className_ := strings.TrimSpace(configMap.Data[consts.KubeConfigMapKeyNetworkConfigIngressClass])
+	if className_ != "" {
+		className = &className_
+	}
+
+	annotations := make(map[string]string)
+
+	annotations_ := strings.TrimSpace(configMap.Data[consts.KubeConfigMapKeyNetworkConfigIngressAnnotations])
+	if annotations_ == "" {
+		return
+	}
+
+	err = json.Unmarshal([]byte(annotations_), &annotations)
+	if err != nil {
+		err = errors.Wrapf(err, "failed to json unmarshal %s in configmap %s: %s", consts.KubeConfigMapKeyNetworkConfigIngressAnnotations, consts.KubeConfigMapNameNetworkConfig, annotations_)
+		return
+	}
+
+	path := strings.TrimSpace(configMap.Data["ingress-path"])
+	if path == "" {
+		path = "/"
+	}
+
+	pathType := networkingv1.PathTypeImplementationSpecific
+
+	pathType_ := strings.TrimSpace(configMap.Data["ingress-path-type"])
+	if pathType_ != "" {
+		pathType = networkingv1.PathType(pathType_)
+	}
+
+	ingressConfig = &IngressConfig{
+		ClassName:   className,
+		Annotations: annotations,
+		Path:        path,
+		PathType:    pathType,
+	}
+
+	return
+}
+
 type generateIngressesOption struct {
 	organization    *schemasv1.OrganizationFullSchema
 	bentoDeployment *servingv1alpha3.BentoDeployment
@@ -1936,8 +1992,6 @@ more_set_headers "X-Yatai-Bento: %s";
 
 	labels := r.getKubeLabels(bentoDeployment, bento, nil)
 
-	pathType := networkingv1.PathTypeImplementationSpecific
-
 	kubeNs := bentoDeployment.Namespace
 
 	restConfig := config.GetConfigOrDie()
@@ -1947,17 +2001,16 @@ more_set_headers "X-Yatai-Bento: %s";
 		return
 	}
 
-	ingressClassName, err := system.GetIngressClassName(ctx, clientset)
+	ingressConfig, err := GetIngressConfig(ctx, clientset)
 	if err != nil {
-		err = errors.Wrapf(err, "get ingress class name")
+		err = errors.Wrapf(err, "get ingress config")
 		return
 	}
 
-	ingressAnnotations, err := system.GetIngressAnnotations(ctx, clientset)
-	if err != nil {
-		err = errors.Wrapf(err, "get ingress annotations")
-		return
-	}
+	ingressClassName := ingressConfig.ClassName
+	ingressAnnotations := ingressConfig.Annotations
+	ingressPath := ingressConfig.Path
+	ingressPathType := ingressConfig.PathType
 
 	for k, v := range ingressAnnotations {
 		annotations[k] = v
@@ -1998,8 +2051,8 @@ more_set_headers "X-Yatai-Bento: %s";
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{
 								{
-									Path:     "/",
-									PathType: &pathType,
+									Path:     ingressPath,
+									PathType: &ingressPathType,
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
 											Name: kubeName,

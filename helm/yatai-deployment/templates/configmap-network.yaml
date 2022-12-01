@@ -12,6 +12,12 @@ data:
   {{- if .Values.layers.network.ingressAnnotations }}
   ingress-annotations: {{ mustToJson .Values.layers.network.ingressAnnotations | quote }}
   {{- end }}
+  {{- if .Values.layers.network.ingressPath }}
+  ingress-path: {{ .Values.layers.network.ingressPath | quote }}
+  {{- end }}
+  {{- if .Values.layers.network.ingressPathType }}
+  ingress-path-type: {{ .Values.layers.network.ingressPathType | quote }}
+  {{- end }}
   {{- if .Values.layers.network.domainSuffix }}
   domain-suffix: {{ .Values.layers.network.domainSuffix }}
   {{- end }}

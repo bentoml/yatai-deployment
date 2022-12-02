@@ -258,7 +258,13 @@ fi
 helm repo remove ${helm_repo_name} 2> /dev/null || true
 helm repo add ${helm_repo_name} ${helm_repo_url}
 helm repo update ${helm_repo_name}
-echo "🤖 installing yatai-deployment..."
+
+# if $VERSION is not set, use the latest version
+if [ -z "$VERSION" ]; then
+  VERSION=$(helm search repo ${helm_repo_name} --devel="$DEVEL" -l | grep "${helm_repo_name}/yatai-deployment " | awk '{print $2}' | head -n 1)
+fi
+
+echo "🤖 installing yatai-deployment ${VERSION} from helm repo ${helm_repo_name}..."
 helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${namespace} \
   --set dockerRegistry.server=$DOCKER_REGISTRY_SERVER \
   --set dockerRegistry.inClusterServer=$DOCKER_REGISTRY_IN_CLUSTER_SERVER \

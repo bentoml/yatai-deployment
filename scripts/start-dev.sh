@@ -58,5 +58,5 @@ function trap_handler() {
 trap trap_handler EXIT
 
 echo "⌛ starting yatai-deployment..."
-env $(kubectl -n yatai-deployment get secret env -o jsonpath='{.data}' | $jq 'to_entries|map("\(.key)=\(.value|@base64d)")|.[]' | xargs) SYSTEM_NAMESPACE=yatai-deployment DISABLE_WEBHOOKS=true make run
+env $(kubectl -n yatai-deployment get secret yatai-deployment-env -o jsonpath='{.data}' | $jq 'to_entries|map("\(.key)=\(.value|@base64d)")|.[]' | xargs) SYSTEM_NAMESPACE=yatai-deployment DISABLE_WEBHOOKS=true make run
 

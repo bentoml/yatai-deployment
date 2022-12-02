@@ -2231,6 +2231,9 @@ out:
 	eg.SetPoolSize(10)
 
 	for _, bento := range bentos {
+		if bento.UploadFinishedAt == nil {
+			continue
+		}
 		bento := bento
 		eg.Go(func() error {
 			bentoTag := fmt.Sprintf("%s:%s", bento.Repository.Name, bento.Version)

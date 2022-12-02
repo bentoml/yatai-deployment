@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -29,11 +30,64 @@ import (
 	yataiclient "github.com/bentoml/yatai-deployment/yatai-client"
 
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ecr"
 )
 
 type imageBuilderService struct{}
 
 var ImageBuilderService = &imageBuilderService{}
+
+const (
+	EnvAWSECRWithIAMRole = "AWS_ECR_WITH_IAM_ROLE"
+	EnvAWSECRRegion      = "AWS_ECR_REGION"
+)
+
+func UsingAWSECRWithIAMRole() bool {
+	return os.Getenv(EnvAWSECRWithIAMRole) == "true"
+}
+
+func GetAWSECRRegion() string {
+	return os.Getenv(EnvAWSECRRegion)
+}
+
+func CheckECRImageExists(imageName string) (bool, error) {
+	region := GetAWSECRRegion()
+	if region == "" {
+		return false, fmt.Errorf("%s is not set", EnvAWSECRRegion)
+	}
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(region)},
+	)
+	if err != nil {
+		err = errors.Wrap(err, "create aws session")
+		return false, err
+	}
+
+	_, _, imageName_ := xstrings.Partition(imageName, "/")
+	repoName, _, tag := xstrings.Partition(imageName_, ":")
+
+	svc := ecr.New(sess)
+	input := &ecr.ListImagesInput{
+		RepositoryName: aws.String(repoName),
+	}
+
+	result, err := svc.ListImages(input)
+	if err != nil {
+		err = errors.Wrap(err, "list ECR images")
+		return false, err
+	}
+
+	for _, image := range result.ImageIds {
+		if image.ImageTag != nil && *image.ImageTag == tag {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
 
 func MakeSureDockerConfigSecret(ctx context.Context, kubeCli *kubernetes.Clientset, namespace string, dockerRegistry modelschemas.DockerRegistrySchema) (dockerConfigSecret *corev1.Secret, err error) {
 	// nolint: gosec
@@ -427,6 +481,16 @@ echo "Done"
 			Name:  "IFS",
 			Value: "''",
 		},
+	}
+
+	if UsingAWSECRWithIAMRole() {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "AWS_REGION",
+			Value: GetAWSECRRegion(),
+		}, corev1.EnvVar{
+			Name:  "AWS_SDK_LOAD_CONFIG",
+			Value: "true",
+		})
 	}
 
 	var command []string

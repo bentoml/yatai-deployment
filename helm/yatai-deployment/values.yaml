@@ -116,6 +116,9 @@ dockerRegistry:
   secure: true
   bentoRepositoryName: yatai-bentos
 
+  useAWSECRWithIAMRole: false
+  awsECRRegion: ap-northeast-3
+
 bentoDeploymentNamespaces: ['yatai']
 
 internalImages:

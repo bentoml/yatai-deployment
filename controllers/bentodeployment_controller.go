@@ -1189,6 +1189,10 @@ func (r *BentoDeploymentReconciler) makeSureDockerRegcred(ctx context.Context, d
 }
 
 func checkImageExists(dockerRegistry modelschemas.DockerRegistrySchema, imageName string) (bool, error) {
+	if services.UsingAWSECRWithIAMRole() {
+		return services.CheckECRImageExists(imageName)
+	}
+
 	server, _, imageName := xstrings.Partition(imageName, "/")
 	if strings.Contains(server, "docker.io") {
 		server = "index.docker.io"

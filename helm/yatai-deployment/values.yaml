@@ -105,13 +105,7 @@ yataiSystem:
   namespace: "yatai-system"
   serviceAccountName: "yatai"
 
-  useAWSECRWithIAMRole: false
-  awsECRRegion: ap-northeast-3
-
 bentoDeploymentNamespaces: ['yatai']
 
 internalImages:
   metricsTransformer: quay.io/bentoml/yatai-bento-metrics-transformer:0.0.2
-
-imageBuilderPod:
-  serviceAccountName: default

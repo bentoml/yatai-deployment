@@ -66,12 +66,13 @@ import (
 	"github.com/bentoml/yatai-common/consts"
 	"github.com/bentoml/yatai-common/sync/errsgroup"
 	"github.com/bentoml/yatai-common/system"
-	"github.com/bentoml/yatai-common/utils"
+	commonutils "github.com/bentoml/yatai-common/utils"
 
 	commonconfig "github.com/bentoml/yatai-common/config"
 
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
 	"github.com/bentoml/yatai-deployment/services"
+	"github.com/bentoml/yatai-deployment/utils"
 	"github.com/bentoml/yatai-deployment/version"
 	yataiclient "github.com/bentoml/yatai-deployment/yatai-client"
 )
@@ -205,8 +206,8 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if bento.Manifest != nil {
 		for _, runner := range bento.Manifest.Runners {
 			var modified_ bool
-			// create or update deployment
-			modified_, err = r.createOrUpdateDeployment(ctx, createOrUpdateDeploymentOption{
+			// create or update runner deployment
+			modified_, err = r.createOrUpdateOrDeleteDeployments(ctx, createOrUpdateOrDeleteDeploymentsOption{
 				yataiClient:     yataiClient,
 				bentoDeployment: bentoDeployment,
 				organization:    organization,
@@ -236,7 +237,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			}
 
 			// create or update service
-			modified_, err = r.createOrUpdateService(ctx, createOrUpdateServiceOption{
+			modified_, err = r.createOrUpdateOrDeleteServices(ctx, createOrUpdateOrDeleteServicesOption{
 				bentoDeployment: bentoDeployment,
 				bento:           bento,
 				runnerName:      &runner.Name,
@@ -252,7 +253,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// create or update api-server deployment
-	modified_, err := r.createOrUpdateDeployment(ctx, createOrUpdateDeploymentOption{
+	modified_, err := r.createOrUpdateOrDeleteDeployments(ctx, createOrUpdateOrDeleteDeploymentsOption{
 		yataiClient:     yataiClient,
 		bentoDeployment: bentoDeployment,
 		organization:    organization,
@@ -282,7 +283,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// create or update api-server service
-	modified_, err = r.createOrUpdateService(ctx, createOrUpdateServiceOption{
+	modified_, err = r.createOrUpdateOrDeleteServices(ctx, createOrUpdateOrDeleteServicesOption{
 		bentoDeployment: bentoDeployment,
 		bento:           bento,
 		runnerName:      nil,
@@ -486,7 +487,7 @@ func (r *BentoDeploymentReconciler) getDockerRegistry(ctx context.Context) (dock
 	return
 }
 
-type createOrUpdateDeploymentOption struct {
+type createOrUpdateOrDeleteDeploymentsOption struct {
 	yataiClient     *yataiclient.YataiClient
 	bentoDeployment *servingv1alpha3.BentoDeployment
 	organization    *schemasv1.OrganizationFullSchema
@@ -496,6 +497,56 @@ type createOrUpdateDeploymentOption struct {
 	majorCluster    *schemasv1.ClusterFullSchema
 	version         *schemasv1.VersionSchema
 	runnerName      *string
+}
+
+func (r *BentoDeploymentReconciler) createOrUpdateOrDeleteDeployments(ctx context.Context, opt createOrUpdateOrDeleteDeploymentsOption) (modified bool, err error) {
+	resourceAnnotations := getResourceAnnotations(opt.bentoDeployment, opt.runnerName)
+	debugEnabled := isDebugEnabled(resourceAnnotations)
+	hasDebug := hasDebug(opt.bentoDeployment)
+	modified, err = r.createOrUpdateDeployment(ctx, createOrUpdateDeploymentOption{
+		createOrUpdateOrDeleteDeploymentsOption: opt,
+		debug:                                   false,
+		hasDebug:                                hasDebug,
+	})
+	if err != nil {
+		err = errors.Wrap(err, "create or update deployment")
+		return
+	}
+	if (opt.runnerName == nil && hasDebug) || (opt.runnerName != nil && debugEnabled) {
+		modified, err = r.createOrUpdateDeployment(ctx, createOrUpdateDeploymentOption{
+			createOrUpdateOrDeleteDeploymentsOption: opt,
+			debug:                                   true,
+			hasDebug:                                hasDebug,
+		})
+		if err != nil {
+			err = errors.Wrap(err, "create or update deployment")
+			return
+		}
+	} else {
+		debugDeploymentName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName, true)
+		debugDeployment := &appsv1.Deployment{}
+		err = r.Get(ctx, types.NamespacedName{Name: debugDeploymentName, Namespace: opt.bentoDeployment.Namespace}, debugDeployment)
+		isNotFound := k8serrors.IsNotFound(err)
+		if err != nil && !isNotFound {
+			err = errors.Wrap(err, "get deployment")
+			return
+		}
+		if !isNotFound {
+			err = r.Delete(ctx, debugDeployment)
+			if err != nil {
+				err = errors.Wrap(err, "delete deployment")
+				return
+			}
+			modified = true
+		}
+	}
+	return
+}
+
+type createOrUpdateDeploymentOption struct {
+	createOrUpdateOrDeleteDeploymentsOption
+	debug    bool
+	hasDebug bool
 }
 
 func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context, opt createOrUpdateDeploymentOption) (modified bool, err error) {
@@ -511,6 +562,8 @@ func (r *BentoDeploymentReconciler) createOrUpdateDeployment(ctx context.Context
 		runnerName:      opt.runnerName,
 		organization:    opt.organization,
 		cluster:         opt.cluster,
+		debug:           opt.debug,
+		hasDebug:        opt.hasDebug,
 	})
 	if err != nil {
 		return
@@ -673,16 +726,143 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 	return
 }
 
-type createOrUpdateServiceOption struct {
+func getResourceAnnotations(bentoDeployment *servingv1alpha3.BentoDeployment, runnerName *string) map[string]string {
+	var resourceAnnotations map[string]string
+	if runnerName != nil {
+		for _, runner := range bentoDeployment.Spec.Runners {
+			if runner.Name == *runnerName {
+				resourceAnnotations = runner.Annotations
+				break
+			}
+		}
+	} else {
+		resourceAnnotations = bentoDeployment.Spec.Annotations
+	}
+
+	if resourceAnnotations == nil {
+		resourceAnnotations = map[string]string{}
+	}
+
+	return resourceAnnotations
+}
+
+func isDebugEnabled(annotations map[string]string) bool {
+	if annotations == nil {
+		return false
+	}
+
+	return annotations[KubeAnnotationYataiEnableDebug] == consts.KubeLabelTrue
+}
+
+func hasDebug(bentoDeployment *servingv1alpha3.BentoDeployment) bool {
+	if isDebugEnabled(bentoDeployment.Spec.Annotations) {
+		return true
+	}
+	for _, runner := range bentoDeployment.Spec.Runners {
+		if isDebugEnabled(runner.Annotations) {
+			return true
+		}
+	}
+	return false
+}
+
+type createOrUpdateOrDeleteServicesOption struct {
 	bentoDeployment *servingv1alpha3.BentoDeployment
 	bento           *schemasv1.BentoFullSchema
 	runnerName      *string
 }
 
+func (r *BentoDeploymentReconciler) createOrUpdateOrDeleteServices(ctx context.Context, opt createOrUpdateOrDeleteServicesOption) (modified bool, err error) {
+	resourceAnnotations := getResourceAnnotations(opt.bentoDeployment, opt.runnerName)
+	debugEnabled := isDebugEnabled(resourceAnnotations)
+	hasDebug := hasDebug(opt.bentoDeployment)
+	modified, err = r.createOrUpdateService(ctx, createOrUpdateServiceOption{
+		bentoDeployment:  opt.bentoDeployment,
+		bento:            opt.bento,
+		runnerName:       opt.runnerName,
+		debug:            false,
+		isGenericService: true,
+	})
+	if err != nil {
+		return
+	}
+	if (opt.runnerName == nil && hasDebug) || (opt.runnerName != nil && debugEnabled) {
+		var modified_ bool
+		modified_, err = r.createOrUpdateService(ctx, createOrUpdateServiceOption{
+			bentoDeployment:  opt.bentoDeployment,
+			bento:            opt.bento,
+			runnerName:       opt.runnerName,
+			debug:            false,
+			isGenericService: false,
+		})
+		if err != nil {
+			return
+		}
+		if modified_ {
+			modified = true
+		}
+		modified_, err = r.createOrUpdateService(ctx, createOrUpdateServiceOption{
+			bentoDeployment:  opt.bentoDeployment,
+			bento:            opt.bento,
+			runnerName:       opt.runnerName,
+			debug:            true,
+			isGenericService: false,
+		})
+		if err != nil {
+			return
+		}
+		if modified_ {
+			modified = true
+		}
+	} else {
+		productionServiceName := r.getServiceName(opt.bentoDeployment, opt.bento, opt.runnerName, false)
+		svc := &corev1.Service{}
+		err = r.Get(ctx, types.NamespacedName{Name: productionServiceName, Namespace: opt.bentoDeployment.Namespace}, svc)
+		isNotFound := k8serrors.IsNotFound(err)
+		if err != nil && !isNotFound {
+			err = errors.Wrapf(err, "Failed to get service %s", productionServiceName)
+			return
+		}
+		if !isNotFound {
+			modified = true
+			err = r.Delete(ctx, svc)
+			if err != nil {
+				err = errors.Wrapf(err, "Failed to delete service %s", productionServiceName)
+				return
+			}
+		}
+		debugServiceName := r.getServiceName(opt.bentoDeployment, opt.bento, opt.runnerName, true)
+		svc = &corev1.Service{}
+		err = r.Get(ctx, types.NamespacedName{Name: debugServiceName, Namespace: opt.bentoDeployment.Namespace}, svc)
+		isNotFound = k8serrors.IsNotFound(err)
+		if err != nil && !isNotFound {
+			err = errors.Wrapf(err, "Failed to get service %s", debugServiceName)
+			return
+		}
+		if !isNotFound {
+			modified = true
+			err = r.Delete(ctx, svc)
+			if err != nil {
+				err = errors.Wrapf(err, "Failed to delete service %s", debugServiceName)
+				return
+			}
+		}
+	}
+	return
+}
+
+type createOrUpdateServiceOption struct {
+	bentoDeployment  *servingv1alpha3.BentoDeployment
+	bento            *schemasv1.BentoFullSchema
+	runnerName       *string
+	debug            bool
+	isGenericService bool
+}
+
 func (r *BentoDeploymentReconciler) createOrUpdateService(ctx context.Context, opt createOrUpdateServiceOption) (modified bool, err error) {
 	logs := log.FromContext(ctx)
 
-	service, err := r.generateService(opt.bentoDeployment, opt.bento, opt.runnerName)
+	service, err := r.generateService(opt.bentoDeployment, opt.bento, opt.runnerName, opt.debug, opt.isGenericService)
 	if err != nil {
 		return
 	}
@@ -873,32 +1053,95 @@ func hash(text string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func (r *BentoDeploymentReconciler) getRunnerServiceName(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName string) string {
+func (r *BentoDeploymentReconciler) getRunnerServiceName(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName string, debug bool) string {
 	hashStr := hash(fmt.Sprintf("%s:%s-%s", bento.Repository.Name, bento.Version, runnerName))
-	svcName := fmt.Sprintf("%s-runner-%s", bentoDeployment.Name, hashStr)
+	var svcName string
+	if debug {
+		svcName = fmt.Sprintf("%s--runner-d-%s", bentoDeployment.Name, hashStr)
+	} else {
+		svcName = fmt.Sprintf("%s--runner-p-%s", bentoDeployment.Name, hashStr)
+	}
+	if len(svcName) > 63 {
+		if debug {
+			svcName = fmt.Sprintf("runner-d--%s", hash(fmt.Sprintf("%s-%s:%s-%s", bentoDeployment.Name, bento.Repository.Name, bento.Version, runnerName)))
+		} else {
+			svcName = fmt.Sprintf("runner-p--%s", hash(fmt.Sprintf("%s-%s:%s-%s", bentoDeployment.Name, bento.Repository.Name, bento.Version, runnerName)))
+		}
+	}
+	return svcName
+}
+
+func (r *BentoDeploymentReconciler) getRunnerGenericServiceName(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName string) string {
+	hashStr := hash(fmt.Sprintf("%s:%s-%s", bento.Repository.Name, bento.Version, runnerName))
+	var svcName string
+	svcName = fmt.Sprintf("%s--runner-%s", bentoDeployment.Name, hashStr)
 	if len(svcName) > 63 {
 		svcName = fmt.Sprintf("runner-%s", hash(fmt.Sprintf("%s-%s:%s-%s", bentoDeployment.Name, bento.Repository.Name, bento.Version, runnerName)))
 	}
 	return svcName
 }
 
-func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) string {
+func (r *BentoDeploymentReconciler) getKubeName(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string, debug bool) string {
 	if runnerName != nil && bento.Manifest != nil {
 		for idx, runner := range bento.Manifest.Runners {
 			if runner.Name == *runnerName {
-				return fmt.Sprintf("%s-runner-%d", bentoDeployment.Name, idx)
+				if debug {
+					return fmt.Sprintf("%s--runner-d-%d", bentoDeployment.Name, idx)
+				}
+				return fmt.Sprintf("%s--runner-%d", bentoDeployment.Name, idx)
 			}
 		}
+	}
+	if debug {
+		return fmt.Sprintf("%s--d", bentoDeployment.Name)
 	}
 	return bentoDeployment.Name
 }
 
+func (r *BentoDeploymentReconciler) getServiceName(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string, debug bool) string {
+	var kubeName string
+	if runnerName != nil {
+		kubeName = r.getRunnerServiceName(bentoDeployment, bento, *runnerName, debug)
+	} else {
+		if debug {
+			kubeName = fmt.Sprintf("%s--d", bentoDeployment.Name)
+		} else {
+			kubeName = fmt.Sprintf("%s--p", bentoDeployment.Name)
+		}
+	}
+	return kubeName
+}
+
+func (r *BentoDeploymentReconciler) getGenericServiceName(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) string {
+	var kubeName string
+	if runnerName != nil {
+		kubeName = r.getRunnerGenericServiceName(bentoDeployment, bento, *runnerName)
+	} else {
+		kubeName = r.getKubeName(bentoDeployment, bento, runnerName, false)
+	}
+	return kubeName
+}
+
+const (
+	KubeAnnotationYataiEnableDebug                         = "yatai.ai/enable-debug"
+	KubeAnnotationYataiDebugPodResponseProductionRequest   = "yatai.ai/debug-pod-response-request"
+	KubeAnnotationYataiProxySidecarResourcesLimitsCpu      = "yatai.ai/proxy-sidecar-resources-limits-cpu"
+	KubeAnnotationYataiProxySidecarResourcesLimitsMemory   = "yatai.ai/proxy-sidecar-resources-limits-memory"
+	KubeAnnotationYataiProxySidecarResourcesRequestsCpu    = "yatai.ai/proxy-sidecar-resources-requests-cpu"
+	KubeAnnotationYataiProxySidecarResourcesRequestsMemory = "yatai.ai/proxy-sidecar-resources-requests-memory"
+	DeploymentTargetTypeProduction                         = "production"
+	DeploymentTargetTypeDebug                              = "debug"
+	PortNameInternalHTTP                                   = "internal-http"
+	HeaderNameDebug                                        = "X-Yatai-Debug"
+)
+
 func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) map[string]string {
 	labels := map[string]string{
-		consts.KubeLabelYataiBentoDeployment: bentoDeployment.Name,
-		consts.KubeLabelBentoRepository:      bento.Repository.Name,
-		consts.KubeLabelBentoVersion:         bento.Version,
-		consts.KubeLabelCreator:              "yatai-deployment",
+		consts.KubeLabelYataiBentoDeployment:           bentoDeployment.Name,
+		consts.KubeLabelBentoRepository:                bento.Repository.Name,
+		consts.KubeLabelBentoVersion:                   bento.Version,
+		consts.KubeLabelYataiBentoDeploymentTargetType: DeploymentTargetTypeProduction,
+		consts.KubeLabelCreator:                        "yatai-deployment",
 	}
 	if runnerName != nil {
 		labels[consts.KubeLabelYataiBentoDeploymentComponentType] = consts.YataiBentoDeploymentComponentRunner
@@ -953,6 +1196,8 @@ type generateDeploymentOption struct {
 	runnerName      *string
 	organization    *schemasv1.OrganizationFullSchema
 	cluster         *schemasv1.ClusterFullSchema
+	debug           bool
+	hasDebug        bool
 }
 
 func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt generateDeploymentOption) (kubeDeployment *appsv1.Deployment, err error) {
@@ -969,6 +1214,8 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 		runnerName:      opt.runnerName,
 		organization:    opt.organization,
 		cluster:         opt.cluster,
+		debug:           opt.debug,
+		hasDebug:        opt.hasDebug,
 	})
 	if err != nil {
 		return
@@ -978,7 +1225,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 
 	annotations := r.getKubeAnnotations(opt.bentoDeployment, opt.bento, opt.runnerName)
 
-	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName)
+	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName, opt.debug)
 
 	defaultMaxSurge := intstr.FromString("25%")
 	defaultMaxUnavailable := intstr.FromString("25%")
@@ -991,6 +1238,11 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 		},
 	}
 
+	var replicas *int32
+	if opt.debug {
+		replicas = &[]int32{int32(1)}[0]
+	}
+
 	kubeDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,
@@ -999,7 +1251,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 			Annotations: annotations,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: nil,
+			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					consts.KubeLabelYataiSelector: kubeName,
@@ -1020,7 +1272,7 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3
 
 	annotations := r.getKubeAnnotations(bentoDeployment, bento, runnerName)
 
-	kubeName := r.getKubeName(bentoDeployment, bento, runnerName)
+	kubeName := r.getKubeName(bentoDeployment, bento, runnerName, false)
 
 	kubeNs := bentoDeployment.Namespace
 
@@ -1037,7 +1289,7 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3
 		hpaConf = bentoDeployment.Spec.Autoscaling
 	}
 
-	maxReplicas := utils.Int32Ptr(consts.HPADefaultMaxReplicas)
+	maxReplicas := commonutils.Int32Ptr(consts.HPADefaultMaxReplicas)
 	if hpaConf != nil && hpaConf.MaxReplicas != nil {
 		maxReplicas = hpaConf.MaxReplicas
 	}
@@ -1106,7 +1358,7 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv1alpha3
 		}
 	}
 
-	minReplicas := utils.Int32Ptr(2)
+	minReplicas := commonutils.Int32Ptr(2)
 	if hpaConf != nil && hpaConf.MinReplicas != nil {
 		minReplicas = hpaConf.MinReplicas
 	}
@@ -1305,6 +1557,8 @@ type generatePodTemplateSpecOption struct {
 	runnerName      *string
 	organization    *schemasv1.OrganizationFullSchema
 	cluster         *schemasv1.ClusterFullSchema
+	debug           bool
+	hasDebug        bool
 }
 
 func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context, opt generatePodTemplateSpecOption) (podTemplateSpec *corev1.PodTemplateSpec, err error) {
@@ -1316,7 +1570,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	podAnnotations := r.getKubeAnnotations(opt.bentoDeployment, opt.bento, opt.runnerName)
 
-	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName)
+	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName, opt.debug)
 
 	containerPort := consts.BentoServicePort
 	var envs []corev1.EnvVar
@@ -1424,8 +1678,8 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		},
 	}
 
-	vs := make([]corev1.Volume, 0)
-	vms := make([]corev1.VolumeMount, 0)
+	volumes := make([]corev1.Volume, 0)
+	volumeMounts := make([]corev1.VolumeMount, 0)
 
 	// prepare images
 	var eg errsgroup.Group
@@ -1512,7 +1766,27 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 			// python -m bentoml._internal.server.cli.api_server  iris_classifier:ohzovcfvvseu3lg6 tcp://127.0.0.1:8000 --runner-map '{"iris_clf": "tcp://127.0.0.1:8001"}' --working-dir .
 			runnerMap := make(map[string]string, len(opt.bento.Manifest.Runners))
 			for _, runner := range opt.bento.Manifest.Runners {
-				runnerServiceName := r.getRunnerServiceName(opt.bentoDeployment, opt.bento, runner.Name)
+				isRunnerEnableDebug := false
+				isDebugRunnerPodResponseProductionRequest := false
+				if opt.bentoDeployment.Spec.Runners != nil {
+					for _, runnerResource := range opt.bentoDeployment.Spec.Runners {
+						if runnerResource.Name == runner.Name {
+							isRunnerEnableDebug = runnerResource.Annotations != nil && runnerResource.Annotations[KubeAnnotationYataiEnableDebug] == consts.KubeLabelTrue
+							isDebugRunnerPodResponseProductionRequest = runnerResource.Annotations != nil && runnerResource.Annotations[KubeAnnotationYataiDebugPodResponseProductionRequest] == consts.KubeLabelTrue
+							break
+						}
+					}
+				}
+				var runnerServiceName string
+				if opt.debug {
+					runnerServiceName = r.getRunnerServiceName(opt.bentoDeployment, opt.bento, runner.Name, isRunnerEnableDebug)
+				} else {
+					if !isRunnerEnableDebug || isDebugRunnerPodResponseProductionRequest {
+						runnerServiceName = r.getRunnerGenericServiceName(opt.bentoDeployment, opt.bento, runner.Name)
+					} else {
+						runnerServiceName = r.getRunnerServiceName(opt.bentoDeployment, opt.bento, runner.Name, false)
+					}
+				}
 				runnerMap[runner.Name] = fmt.Sprintf("tcp://%s:%d", runnerServiceName, consts.BentoServicePort)
 				readinessProbeUrls = append(readinessProbeUrls, fmt.Sprintf("http://%s:%d/readyz", runnerServiceName, consts.BentoServicePort))
 				livenessProbeUrls = append(livenessProbeUrls, fmt.Sprintf("http://%s:%d/healthz", runnerServiceName, consts.BentoServicePort))
@@ -1593,6 +1867,11 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	containers := make([]corev1.Container, 0, 2)
 
+	mainContainerPortName := consts.BentoContainerPortName
+	if opt.runnerName == nil && opt.hasDebug {
+		mainContainerPortName = PortNameInternalHTTP
+	}
+
 	container := corev1.Container{
 		Name:           kubeName,
 		Image:          imageName,
@@ -1604,14 +1883,22 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		Env:            envs,
 		TTY:            true,
 		Stdin:          true,
-		VolumeMounts:   vms,
+		VolumeMounts:   volumeMounts,
 		Ports: []corev1.ContainerPort{
 			{
 				Protocol:      corev1.ProtocolTCP,
-				Name:          consts.BentoContainerPortName,
+				Name:          mainContainerPortName,
 				ContainerPort: int32(containerPort), // nolint: gosec
 			},
 		},
+	}
+
+	if opt.debug {
+		container.SecurityContext = &corev1.SecurityContext{
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{"SYS_PTRACE"},
+			},
+		}
 	}
 
 	if resourceAnnotations["yatai.ai/enable-container-privileged"] == consts.KubeLabelTrue {
@@ -1707,11 +1994,195 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		},
 	})
 
+	if opt.runnerName == nil && opt.hasDebug {
+		proxyPort := metricsPort + 1
+		proxyResourcesRequestsCpuStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesRequestsCpu]
+		if proxyResourcesRequestsCpuStr == "" {
+			proxyResourcesRequestsCpuStr = "100m"
+		}
+		var proxyResourcesRequestsCpu resource.Quantity
+		proxyResourcesRequestsCpu, err = resource.ParseQuantity(proxyResourcesRequestsCpuStr)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to parse proxy sidecar resources requests cpu: %s", proxyResourcesRequestsCpuStr)
+			return nil, err
+		}
+		proxyResourcesRequestsMemoryStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesRequestsMemory]
+		if proxyResourcesRequestsMemoryStr == "" {
+			proxyResourcesRequestsMemoryStr = "500Mi"
+		}
+		var proxyResourcesRequestsMemory resource.Quantity
+		proxyResourcesRequestsMemory, err = resource.ParseQuantity(proxyResourcesRequestsMemoryStr)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to parse proxy sidecar resources requests memory: %s", proxyResourcesRequestsMemoryStr)
+			return nil, err
+		}
+		proxyResourcesLimitsCpuStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesLimitsCpu]
+		if proxyResourcesLimitsCpuStr == "" {
+			proxyResourcesLimitsCpuStr = "1000m"
+		}
+		var proxyResourcesLimitsCpu resource.Quantity
+		proxyResourcesLimitsCpu, err = resource.ParseQuantity(proxyResourcesLimitsCpuStr)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to parse proxy sidecar resources limits cpu: %s", proxyResourcesLimitsCpuStr)
+			return nil, err
+		}
+		proxyResourcesLimitsMemoryStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesLimitsMemory]
+		if proxyResourcesLimitsMemoryStr == "" {
+			proxyResourcesLimitsMemoryStr = "2000Mi"
+		}
+		var proxyResourcesLimitsMemory resource.Quantity
+		proxyResourcesLimitsMemory, err = resource.ParseQuantity(proxyResourcesLimitsMemoryStr)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to parse proxy sidecar resources limits memory: %s", proxyResourcesLimitsMemoryStr)
+			return nil, err
+		}
+		var envoyConfigContent string
+		if opt.debug {
+			productionServiceName := r.getServiceName(opt.bentoDeployment, opt.bento, nil, false)
+			envoyConfigContent, err = utils.GenerateEnvoyConfigurationContent(utils.CreateEnvoyConfig{
+				ListenPort:              proxyPort,
+				DebugHeaderName:         HeaderNameDebug,
+				DebugHeaderValue:        consts.KubeLabelTrue,
+				DebugServerAddress:      "localhost",
+				DebugServerPort:         containerPort,
+				ProductionServerAddress: fmt.Sprintf("%s.%s.svc.cluster.local", productionServiceName, opt.bentoDeployment.Namespace),
+				ProductionServerPort:    consts.BentoServicePort,
+			})
+		} else {
+			debugServiceName := r.getServiceName(opt.bentoDeployment, opt.bento, nil, true)
+			envoyConfigContent, err = utils.GenerateEnvoyConfigurationContent(utils.CreateEnvoyConfig{
+				ListenPort:              proxyPort,
+				DebugHeaderName:         HeaderNameDebug,
+				DebugHeaderValue:        consts.KubeLabelTrue,
+				DebugServerAddress:      fmt.Sprintf("%s.%s.svc.cluster.local", debugServiceName, opt.bentoDeployment.Namespace),
+				DebugServerPort:         consts.BentoServicePort,
+				ProductionServerAddress: "localhost",
+				ProductionServerPort:    containerPort,
+			})
+		}
+		if err != nil {
+			err = errors.Wrapf(err, "failed to generate envoy configuration content")
+			return nil, err
+		}
+		envoyConfigConfigMapName := fmt.Sprintf("%s-envoy-config", kubeName)
+		envoyConfigConfigMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      envoyConfigConfigMapName,
+				Namespace: opt.bentoDeployment.Namespace,
+			},
+			Data: map[string]string{
+				"envoy.yaml": envoyConfigContent,
+			},
+		}
+		err = ctrl.SetControllerReference(opt.bentoDeployment, envoyConfigConfigMap, r.Scheme)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to set controller reference for envoy config config map")
+			return nil, err
+		}
+		_, err = ctrl.CreateOrUpdate(ctx, r.Client, envoyConfigConfigMap, func() error {
+			envoyConfigConfigMap.Data["envoy.yaml"] = envoyConfigContent
+			return nil
+		})
+		if err != nil {
+			err = errors.Wrapf(err, "failed to create or update envoy config configmap")
+			return nil, err
+		}
+		volumes = append(volumes, corev1.Volume{
+			Name: "envoy-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: envoyConfigConfigMapName,
+					},
+				},
+			},
+		})
+		containers = append(containers, corev1.Container{
+			Name:  "proxy",
+			Image: "quay.io/bentoml/envoy:1.24.1",
+			Command: []string{
+				"envoy",
+				"--config-path",
+				"/etc/envoy/envoy.yaml",
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "envoy-config",
+					MountPath: "/etc/envoy",
+				},
+			},
+			ReadinessProbe: &corev1.Probe{
+				InitialDelaySeconds: 5,
+				TimeoutSeconds:      5,
+				FailureThreshold:    10,
+				ProbeHandler: corev1.ProbeHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{
+							"sh",
+							"-c",
+							"curl -s localhost:9901/server_info | grep state | grep -q LIVE",
+						},
+					},
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				InitialDelaySeconds: 5,
+				TimeoutSeconds:      5,
+				FailureThreshold:    10,
+				ProbeHandler: corev1.ProbeHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{
+							"sh",
+							"-c",
+							"curl -s localhost:9901/server_info | grep state | grep -q LIVE",
+						},
+					},
+				},
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    proxyResourcesRequestsCpu,
+					corev1.ResourceMemory: proxyResourcesRequestsMemory,
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    proxyResourcesLimitsCpu,
+					corev1.ResourceMemory: proxyResourcesLimitsMemory,
+				},
+			},
+		})
+	}
+
+	if opt.debug {
+		containers = append(containers, corev1.Container{
+			Name:  "debugger",
+			Image: "quay.io/bentoml/bento-debugger:0.0.1",
+			Command: []string{
+				"sleep",
+				"infinity",
+			},
+			SecurityContext: &corev1.SecurityContext{
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{"SYS_PTRACE"},
+				},
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("100Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1000m"),
+					corev1.ResourceMemory: resource.MustParse("1000Mi"),
+				},
+			},
+		})
+	}
+
 	podLabels[consts.KubeLabelYataiSelector] = kubeName
 
 	podSpec := corev1.PodSpec{
 		Containers: containers,
-		Volumes:    vs,
+		Volumes:    volumes,
 	}
 
 	if opt.dockerRegistry.Username != "" {
@@ -1774,6 +2245,10 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	if resourceAnnotations["yatai.ai/enable-host-pid"] == consts.KubeLabelTrue {
 		podSpec.HostPID = true
+	}
+
+	if opt.debug {
+		podSpec.ShareProcessNamespace = &[]bool{true}[0]
 	}
 
 	podTemplateSpec = &corev1.PodTemplateSpec{
@@ -1880,10 +2355,12 @@ func getResourcesConfig(resources *modelschemas.DeploymentTargetResources) (core
 	return currentResources, nil
 }
 
-func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string) (kubeService *corev1.Service, err error) {
-	kubeName := r.getKubeName(bentoDeployment, bento, runnerName)
-	if runnerName != nil {
-		kubeName = r.getRunnerServiceName(bentoDeployment, bento, *runnerName)
+func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1alpha3.BentoDeployment, bento *schemasv1.BentoFullSchema, runnerName *string, debug bool, isGenericService bool) (kubeService *corev1.Service, err error) {
+	var kubeName string
+	if isGenericService {
+		kubeName = r.getGenericServiceName(bentoDeployment, bento, runnerName)
+	} else {
+		kubeName = r.getServiceName(bentoDeployment, bento, runnerName, debug)
 	}
 
 	labels := r.getKubeLabels(bentoDeployment, bento, runnerName)
@@ -1894,9 +2371,12 @@ func (r *BentoDeploymentReconciler) generateService(bentoDeployment *servingv1al
 		selector[k] = v
 	}
 
-	if runnerName != nil {
-		selector[consts.KubeLabelBentoRepository] = bento.Repository.Name
-		selector[consts.KubeLabelBentoVersion] = bento.Version
+	if debug {
+		selector[consts.KubeLabelYataiBentoDeploymentTargetType] = DeploymentTargetTypeDebug
+	}
+
+	if isGenericService {
+		delete(selector, consts.KubeLabelYataiBentoDeploymentTargetType)
 	}
 
 	spec := corev1.ServiceSpec{
@@ -2012,7 +2492,7 @@ func (r *BentoDeploymentReconciler) generateIngresses(ctx context.Context, opt g
 	bentoDeployment := opt.bentoDeployment
 	bento := opt.bento
 
-	kubeName := r.getKubeName(bentoDeployment, bento, nil)
+	kubeName := r.getKubeName(bentoDeployment, bento, nil, false)
 
 	r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GenerateIngressHost", "Generating hostname for ingress")
 	internalHost, err := r.generateIngressHost(ctx, bentoDeployment)
@@ -2078,6 +2558,8 @@ more_set_headers "X-Yatai-Bento: %s";
 		})
 	}
 
+	serviceName := r.getGenericServiceName(bentoDeployment, bento, nil)
+
 	interIng := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kubeName,
@@ -2099,7 +2581,7 @@ more_set_headers "X-Yatai-Bento: %s";
 									PathType: &ingressPathType,
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
-											Name: kubeName,
+											Name: serviceName,
 											Port: networkingv1.ServiceBackendPort{
 												Name: consts.BentoServicePortName,
 											},
@@ -2419,28 +2901,24 @@ func GetBentoDeploymentNamespaces() []string {
 	return bentoDeploymentNamespaces
 }
 
-const (
-	trueStr = "true"
-)
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logs := log.Log.WithValues("func", "SetupWithManager")
 	version.Print()
 
-	if os.Getenv("DISABLE_AUTOMATE_BENTO_IMAGE_BUILDER") != trueStr {
+	if os.Getenv("DISABLE_AUTOMATE_BENTO_IMAGE_BUILDER") != consts.KubeLabelTrue {
 		go r.buildBentoImages()
 	} else {
 		logs.Info("auto image builder is disabled")
 	}
 
-	if os.Getenv("DISABLE_CLEANUP_ABANDONED_RUNNER_SERVICES") != trueStr {
+	if os.Getenv("DISABLE_CLEANUP_ABANDONED_RUNNER_SERVICES") != consts.KubeLabelTrue {
 		go r.cleanUpAbandonedRunnerServices()
 	} else {
 		logs.Info("cleanup abandoned runner services is disabled")
 	}
 
-	if os.Getenv("DISABLE_YATAI_COMPONENT_REGISTRATION") != trueStr {
+	if os.Getenv("DISABLE_YATAI_COMPONENT_REGISTRATION") != consts.KubeLabelTrue {
 		go r.registerYataiComponent()
 	} else {
 		logs.Info("yatai component registration is disabled")

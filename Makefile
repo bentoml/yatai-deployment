@@ -100,8 +100,11 @@ test: manifests generate fmt vet envtest ## Run tests.
 build: generate fmt vet ## Build manager binary.
 	go build -ldflags "$(VERSION_BUILDFLAGS)" -o bin/manager main.go
 
-run: manifests generate fmt vet ## Run a controller from your host.
-	go run -ldflags "$(VERSION_BUILDFLAGS)" ./main.go
+build-dev: ## Build api-server binary in development mode
+	go build -gcflags="all=-N -l" -ldflags "$(VERSION_BUILDFLAGS)" -o bin/manager main.go
+
+run: build-dev ## Run a controller from your host.
+	./bin/manager --zap-time-encoding=iso8601
 
 docker-build: ## Build docker image with the manager.
 	docker build --build-arg VERSION_BUILDFLAGS="$(VERSION_BUILDFLAGS)" -t ${IMG} .

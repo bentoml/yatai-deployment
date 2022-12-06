@@ -1322,16 +1322,23 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	var envs []corev1.EnvVar
 	envsSeen := make(map[string]struct{})
 
+	var resourceAnnotations map[string]string
 	var specEnvs *[]modelschemas.LabelItemSchema
 	if opt.runnerName != nil {
 		for _, runner := range opt.bentoDeployment.Spec.Runners {
 			if runner.Name == *opt.runnerName {
 				specEnvs = runner.Envs
+				resourceAnnotations = runner.Annotations
 				break
 			}
 		}
 	} else {
 		specEnvs = opt.bentoDeployment.Spec.Envs
+		resourceAnnotations = opt.bentoDeployment.Spec.Annotations
+	}
+
+	if resourceAnnotations == nil {
+		resourceAnnotations = make(map[string]string)
 	}
 
 	if specEnvs != nil {
@@ -1732,6 +1739,18 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		podSpec.Affinity = extraPodSpec.Affinity
 		podSpec.Tolerations = extraPodSpec.Tolerations
 		podSpec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
+	}
+
+	if resourceAnnotations["yatai.ai/enable-host-ipc"] == consts.KubeLabelTrue {
+		podSpec.HostIPC = true
+	}
+
+	if resourceAnnotations["yatai.ai/enable-host-network"] == consts.KubeLabelTrue {
+		podSpec.HostNetwork = true
+	}
+
+	if resourceAnnotations["yatai.ai/enable-host-pid"] == consts.KubeLabelTrue {
+		podSpec.HostPID = true
 	}
 
 	podTemplateSpec = &corev1.PodTemplateSpec{

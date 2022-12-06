@@ -1614,6 +1614,29 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		},
 	}
 
+	if resourceAnnotations["yatai.ai/enable-container-privileged"] == consts.KubeLabelTrue {
+		if container.SecurityContext == nil {
+			container.SecurityContext = &corev1.SecurityContext{}
+		}
+		container.SecurityContext.Privileged = &[]bool{true}[0]
+	}
+
+	if resourceAnnotations["yatai.ai/enable-container-ptrace"] == consts.KubeLabelTrue {
+		if container.SecurityContext == nil {
+			container.SecurityContext = &corev1.SecurityContext{}
+		}
+		container.SecurityContext.Capabilities = &corev1.Capabilities{
+			Add: []corev1.Capability{"SYS_PTRACE"},
+		}
+	}
+
+	if resourceAnnotations["yatai.ai/run-container-as-root"] == consts.KubeLabelTrue {
+		if container.SecurityContext == nil {
+			container.SecurityContext = &corev1.SecurityContext{}
+		}
+		container.SecurityContext.RunAsUser = &[]int64{0}[0]
+	}
+
 	containers = append(containers, container)
 
 	metricsPort := containerPort + 1

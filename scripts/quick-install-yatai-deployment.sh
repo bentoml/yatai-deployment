@@ -274,6 +274,7 @@ helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${
   --set dockerRegistry.bentoRepositoryName=$DOCKER_REGISTRY_BENTO_REPOSITORY_NAME \
   --set layers.network.ingressClass=$INGRESS_CLASS \
   --skip-crds=${UPGRADE_CRDS} \
+  --version=${VERSION} \
   --devel=${DEVEL}
 
 echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."

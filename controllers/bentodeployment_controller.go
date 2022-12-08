@@ -2142,7 +2142,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 		proxyResourcesRequestsMemoryStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesRequestsMemory]
 		if proxyResourcesRequestsMemoryStr == "" {
-			proxyResourcesRequestsMemoryStr = "500Mi"
+			proxyResourcesRequestsMemoryStr = "200Mi"
 		}
 		var proxyResourcesRequestsMemory resource.Quantity
 		proxyResourcesRequestsMemory, err = resource.ParseQuantity(proxyResourcesRequestsMemoryStr)
@@ -2152,7 +2152,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 		proxyResourcesLimitsCpuStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesLimitsCpu]
 		if proxyResourcesLimitsCpuStr == "" {
-			proxyResourcesLimitsCpuStr = "1000m"
+			proxyResourcesLimitsCpuStr = "300m"
 		}
 		var proxyResourcesLimitsCpu resource.Quantity
 		proxyResourcesLimitsCpu, err = resource.ParseQuantity(proxyResourcesLimitsCpuStr)
@@ -2162,7 +2162,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 		proxyResourcesLimitsMemoryStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesLimitsMemory]
 		if proxyResourcesLimitsMemoryStr == "" {
-			proxyResourcesLimitsMemoryStr = "2000Mi"
+			proxyResourcesLimitsMemoryStr = "1000Mi"
 		}
 		var proxyResourcesLimitsMemory resource.Quantity
 		proxyResourcesLimitsMemory, err = resource.ParseQuantity(proxyResourcesLimitsMemoryStr)

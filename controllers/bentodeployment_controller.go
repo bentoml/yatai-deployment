@@ -1225,6 +1225,7 @@ func (r *BentoDeploymentReconciler) getGenericServiceName(bentoDeployment *servi
 }
 
 const (
+	KubeValueNameSharedMemory                                 = "shared-memory"
 	KubeAnnotationYataiEnableStealingTrafficDebugMode         = "yatai.ai/enable-stealing-traffic-debug-mode"
 	KubeAnnotationYataiEnableDebugMode                        = "yatai.ai/enable-debug-mode"
 	KubeAnnotationYataiEnableDebugPodReceiveProductionTraffic = "yatai.ai/enable-debug-pod-receive-production-traffic"
@@ -1983,6 +1984,26 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		err = errors.Wrap(err, "failed to get resources config")
 		return nil, err
 	}
+
+	sharedMemorySizeLimit := resource.MustParse("64Mi")
+	memoryLimit := resources.Limits[corev1.ResourceMemory]
+	if !memoryLimit.IsZero() {
+		sharedMemorySizeLimit.SetMilli(memoryLimit.MilliValue() / 2)
+	}
+
+	volumes = append(volumes, corev1.Volume{
+		Name: KubeValueNameSharedMemory,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    corev1.StorageMediumMemory,
+				SizeLimit: &sharedMemorySizeLimit,
+			},
+		},
+	})
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      KubeValueNameSharedMemory,
+		MountPath: "/dev/shm",
+	})
 
 	imageName := GetBentoImageName(opt.dockerRegistry, &opt.bento.BentoWithRepositorySchema, false)
 

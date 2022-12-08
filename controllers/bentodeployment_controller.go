@@ -1226,6 +1226,7 @@ func (r *BentoDeploymentReconciler) getGenericServiceName(bentoDeployment *servi
 
 const (
 	KubeValueNameSharedMemory                                 = "shared-memory"
+	KubeAnnotationDeploymentStrategy                          = "yatai.ai/deployment-strategy"
 	KubeAnnotationYataiEnableStealingTrafficDebugMode         = "yatai.ai/enable-stealing-traffic-debug-mode"
 	KubeAnnotationYataiEnableDebugMode                        = "yatai.ai/enable-debug-mode"
 	KubeAnnotationYataiEnableDebugPodReceiveProductionTraffic = "yatai.ai/enable-debug-pod-receive-production-traffic"
@@ -1352,6 +1353,17 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 			MaxSurge:       &defaultMaxSurge,
 			MaxUnavailable: &defaultMaxUnavailable,
 		},
+	}
+
+	resourceAnnotations := getResourceAnnotations(opt.bentoDeployment, opt.runnerName)
+	strategyStr := resourceAnnotations[KubeAnnotationDeploymentStrategy]
+	if strategyStr != "" {
+		strategyType := appsv1.DeploymentStrategyType(strategyStr)
+		if strategyType == appsv1.RecreateDeploymentStrategyType {
+			strategy = appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			}
+		}
 	}
 
 	var replicas *int32

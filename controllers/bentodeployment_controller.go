@@ -2305,10 +2305,16 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		})
 	}
 
+	debuggerImage := "quay.io/bentoml/bento-debugger:0.0.5"
+	debuggerImage_ := os.Getenv("INTERNAL_IMAGES_DEBUGGER")
+	if debuggerImage_ != "" {
+		debuggerImage = debuggerImage_
+	}
+
 	if opt.isStealingTrafficDebugModeEnabled || isDebugModeEnabled {
 		containers = append(containers, corev1.Container{
 			Name:  "debugger",
-			Image: "quay.io/bentoml/bento-debugger:0.0.4",
+			Image: debuggerImage,
 			Command: []string{
 				"sleep",
 				"infinity",

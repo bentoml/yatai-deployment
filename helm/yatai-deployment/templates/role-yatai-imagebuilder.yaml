@@ -26,6 +26,28 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods/attach
+  verbs:
+  - create
+  - update
+  - patch
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/ephemeralcontainers
+  verbs:
+  - create
+  - update
+  - patch
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - pods/log
   verbs:
   - get

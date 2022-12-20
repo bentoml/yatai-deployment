@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.151
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
 	github.com/bentoml/yatai-common v0.0.0-20221020025746-4b883e1aedbe
-	github.com/bentoml/yatai-schemas v0.0.0-20221208043223-88d10632e9b4
+	github.com/bentoml/yatai-schemas v0.0.0-20221220135425-3f48cbf72719
 	github.com/huandu/xstrings v1.3.2
 	github.com/iancoleman/strcase v0.2.0
 	github.com/onsi/ginkgo v1.16.5

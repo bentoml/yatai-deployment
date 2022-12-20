@@ -181,7 +181,7 @@ if [ "${DEVEL_HELM_REPO}" = "true" ]; then
   helm_repo_url=https://bentoml.github.io/helm-charts-devel
 fi
 
-UPGRADE_CRDS=${UPGRADE_CRDS:-false}
+UPGRADE_CRDS=${UPGRADE_CRDS:-true}
 
 if [ "${UPGRADE_CRDS}" = "true" ]; then
   echo "🤖 installing yatai-deployment CRDs..."

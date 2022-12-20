@@ -1,4 +1,4 @@
-IMG ?= quay.io/bentoml/bento-debugger:0.0.5
+IMG ?= quay.io/bentoml/bento-debugger:0.0.6
 
 build:
 	docker build -t $(IMG) .

@@ -1358,10 +1358,35 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 	resourceAnnotations := getResourceAnnotations(opt.bentoDeployment, opt.runnerName)
 	strategyStr := resourceAnnotations[KubeAnnotationDeploymentStrategy]
 	if strategyStr != "" {
-		strategyType := appsv1.DeploymentStrategyType(strategyStr)
-		if strategyType == appsv1.RecreateDeploymentStrategyType {
+		strategyType := modelschemas.DeploymentStrategy(strategyStr)
+		switch strategyType {
+		case modelschemas.DeploymentStrategyRollingUpdate:
+			strategy = appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge:       &defaultMaxSurge,
+					MaxUnavailable: &defaultMaxUnavailable,
+				},
+			}
+		case modelschemas.DeploymentStrategyRecreate:
 			strategy = appsv1.DeploymentStrategy{
 				Type: appsv1.RecreateDeploymentStrategyType,
+			}
+		case modelschemas.DeploymentStrategyRampedSlowRollout:
+			strategy = appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge:       &[]intstr.IntOrString{intstr.FromInt(1)}[0],
+					MaxUnavailable: &[]intstr.IntOrString{intstr.FromInt(0)}[0],
+				},
+			}
+		case modelschemas.DeploymentStrategyBestEffortControlledRollout:
+			strategy = appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge:       &[]intstr.IntOrString{intstr.FromInt(0)}[0],
+					MaxUnavailable: &[]intstr.IntOrString{intstr.FromString("20%")}[0],
+				},
 			}
 		}
 	}

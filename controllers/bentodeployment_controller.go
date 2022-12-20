@@ -1898,11 +1898,6 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 				ContainerPort: int32(containerPort), // nolint: gosec
 			},
 		},
-		SecurityContext: &corev1.SecurityContext{
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{"SYS_PTRACE"},
-			},
-		},
 	}
 
 	if resourceAnnotations["yatai.ai/enable-container-privileged"] == consts.KubeLabelTrue {

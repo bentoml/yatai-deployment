@@ -211,10 +211,13 @@ func hash(text string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func getBentoNameFromBentoTag(bentoTag string) string {
+func GetBentoNameFromBentoTag(bentoTag string) string {
 	bentoName := strings.ReplaceAll(strcase.ToKebab(bentoTag), ":", "--")
 	if len(bentoName) > 63 {
-		bentoName = fmt.Sprintf("bento-%s", hash(bentoTag))[:63]
+		bentoName = fmt.Sprintf("bento-%s", hash(bentoTag))
+		if len(bentoName) > 63 {
+			bentoName = bentoName[:63]
+		}
 	}
 	return bentoName
 }
@@ -239,7 +242,7 @@ func getBentoTagFromBentoName(namesapce, bentoName string) (string, error) {
 }
 
 func (src *BentoDeployment) ConvertToBentoRequest() *resourcesv1alpha1.BentoRequest {
-	bentoName := getBentoNameFromBentoTag(src.Spec.BentoTag)
+	bentoName := GetBentoNameFromBentoTag(src.Spec.BentoTag)
 
 	bentoRequest := &resourcesv1alpha1.BentoRequest{
 		ObjectMeta: metav1.ObjectMeta{

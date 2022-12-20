@@ -862,7 +862,7 @@ func checkIfIsDebugModeEnabled(annotations map[string]string) bool {
 		return false
 	}
 
-	return annotations[KubeAnnotationYataiEnableDebugMode] == consts.KubeLabelTrue
+	return annotations[KubeAnnotationYataiEnableDebugMode] == consts.KubeLabelValueTrue
 }
 
 func checkIfIsStealingTrafficDebugModeEnabled(annotations map[string]string) bool {
@@ -870,7 +870,7 @@ func checkIfIsStealingTrafficDebugModeEnabled(annotations map[string]string) boo
 		return false
 	}
 
-	return annotations[KubeAnnotationYataiEnableStealingTrafficDebugMode] == consts.KubeLabelTrue
+	return annotations[KubeAnnotationYataiEnableStealingTrafficDebugMode] == consts.KubeLabelValueTrue
 }
 
 func checkIfIsDebugPodReceiveProductionTrafficEnabled(annotations map[string]string) bool {
@@ -878,7 +878,7 @@ func checkIfIsDebugPodReceiveProductionTrafficEnabled(annotations map[string]str
 		return false
 	}
 
-	return annotations[KubeAnnotationYataiEnableDebugPodReceiveProductionTraffic] == consts.KubeLabelTrue
+	return annotations[KubeAnnotationYataiEnableDebugPodReceiveProductionTraffic] == consts.KubeLabelValueTrue
 }
 
 func checkIfContainsStealingTrafficDebugModeEnabled(bentoDeployment *servingv2alpha1.BentoDeployment) bool {
@@ -1900,14 +1900,14 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		},
 	}
 
-	if resourceAnnotations["yatai.ai/enable-container-privileged"] == consts.KubeLabelTrue {
+	if resourceAnnotations["yatai.ai/enable-container-privileged"] == consts.KubeLabelValueTrue {
 		if container.SecurityContext == nil {
 			container.SecurityContext = &corev1.SecurityContext{}
 		}
 		container.SecurityContext.Privileged = &[]bool{true}[0]
 	}
 
-	if resourceAnnotations["yatai.ai/enable-container-ptrace"] == consts.KubeLabelTrue {
+	if resourceAnnotations["yatai.ai/enable-container-ptrace"] == consts.KubeLabelValueTrue {
 		if container.SecurityContext == nil {
 			container.SecurityContext = &corev1.SecurityContext{}
 		}
@@ -1916,7 +1916,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 	}
 
-	if resourceAnnotations["yatai.ai/run-container-as-root"] == consts.KubeLabelTrue {
+	if resourceAnnotations["yatai.ai/run-container-as-root"] == consts.KubeLabelValueTrue {
 		if container.SecurityContext == nil {
 			container.SecurityContext = &corev1.SecurityContext{}
 		}
@@ -2041,7 +2041,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 			envoyConfigContent, err = utils.GenerateEnvoyConfigurationContent(utils.CreateEnvoyConfig{
 				ListenPort:              proxyPort,
 				DebugHeaderName:         HeaderNameDebug,
-				DebugHeaderValue:        consts.KubeLabelTrue,
+				DebugHeaderValue:        consts.KubeLabelValueTrue,
 				DebugServerAddress:      "localhost",
 				DebugServerPort:         containerPort,
 				ProductionServerAddress: fmt.Sprintf("%s.%s.svc.cluster.local", productionServiceName, opt.bentoDeployment.Namespace),
@@ -2052,7 +2052,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 			envoyConfigContent, err = utils.GenerateEnvoyConfigurationContent(utils.CreateEnvoyConfig{
 				ListenPort:              proxyPort,
 				DebugHeaderName:         HeaderNameDebug,
-				DebugHeaderValue:        consts.KubeLabelTrue,
+				DebugHeaderValue:        consts.KubeLabelValueTrue,
 				DebugServerAddress:      fmt.Sprintf("%s.%s.svc.cluster.local", debugServiceName, opt.bentoDeployment.Namespace),
 				DebugServerPort:         ServicePortHTTPNonProxy,
 				ProductionServerAddress: "localhost",
@@ -2244,15 +2244,15 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		podSpec.Containers = append(podSpec.Containers, extraPodSpec.Containers...)
 	}
 
-	if resourceAnnotations["yatai.ai/enable-host-ipc"] == consts.KubeLabelTrue {
+	if resourceAnnotations["yatai.ai/enable-host-ipc"] == consts.KubeLabelValueTrue {
 		podSpec.HostIPC = true
 	}
 
-	if resourceAnnotations["yatai.ai/enable-host-network"] == consts.KubeLabelTrue {
+	if resourceAnnotations["yatai.ai/enable-host-network"] == consts.KubeLabelValueTrue {
 		podSpec.HostNetwork = true
 	}
 
-	if resourceAnnotations["yatai.ai/enable-host-pid"] == consts.KubeLabelTrue {
+	if resourceAnnotations["yatai.ai/enable-host-pid"] == consts.KubeLabelValueTrue {
 		podSpec.HostPID = true
 	}
 
@@ -2804,13 +2804,13 @@ func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logs := log.Log.WithValues("func", "SetupWithManager")
 	version.Print()
 
-	if os.Getenv("DISABLE_CLEANUP_ABANDONED_RUNNER_SERVICES") != consts.KubeLabelTrue {
+	if os.Getenv("DISABLE_CLEANUP_ABANDONED_RUNNER_SERVICES") != consts.KubeLabelValueTrue {
 		go r.cleanUpAbandonedRunnerServices()
 	} else {
 		logs.Info("cleanup abandoned runner services is disabled")
 	}
 
-	if os.Getenv("DISABLE_YATAI_COMPONENT_REGISTRATION") != consts.KubeLabelTrue {
+	if os.Getenv("DISABLE_YATAI_COMPONENT_REGISTRATION") != consts.KubeLabelValueTrue {
 		go r.registerYataiComponent()
 	} else {
 		logs.Info("yatai component registration is disabled")

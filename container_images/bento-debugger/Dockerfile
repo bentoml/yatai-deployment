@@ -11,7 +11,7 @@ FROM python:3.11.0-slim-bullseye
 
 RUN apt-get update
 RUN apt-get install -y vim jq fping curl iftop mtr dnsutils ldnsutils procps htop net-tools iproute2 ipset iptraf-ng tcpdump tcptraceroute strace sysstat iperf iperf3 ngrep zsh wget git
-RUN pip install ipython ipdb py-spy httpie
+RUN pip install --no-cache-dir ipython ipdb py-spy httpie
 
 # Installing ctop - top-like container monitor
 COPY --from=fetcher /tmp/ctop /usr/local/bin/ctop

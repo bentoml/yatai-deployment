@@ -4,11 +4,10 @@ go 1.19
 
 require (
 	github.com/aquasecurity/go-pep440-version v0.0.0-20210121094942-22b2f8951d46
-	github.com/aws/aws-sdk-go v1.44.151
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
-	github.com/bentoml/yatai-schemas v0.0.0-20221220135425-3f48cbf72719
-	github.com/bentoml/yatai-common v0.0.0-20221115112706-487d02768241
+	github.com/bentoml/yatai-common v0.0.0-20221204065908-975ef2e3714e
 	github.com/bentoml/yatai-image-builder v0.0.1-d12
+	github.com/bentoml/yatai-schemas v0.0.0-20221220135425-3f48cbf72719
 	github.com/huandu/xstrings v1.3.2
 	github.com/iancoleman/strcase v0.2.0
 	github.com/onsi/ginkgo v1.16.5
@@ -54,7 +53,6 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect

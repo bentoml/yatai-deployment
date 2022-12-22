@@ -73,6 +73,10 @@ Create the name of the service account to use
 {{- printf "%s-in-yatai-system" (include "yatai-deployment.serviceAccountName" .) | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
+{{- define "yatai-deployment.serviceAccountNameWithBentoDeployment" -}}
+{{- printf "%s-with-bento-deployment" (include "yatai-deployment.serviceAccountName" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
 {{/*
 Generate k8s robot token
 */}}

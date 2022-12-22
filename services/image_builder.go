@@ -172,12 +172,6 @@ type CreateImageBuilderPodOption struct {
 }
 
 func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt CreateImageBuilderPodOption) (pod *corev1.Pod, err error) {
-	kubeName := strcase.ToKebab(fmt.Sprintf("yatai-bento-image-builder-%s-%s", opt.Bento.Repository.Name, opt.Bento.Version))
-	kubeLabels := map[string]string{
-		consts.KubeLabelYataiBentoRepository: opt.Bento.Repository.Name,
-		consts.KubeLabelYataiBento:           opt.Bento.Version,
-	}
-	logrus.Infof("Creating image builder pod %s", kubeName)
 	restConfig := config.GetConfigOrDie()
 	kubeCli, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
@@ -186,6 +180,25 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 	}
 
 	kubeNamespace := consts.KubeNamespaceYataiModelImageBuilder
+	kubeName := strcase.ToKebab(fmt.Sprintf("yatai-bento-image-builder-%s-%s", opt.Bento.Repository.Name, opt.Bento.Version))
+
+	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
+
+	oldPod, err := podsCli.Get(ctx, kubeName, metav1.GetOptions{})
+	oldPodIsNotFound := apierrors.IsNotFound(err)
+	if !oldPodIsNotFound && err != nil {
+		return
+	}
+	if !oldPodIsNotFound {
+		pod = oldPod
+		return
+	}
+
+	kubeLabels := map[string]string{
+		consts.KubeLabelYataiBentoRepository: opt.Bento.Repository.Name,
+		consts.KubeLabelYataiBento:           opt.Bento.Version,
+	}
+	logrus.Infof("Creating image builder pod %s", kubeName)
 
 	err = k8sutils.MakesureNamespaceExists(ctx, kubeCli, kubeNamespace)
 	if err != nil {
@@ -256,13 +269,13 @@ func (s *imageBuilderService) CreateImageBuilderPod(ctx context.Context, opt Cre
 	}
 
 	_, err = kubeCli.CoreV1().Secrets(kubeNamespace).Get(ctx, secretName, metav1.GetOptions{})
-	isNotFound := apierrors.IsNotFound(err)
-	if err != nil && !isNotFound {
+	secretIsNotFound := apierrors.IsNotFound(err)
+	if err != nil && !secretIsNotFound {
 		err = errors.Wrapf(err, "failed to get secret %s", secretName)
 		return
 	}
 
-	if isNotFound {
+	if secretIsNotFound {
 		_, err = kubeCli.CoreV1().Secrets(kubeNamespace).Create(ctx, yataiSecret, metav1.CreateOptions{})
 		isExists := apierrors.IsAlreadyExists(err)
 		if err != nil && !isExists {
@@ -548,8 +561,6 @@ echo "Done"
 
 	builderImage := internalImages.Kaniko
 
-	podsCli := kubeCli.CoreV1().Pods(kubeNamespace)
-
 	pod = &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kubeName,
@@ -608,13 +619,13 @@ echo "Done"
 		}
 	}
 
-	oldPod, err := podsCli.Get(ctx, kubeName, metav1.GetOptions{})
-	isNotFound = apierrors.IsNotFound(err)
-	if !isNotFound && err != nil {
+	oldPod, err = podsCli.Get(ctx, kubeName, metav1.GetOptions{})
+	oldPodIsNotFound = apierrors.IsNotFound(err)
+	if !oldPodIsNotFound && err != nil {
 		return
 	}
-	if isNotFound {
-		_, err = podsCli.Create(ctx, pod, metav1.CreateOptions{})
+	if oldPodIsNotFound {
+		pod, err = podsCli.Create(ctx, pod, metav1.CreateOptions{})
 		isExists := apierrors.IsAlreadyExists(err)
 		if err != nil && !isExists {
 			err = errors.Wrapf(err, "failed to create pod %s", kubeName)

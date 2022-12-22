@@ -69,6 +69,10 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
+{{- define "yatai-deployment.serviceAccountNameInYataiSystemNamespace" -}}
+{{- printf "%s-in-yatai-system" (include "yatai-deployment.serviceAccountName" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
 {{/*
 Generate k8s robot token
 */}}

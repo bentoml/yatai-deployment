@@ -1591,6 +1591,14 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName, opt.isStealingTrafficDebugModeEnabled)
 
 	containerPort := consts.BentoServicePort
+	var lastPort = containerPort + 1
+
+	monitorExporter := opt.bentoDeployment.Spec.MonitorExporter
+	need_monitor_container := monitorExporter != nil && monitorExporter.Enabled && opt.runnerName == nil
+
+	lastPort++
+	monitorExporterPort := lastPort
+
 	var envs []corev1.EnvVar
 	envsSeen := make(map[string]struct{})
 
@@ -1700,6 +1708,45 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		if _, ok := envsSeen[env.Name]; !ok {
 			envs = append(envs, env)
 		}
+	}
+
+	if need_monitor_container {
+		monitoring_config_template := `monitoring.enabled=true
+monitoring.type=otlp
+monitoring.options.endpoint=http://127.0.0.1:{%d}
+monitoring.options.insecure=true
+`
+		var bentoml_options string
+		var index = -1
+		for i, env := range envs {
+			if env.Name == "BENTOML_CONFIG_OPTIONS" {
+				bentoml_options = env.Value
+				index = i
+				break
+			}
+		}
+		if index == -1 {
+			// BENOML_CONFIG_OPTIONS not defined
+			bentoml_options = fmt.Sprintf(monitoring_config_template, monitorExporterPort)
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BENTOML_CONFIG_OPTIONS",
+				Value: bentoml_options,
+			})
+		} else if !strings.Contains(bentoml_options, "monitoring") {
+			// monitoring config not defined
+			envs = append(envs[:index], envs[index+1:]...)
+			bentoml_options = strings.TrimSpace(bentoml_options) // ' ' -> ''
+			if bentoml_options != "" {
+				bentoml_options += "\n"
+			}
+			bentoml_options += fmt.Sprintf(monitoring_config_template, monitorExporterPort)
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BENTOML_CONFIG_OPTIONS",
+				Value: bentoml_options,
+			})
+		}
+		// monitoring config already defined
+		// do nothing
 	}
 
 	livenessProbe := &corev1.Probe{
@@ -1925,7 +1972,8 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	containers = append(containers, container)
 
-	metricsPort := containerPort + 1
+	lastPort++
+	metricsPort := lastPort
 
 	containers = append(containers, corev1.Container{
 		Name:  "metrics-transformer",
@@ -1994,7 +2042,9 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	})
 
 	if opt.runnerName == nil {
-		proxyPort := metricsPort + 1
+		lastPort++
+		proxyPort := lastPort
+
 		proxyResourcesRequestsCpuStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesRequestsCpu]
 		if proxyResourcesRequestsCpuStr == "" {
 			proxyResourcesRequestsCpuStr = "100m"
@@ -2242,6 +2292,41 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		podSpec.Tolerations = extraPodSpec.Tolerations
 		podSpec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
 		podSpec.Containers = append(podSpec.Containers, extraPodSpec.Containers...)
+	}
+
+	if need_monitor_container {
+		monitorExporterImage := "quay.io/bentoml/bentoml-fluentbit:2.0.6"
+
+		var monitorOptEnvs = make([]corev1.EnvVar, 0, len(monitorExporter.Options))
+
+		for k, v := range monitorExporter.Options {
+			monitorOptEnvs = append(monitorOptEnvs, corev1.EnvVar{
+				Name:  "FLUENTBIT_OUTPUT_OPTION_" + strings.ToUpper(k),
+				Value: v,
+			})
+		}
+
+		podSpec.Containers = append(podSpec.Containers, corev1.Container{
+			Name:  "monitor-exporter",
+			Image: monitorExporterImage,
+			Ports: []corev1.ContainerPort{
+				{
+					Name:          "monitor-exporter-port",
+					ContainerPort: int32(monitorExporterPort),
+					Protocol:      corev1.ProtocolTCP,
+				},
+			},
+			Env: append([]corev1.EnvVar{
+				{
+					Name:  "FLUENTBIT_OTLP_PORT",
+					Value: fmt.Sprint(monitorExporterPort),
+				},
+				{
+					Name:  "FLUENTBIT_OUTPUT",
+					Value: monitorExporter.Output,
+				},
+			}, monitorOptEnvs...),
+		})
 	}
 
 	if resourceAnnotations["yatai.ai/enable-host-ipc"] == consts.KubeLabelValueTrue {

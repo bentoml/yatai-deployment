@@ -82,6 +82,10 @@ help: ## Display this help.
 
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(KUSTOMIZE) build config/crd > helm/yatai-deployment/crds/bentodeployment.yaml
+	sed -i "s/name: webhook-service/name: 'yatai-deployment-webhook-service'/" helm/yatai-deployment/crds/bentodeployment.yaml
+	sed -i "s/namespace: system/namespace: 'yatai-deployment'/" helm/yatai-deployment/crds/bentodeployment.yaml
+	sed -i "s/cert-manager.io\/inject-ca-from: .*/cert-manager.io\/inject-ca-from: 'yatai-deployment\/yatai-deployment-serving-cert'/" helm/yatai-deployment/crds/bentodeployment.yaml
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."

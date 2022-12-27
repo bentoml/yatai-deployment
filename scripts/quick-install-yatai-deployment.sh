@@ -172,15 +172,6 @@ echo "⏳ waiting for metrics-server to be ready..."
 kubectl wait --for=condition=ready --timeout=600s pod -l k8s-app=metrics-server -A
 echo "✅ metrics-server is ready"
 
-helm_repo_name=bentoml
-helm_repo_url=https://bentoml.github.io/helm-charts
-
-# check if DEVEL_HELM_REPO is true
-if [ "${DEVEL_HELM_REPO}" = "true" ]; then
-  helm_repo_name=bentoml-devel
-  helm_repo_url=https://bentoml.github.io/helm-charts-devel
-fi
-
 UPGRADE_CRDS=${UPGRADE_CRDS:-true}
 
 if [ "${UPGRADE_CRDS}" = "true" ]; then
@@ -191,21 +182,46 @@ if [ "${UPGRADE_CRDS}" = "true" ]; then
   echo "✅ yatai-deployment CRDs are established"
 fi
 
-helm repo remove ${helm_repo_name} 2> /dev/null || true
-helm repo add ${helm_repo_name} ${helm_repo_url}
-helm repo update ${helm_repo_name}
+YATAI_ENDPOINT=${YATAI_ENDPOINT:-http://yatai.yatai-system.svc.cluster.local}
 
-# if $VERSION is not set, use the latest version
-if [ -z "$VERSION" ]; then
-  VERSION=$(helm search repo ${helm_repo_name} --devel="$DEVEL" -l | grep "${helm_repo_name}/yatai-deployment " | awk '{print $2}' | head -n 1)
+USE_LOCAL_HELM_CHART=${USE_LOCAL_HELM_CHART:-false}
+
+if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
+  YATAI_DEPLOYMENT_IMG_REGISTRY=${YATAI_DEPLOYMENT_IMG_REGISTRY:-quay.io/bentoml}
+  YATAI_DEPLOYMENT_IMG_REPO=${YATAI_DEPLOYMENT_IMG_REPO:-yatai-deployment}
+  YATAI_DEPLOYMENT_IMG_TAG=${YATAI_DEPLOYMENT_IMG_TAG}
+
+  echo "🤖 installing yatai-deployment from local helm chart..."
+  helm upgrade --install yatai-deployment ./helm/yatai-deployment -n ${namespace} \
+    --set registry=${YATAI_DEPLOYMENT_IMG_REGISTRY} \
+    --set image.repository=${YATAI_DEPLOYMENT_IMG_REPO} \
+    --set image.tag=${YATAI_DEPLOYMENT_IMG_TAG} \
+    --set yatai.endpoint=${YATAI_ENDPOINT} \
+    --set layers.network.ingressClass=${INGRESS_CLASS} \
+    --skip-crds=${UPGRADE_CRDS}
+else
+  # if $VERSION is not set, use the latest version
+  if [ -z "$VERSION" ]; then
+    VERSION=$(helm search repo ${helm_repo_name} --devel="$DEVEL" -l | grep "${helm_repo_name}/yatai-deployment " | awk '{print $2}' | head -n 1)
+  fi
+
+  helm_repo_url=https://bentoml.github.io/helm-charts
+
+  # check if DEVEL_HELM_REPO is true
+  if [ "${DEVEL_HELM_REPO}" = "true" ]; then
+    helm_repo_url=https://bentoml.github.io/helm-charts-devel
+  fi
+
+  HELM_REPO_URL=${HELM_REPO_URL:-${helm_repo_url}}
+
+  echo "🤖 installing yatai-deployment ${VERSION} from helm repo ${HELM_REPO_URL}..."
+  helm upgrade --install yatai-deployment yatai-deployment --repo ${HELM_REPO_URL} -n ${namespace} \
+    --set yatai.endpoint=${YATAI_ENDPOINT} \
+    --set layers.network.ingressClass=${INGRESS_CLASS} \
+    --skip-crds=${UPGRADE_CRDS} \
+    --version=${VERSION} \
+    --devel=${DEVEL}
 fi
-
-echo "🤖 installing yatai-deployment ${VERSION} from helm repo ${helm_repo_name}..."
-helm upgrade --install yatai-deployment ${helm_repo_name}/yatai-deployment -n ${namespace} \
-  --set layers.network.ingressClass=$INGRESS_CLASS \
-  --skip-crds=${UPGRADE_CRDS} \
-  --version=${VERSION} \
-  --devel=${DEVEL}
 
 echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."
 kubectl -n ${namespace} wait --for=condition=complete --timeout=600s job/yatai-deployment-default-domain

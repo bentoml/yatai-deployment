@@ -6567,6 +6567,17 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              monitorExporter:
+                properties:
+                  enabled:
+                    type: boolean
+                  options:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  output:
+                    type: string
+                type: object
               resources:
                 properties:
                   limits:

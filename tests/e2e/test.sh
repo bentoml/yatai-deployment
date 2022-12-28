@@ -1,9 +1,15 @@
 #!/bin/bash
 
-set -e
+set -xe
 
-YATAI_ENDPOINT='' bash <(curl -s "https://raw.githubusercontent.com/bentoml/yatai-image-builder/main/scripts/quick-install-yatai-image-builder.sh")
-YATAI_ENDPOINT='' USE_LOCAL_HELM_CHART=true bash ./scripts/quick-install-yatai-deployment.sh
+kubectl create ns yatai-system
+
+echo "🚀 Installing yatai-image-builder..."
+YATAI_ENDPOINT='empty' bash <(curl -s "https://raw.githubusercontent.com/bentoml/yatai-image-builder/main/scripts/quick-install-yatai-image-builder.sh")
+echo "✅ yatai-image-builder is ready"
+echo "🚀 Installing yatai-deployment..."
+YATAI_ENDPOINT='empty' USE_LOCAL_HELM_CHART=true IGNORE_INGRESS=true SKIP_METRICS_SERVER=true UPGRADE_CRDS=false bash ./scripts/quick-install-yatai-deployment.sh
+echo "✅ yatai-deployment is ready"
 
 kubectl apply -n yatai -f ./tests/e2e/example.yaml
 sleep 5

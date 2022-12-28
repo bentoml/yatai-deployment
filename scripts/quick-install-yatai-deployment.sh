@@ -62,24 +62,33 @@ if ! command -v helm >/dev/null 2>&1; then
   exit 1
 fi
 
-INGRESS_CLASS=$(kubectl get ingressclass -o jsonpath='{.items[0].metadata.name}' 2> /dev/null || true)
-# check if ingress class is empty
-if [ -z "$INGRESS_CLASS" ]; then
-  if [ "$is_minikube" != "true" ]; then
+IGNORE_INGRESS=${IGNORE_INGRESS:-false}
+
+if [ "${IGNORE_INGRESS}" = "false" ]; then
+  AUTOMATIC_DOMAIN_SUFFIX_GENERATION=true
+  INGRESS_CLASS=$(kubectl get ingressclass -o jsonpath='{.items[0].metadata.name}' 2> /dev/null || true)
+  # check if ingress class is empty
+  if [ -z "$INGRESS_CLASS" ]; then
+    if [ "$is_minikube" != "true" ]; then
+      echo "😱 ingress controller is not found, please install it first!" >&2
+      exit 1
+    else
+      echo "🤖 installing ingress for minikube"
+      minikube addons enable ingress
+      echo "✅ ingress installed"
+    fi
+  fi
+
+  INGRESS_CLASS=$(kubectl get ingressclass -o jsonpath='{.items[0].metadata.name}' 2> /dev/null || true)
+  # check if ingress class is empty
+  if [ -z "$INGRESS_CLASS" ]; then
     echo "😱 ingress controller is not found, please install it first!" >&2
     exit 1
-  else
-    echo "🤖 installing ingress for minikube"
-    minikube addons enable ingress
-    echo "✅ ingress installed"
   fi
-fi
-
-INGRESS_CLASS=$(kubectl get ingressclass -o jsonpath='{.items[0].metadata.name}' 2> /dev/null || true)
-# check if ingress class is empty
-if [ -z "$INGRESS_CLASS" ]; then
-  echo "😱 ingress controller is not found, please install it first!" >&2
-  exit 1
+else
+  echo "🤖 ignoring ingress check"
+  AUTOMATIC_DOMAIN_SUFFIX_GENERATION=false
+  INGRESS_CLASS=""
 fi
 
 echo "🧪 verifying that the yatai-image-builder is running"
@@ -157,20 +166,26 @@ fi
 kubectl delete -f /tmp/cert-manager-test-resources.yaml
 echo "✅ cert-manager is working properly"
 
-if [ $(kubectl get pod -A -l k8s-app=metrics-server 2> /dev/null | wc -l) = 0 ]; then
-  echo "🤖 installing metrics-server..."
-  if [ "${is_minikube}" = "true" ]; then
-    minikube addons enable metrics-server
-  else
-    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-  fi
-else
-  echo "😀 metrics-server is already installed"
-fi
+SKIP_METRICS_SERVER=${SKIP_METRICS_SERVER:-false}
 
-echo "⏳ waiting for metrics-server to be ready..."
-kubectl wait --for=condition=ready --timeout=600s pod -l k8s-app=metrics-server -A
-echo "✅ metrics-server is ready"
+if [ "${SKIP_METRICS_SERVER}" = "false" ]; then
+  if [ $(kubectl get pod -A -l k8s-app=metrics-server 2> /dev/null | wc -l) = 0 ]; then
+    echo "🤖 installing metrics-server..."
+    if [ "${is_minikube}" = "true" ]; then
+      minikube addons enable metrics-server
+    else
+      kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    fi
+  else
+    echo "😀 metrics-server is already installed"
+  fi
+
+  echo "⏳ waiting for metrics-server to be ready..."
+  kubectl wait --for=condition=ready --timeout=600s pod -l k8s-app=metrics-server -A
+  echo "✅ metrics-server is ready"
+else
+  echo "🤖 skipping metrics-server installation"
+fi
 
 UPGRADE_CRDS=${UPGRADE_CRDS:-true}
 
@@ -183,6 +198,9 @@ if [ "${UPGRADE_CRDS}" = "true" ]; then
 fi
 
 YATAI_ENDPOINT=${YATAI_ENDPOINT:-http://yatai.yatai-system.svc.cluster.local}
+if [ "${YATAI_ENDPOINT}" = "empty" ]; then
+    YATAI_ENDPOINT=""
+fi
 
 USE_LOCAL_HELM_CHART=${USE_LOCAL_HELM_CHART:-false}
 
@@ -218,14 +236,17 @@ else
   helm upgrade --install yatai-deployment yatai-deployment --repo ${HELM_REPO_URL} -n ${namespace} \
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
+    --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
     --skip-crds=${UPGRADE_CRDS} \
     --version=${VERSION} \
     --devel=${DEVEL}
 fi
 
-echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."
-kubectl -n ${namespace} wait --for=condition=complete --timeout=600s job/yatai-deployment-default-domain
-echo "✅ job yatai-deployment-default-domain is complete"
+if [ "${AUTOMATIC_DOMAIN_SUFFIX_GENERATION}" = "true"]; then
+  echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."
+  kubectl -n ${namespace} wait --for=condition=complete --timeout=600s job/yatai-deployment-default-domain
+  echo "✅ job yatai-deployment-default-domain is complete"
+fi
 
 kubectl -n ${namespace} rollout restart deploy/yatai-deployment
 

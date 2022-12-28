@@ -224,21 +224,21 @@ func GetBentoNameFromBentoTag(bentoTag string) string {
 
 func getBentoTagFromBentoName(namesapce, bentoName string) (string, error) {
 	restConf := clientconfig.GetConfigOrDie()
-	bentorequestcli, err := resourcesclient.NewForConfig(restConf)
+	bentocli, err := resourcesclient.NewForConfig(restConf)
 	if err != nil {
-		err = errors.Wrap(err, "create BentoRequest client")
+		err = errors.Wrap(err, "create Bento client")
 		return "", err
 	}
-	bentoRequest, err := bentorequestcli.BentoRequests(namesapce).Get(context.Background(), bentoName, metav1.GetOptions{})
+	bento, err := bentocli.Bentoes(namesapce).Get(context.Background(), bentoName, metav1.GetOptions{})
 	if err != nil {
-		err = errors.Wrap(err, "get BentoRequest")
+		err = errors.Wrapf(err, "get Bento CR %s", bentoName)
 		return "", err
 	}
-	if bentoRequest.Spec.BentoTag == "" {
-		err = errors.New("BentoTag is empty")
+	if bento.Spec.Tag == "" {
+		err = errors.New("Bento Tag is empty")
 		return "", err
 	}
-	return bentoRequest.Spec.BentoTag, nil
+	return bento.Spec.Tag, nil
 }
 
 func (src *BentoDeployment) ConvertToBentoRequest() *resourcesv1alpha1.BentoRequest {

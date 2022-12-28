@@ -132,7 +132,9 @@ jobs:
       env:
         YATAI_DEPLOYMENT_IMG_REPO: test-yatai-deployment
         YATAI_DEPLOYMENT_IMG_TAG: ${{ needs.triage.outputs.image_tag }}
-      run: ./tests/e2e/test.sh
+      run: |
+        ./tests/e2e/installation_test.sh
+        make test-e2e
 
     - name: Set status success
       uses: LouisBrunner/checks-action@v1.5.0

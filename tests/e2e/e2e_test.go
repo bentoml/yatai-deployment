@@ -42,7 +42,7 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 		cmd := exec.Command("kubectl", "delete", "-f", "tests/e2e/example.yaml")
 		_, _ = utils.Run(cmd)
 		By("Showing yatai-deployment logs")
-		cmd = exec.Command("kubectl", "logs", "-n", "yatai-deployment", "-l", "app.kubernetes.io/name=yatai-deployment")
+		cmd = exec.Command("kubectl", "logs", "-n", "yatai-deployment", "--tail", "100", "-l", "app.kubernetes.io/name=yatai-deployment")
 		logs, _ := utils.Run(cmd)
 		fmt.Println(string(logs))
 	})

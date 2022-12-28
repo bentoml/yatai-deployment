@@ -114,7 +114,7 @@ jobs:
     - name: Build test image
       uses: docker/build-push-action@v2
       with:
-        build-args: 'VERSION_BUILDFLAGS="${{ needs.triage.outputs.version_buildflags }}"'
+        build-args: 'VERSION_BUILDFLAGS=${{ needs.triage.outputs.version_buildflags }}'
         context: .
         push: true
         tags: quay.io/bentoml/test-yatai-deployment:${{ needs.triage.outputs.image_tag }}

@@ -146,13 +146,21 @@ jobs:
         conclusion: success
         details_url: https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
 
+    - name: React to comment with success
+      uses: dkershner6/reaction-action@v1
+      if: steps.test.outcome == 'success'
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commentId: ${{ github.event.comment.id }}
+        reaction: "hooray"
+
     - name: React to comment with failure
       uses: dkershner6/reaction-action@v1
       if: steps.test.outcome != 'success'
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         commentId: ${{ github.event.comment.id }}
-        reaction: "-1"
+        reaction: "confused"
 
     - name: Set status failure
       uses: LouisBrunner/checks-action@v1.5.0

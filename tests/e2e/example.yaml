@@ -29,6 +29,11 @@ spec:
   bento: test-bento
   ingress:
     enabled: false
+  monitorExporter:
+    enabled: true
+    output: stdout
+    options:
+      workers: "4"
   resources:
     limits:
       cpu: 1000m

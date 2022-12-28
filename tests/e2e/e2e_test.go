@@ -33,18 +33,18 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 	var daemonProcess *os.Process
 
 	AfterAll(func() {
-		By("Stopping the daemon process")
+		By("Showing yatai-deployment logs")
+		cmd := exec.Command("kubectl", "logs", "-n", "yatai-deployment", "--tail", "200", "-l", "app.kubernetes.io/name=yatai-deployment")
+		logs, _ := utils.Run(cmd)
+		fmt.Println(string(logs))
+		By("Stopping the port-forward daemon process")
 		if daemonProcess != nil {
 			err := daemonProcess.Kill()
 			Expect(err).To(BeNil())
 		}
 		By("Cleaning up BentoDeployment resources")
-		cmd := exec.Command("kubectl", "delete", "-f", "tests/e2e/example.yaml")
+		cmd = exec.Command("kubectl", "delete", "-f", "tests/e2e/example.yaml")
 		_, _ = utils.Run(cmd)
-		By("Showing yatai-deployment logs")
-		cmd = exec.Command("kubectl", "logs", "-n", "yatai-deployment", "--tail", "100", "-l", "app.kubernetes.io/name=yatai-deployment")
-		logs, _ := utils.Run(cmd)
-		fmt.Println(string(logs))
 	})
 
 	Context("BentoDeployment Operator", func() {

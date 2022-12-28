@@ -216,6 +216,8 @@ if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
     --set image.tag=${YATAI_DEPLOYMENT_IMG_TAG} \
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
+    --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
+    --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
     --skip-crds=${UPGRADE_CRDS}
 else
   # if $VERSION is not set, use the latest version

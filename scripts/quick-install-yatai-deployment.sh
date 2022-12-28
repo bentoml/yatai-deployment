@@ -243,7 +243,7 @@ else
     --devel=${DEVEL}
 fi
 
-if [ "${AUTOMATIC_DOMAIN_SUFFIX_GENERATION}" = "true"]; then
+if [ "${AUTOMATIC_DOMAIN_SUFFIX_GENERATION}" = "true" ]; then
   echo "⏳ waiting for job yatai-deployment-default-domain to be complete..."
   kubectl -n ${namespace} wait --for=condition=complete --timeout=600s job/yatai-deployment-default-domain
   echo "✅ job yatai-deployment-default-domain is complete"

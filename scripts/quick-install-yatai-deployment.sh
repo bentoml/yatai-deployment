@@ -237,6 +237,7 @@ else
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
+    --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
     --skip-crds=${UPGRADE_CRDS} \
     --version=${VERSION} \
     --devel=${DEVEL}

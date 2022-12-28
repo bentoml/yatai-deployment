@@ -16,7 +16,7 @@ jobs:
       image_tag: "pr-${{ steps.parser.outputs.pr_num }}-${{ steps.parser.outputs.commit_sha }}"
       commit_sha: ${{ steps.parser.outputs.commit_sha }}
       version_buildflags: ${{ steps.parser.outputs.version_buildflags }}
-      go_code_hash: ${{ steps.parser.outputs.go_code_hash }}
+      image_build_hash: ${{ steps.parser.outputs.image_build_hash }}
 
     steps:
       - uses: actions/checkout@v3
@@ -59,7 +59,7 @@ jobs:
           PKG=github.com/bentoml/yatai-deployment
           VERSION_BUILDFLAGS="-X '${PKG}/version.GitCommit=${GIT_COMMIT}' -X '${PKG}/version.Version=${VERSION}' -X '${PKG}/version.BuildDate=${BUILD_DATE}'"
           echo "::set-output name=version_buildflags::$VERSION_BUILDFLAGS"
-          echo "::set-output name=go_code_hash::${{ hashFiles('main.go', './apis/**', './controllers/**', './utils/**', './version/**', './yatai-client/**', '**/go.sum', '**go.mod') }}"
+          echo "::set-output name=image_build_hash::${{ hashFiles('Dockerfile', 'main.go', './apis/**', './controllers/**', './utils/**', './version/**', './yatai-client/**', '**/go.sum', '**go.mod') }}"
 
   build-test-images:
     needs: triage
@@ -107,7 +107,7 @@ jobs:
       with:
         path: /tmp/.buildx-cache
         # Key is named differently to avoid collision
-        key: ${{ runner.os }}-multi-buildx-${{ needs.triage.outputs.go_code_hash }}
+        key: ${{ runner.os }}-multi-buildx-${{ needs.triage.outputs.image_build_hash }}
         restore-keys: |
           ${{ runner.os }}-multi-buildx
 

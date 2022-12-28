@@ -127,6 +127,7 @@ jobs:
       run: kind create cluster --config tests/gh-actions/kind-cluster-1-24.yaml
 
     - name: Run e2e test
+      continue-on-error: true
       id: test
       env:
         YATAI_DEPLOYMENT_IMG_REPO: test-yatai-deployment

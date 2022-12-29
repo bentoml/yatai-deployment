@@ -2295,6 +2295,9 @@ monitoring.options.insecure=true
 	}
 
 	if need_monitor_container {
+		lastPort++
+		monitorExporterProbePort := lastPort
+
 		monitorExporterImage := "quay.io/bentoml/bentoml-fluentbit:2.0.6"
 
 		var monitorOptEnvs = make([]corev1.EnvVar, 0, len(monitorExporter.Options))
@@ -2309,17 +2312,14 @@ monitoring.options.insecure=true
 		podSpec.Containers = append(podSpec.Containers, corev1.Container{
 			Name:  "monitor-exporter",
 			Image: monitorExporterImage,
-			Ports: []corev1.ContainerPort{
-				{
-					Name:          "monitor-exporter-port",
-					ContainerPort: int32(monitorExporterPort),
-					Protocol:      corev1.ProtocolTCP,
-				},
-			},
 			Env: append([]corev1.EnvVar{
 				{
 					Name:  "FLUENTBIT_OTLP_PORT",
 					Value: fmt.Sprint(monitorExporterPort),
+				},
+				{
+					Name:  "FLUENTBIT_HTTP_PORT",
+					Value: fmt.Sprint(monitorExporterProbePort),
 				},
 				{
 					Name:  "FLUENTBIT_OUTPUT",
@@ -2334,6 +2334,28 @@ monitoring.options.insecure=true
 				Limits: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("1000m"),
 					corev1.ResourceMemory: resource.MustParse("72Mi"),
+				},
+			},
+			ReadinessProbe: &corev1.Probe{
+				InitialDelaySeconds: 5,
+				TimeoutSeconds:      5,
+				FailureThreshold:    10,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/readyz",
+						Port: intstr.FromInt(monitorExporterProbePort),
+					},
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				InitialDelaySeconds: 5,
+				TimeoutSeconds:      5,
+				FailureThreshold:    10,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/livez",
+						Port: intstr.FromInt(monitorExporterProbePort),
+					},
 				},
 			},
 		})

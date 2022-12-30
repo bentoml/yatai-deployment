@@ -249,7 +249,7 @@ UPGRADE_CRDS=${UPGRADE_CRDS:-false}
 
 if [ "${UPGRADE_CRDS}" = "true" ]; then
   echo "🤖 installing yatai-deployment CRDs..."
-  kubectl apply -f https://raw.githubusercontent.com/bentoml/yatai-deployment/main/helm/yatai-deployment/crds/bentodeployment.yaml
+  kubectl apply -f https://raw.githubusercontent.com/bentoml/yatai-deployment/v1.0.x/helm/yatai-deployment/crds/bentodeployment.yaml
   echo "⏳ waiting for yatai-deployment CRDs to be established..."
   kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
   echo "✅ yatai-deployment CRDs are established"

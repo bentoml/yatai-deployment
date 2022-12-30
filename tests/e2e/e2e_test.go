@@ -33,9 +33,21 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 	var daemonProcess *os.Process
 
 	AfterAll(func() {
-		By("Showing yatai-deployment logs")
-		cmd := exec.Command("kubectl", "logs", "-n", "yatai-deployment", "--tail", "200", "-l", "app.kubernetes.io/name=yatai-deployment")
+		By("Showing BentoDeployment pods events")
+		cmd := exec.Command("kubectl", "-n", "yatai", "describe", "pod", "-l", "yatai.ai/bento-deployment=test")
 		logs, _ := utils.Run(cmd)
+		fmt.Println(string(logs))
+		By("Showing BentoDeployment pods logs")
+		cmd = exec.Command("kubectl", "-n", "yatai", "logs", "--tail", "50", "-l", "yatai.ai/bento-deployment=test")
+		logs, _ = utils.Run(cmd)
+		fmt.Println(string(logs))
+		By("Showing yatai-deployment events")
+		cmd = exec.Command("kubectl", "-n", "yatai-deployment", "describe", "pod", "-l", "app.kubernetes.io/name=yatai-deployment")
+		logs, _ = utils.Run(cmd)
+		fmt.Println(string(logs))
+		By("Showing yatai-deployment logs")
+		cmd = exec.Command("kubectl", "-n", "yatai-deployment", "logs", "--tail", "200", "-l", "app.kubernetes.io/name=yatai-deployment")
+		logs, _ = utils.Run(cmd)
 		fmt.Println(string(logs))
 		By("Stopping the port-forward daemon process")
 		if daemonProcess != nil {

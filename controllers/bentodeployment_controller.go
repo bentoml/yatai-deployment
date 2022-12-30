@@ -1714,8 +1714,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		monitoring_config_template := `monitoring.enabled=true
 monitoring.type=otlp
 monitoring.options.endpoint=http://127.0.0.1:{%d}
-monitoring.options.insecure=true
-`
+monitoring.options.insecure=true`
 		var bentoml_options string
 		var index = -1
 		for i, env := range envs {

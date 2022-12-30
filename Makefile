@@ -101,7 +101,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: test-e2e # You will need to have a Kind cluster up in running to run this target
 test-e2e:
-	go test ./tests/e2e/ -v -ginkgo.v
+	go test ./tests/e2e/ -v -ginkgo.v -timeout 20m
 
 ##@ Build
 

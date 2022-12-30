@@ -61,14 +61,14 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 
 			By("Waiting for the bento api-server deployment to be available")
 			EventuallyWithOffset(1, func() error {
-				cmd := exec.Command("kubectl", "-n", "yatai", "wait", "--for", "condition=available", "--timeout", "600s", "deployment/test")
+				cmd := exec.Command("kubectl", "-n", "yatai", "wait", "--for", "condition=available", "--timeout", "5m", "deployment/test")
 				_, err := utils.Run(cmd)
 				return err
 			}).Should(Succeed())
 
 			By("Waiting for the bento runner deployment to be available")
 			EventuallyWithOffset(1, func() error {
-				cmd := exec.Command("kubectl", "-n", "yatai", "wait", "--for", "condition=available", "--timeout", "600s", "deployment/test-runner-0")
+				cmd := exec.Command("kubectl", "-n", "yatai", "wait", "--for", "condition=available", "--timeout", "5m", "deployment/test-runner-0")
 				_, err := utils.Run(cmd)
 				return err
 			}).Should(Succeed())

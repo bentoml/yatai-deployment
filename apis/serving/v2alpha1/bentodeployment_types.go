@@ -79,6 +79,12 @@ type BentoDeploymentIngressSpec struct {
 	TLS         *BentoDeploymentIngressTLSSpec `json:"tls,omitempty"`
 }
 
+type MonitorExporterSpec struct {
+	Enabled bool              `json:"enabled,omitempty"`
+	Output  string            `json:"output,omitempty"`
+	Options map[string]string `json:"options,omitempty"`
+}
+
 // BentoDeploymentSpec defines the desired state of BentoDeployment
 type BentoDeploymentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -96,6 +102,8 @@ type BentoDeploymentSpec struct {
 	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
 
 	Ingress BentoDeploymentIngressSpec `json:"ingress,omitempty"`
+
+	MonitorExporter *MonitorExporterSpec `json:"monitorExporter,omitempty"`
 
 	// +optional
 	ExtraPodMetadata *ExtraPodMetadata `json:"extraPodMetadata,omitempty"`

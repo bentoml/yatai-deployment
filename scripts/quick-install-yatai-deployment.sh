@@ -187,16 +187,6 @@ else
   echo "🤖 skipping metrics-server installation"
 fi
 
-UPGRADE_CRDS=${UPGRADE_CRDS:-true}
-
-if [ "${UPGRADE_CRDS}" = "true" ]; then
-  echo "🤖 installing yatai-deployment CRDs..."
-  kubectl apply --server-side -f https://raw.githubusercontent.com/bentoml/yatai-deployment/main/helm/yatai-deployment/crds/bentodeployment.yaml
-  echo "⏳ waiting for yatai-deployment CRDs to be established..."
-  kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
-  echo "✅ yatai-deployment CRDs are established"
-fi
-
 YATAI_ENDPOINT=${YATAI_ENDPOINT:-http://yatai.yatai-system.svc.cluster.local}
 if [ "${YATAI_ENDPOINT}" = "empty" ]; then
     YATAI_ENDPOINT=""
@@ -209,6 +199,12 @@ if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
   YATAI_DEPLOYMENT_IMG_REPO=${YATAI_DEPLOYMENT_IMG_REPO:-yatai-deployment}
   YATAI_DEPLOYMENT_IMG_TAG=${YATAI_DEPLOYMENT_IMG_TAG}
 
+  echo "🤖 installing yatai-deployment-crds from local helm chart..."
+  helm upgrade --install yatai-deployment-crds ./helm/yatai-deployment-crds -n ${namespace}
+  echo "⏳ waiting for yatai-deployment CRDs to be established..."
+  kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
+  echo "✅ yatai-deployment CRDs are established"
+
   echo "🤖 installing yatai-deployment from local helm chart..."
   helm upgrade --install yatai-deployment ./helm/yatai-deployment -n ${namespace} \
     --set registry=${YATAI_DEPLOYMENT_IMG_REGISTRY} \
@@ -217,8 +213,7 @@ if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
-    --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
-    --skip-crds=${UPGRADE_CRDS}
+    --set layers.network.domainSuffix=${DOMAIN_SUFFIX}
 else
   # if $VERSION is not set, use the latest version
   if [ -z "$VERSION" ]; then
@@ -234,13 +229,18 @@ else
 
   HELM_REPO_URL=${HELM_REPO_URL:-${helm_repo_url}}
 
+  echo "🤖 installing yatai-deployment-crds from helm repo ${HELM_REPO_URL}..."
+  helm upgrade --install yatai-deployment-crds --repo ${HELM_REPO_URL} -n ${namespace}
+  echo "⏳ waiting for yatai-deployment CRDs to be established..."
+  kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
+  echo "✅ yatai-deployment CRDs are established"
+
   echo "🤖 installing yatai-deployment ${VERSION} from helm repo ${HELM_REPO_URL}..."
   helm upgrade --install yatai-deployment yatai-deployment --repo ${HELM_REPO_URL} -n ${namespace} \
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
     --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
-    --skip-crds=${UPGRADE_CRDS} \
     --version=${VERSION} \
     --devel=${DEVEL}
 fi

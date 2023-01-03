@@ -1,0 +1,3 @@
+Waiting for yatai-deployment CRDs to be established:
+
+  kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai

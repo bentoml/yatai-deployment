@@ -78,12 +78,16 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.2.1
 
-      - name: Render Helm Template
+      - name: Render yatai-deployment Helm Template
         working-directory: ./helm/yatai-deployment
+        run: make template
+
+      - name: Render yatai-deployment-crds Helm Template
+        working-directory: ./helm/yatai-deployment-crds
         run: make template
 
 
 concurrency:
-  group: yatai${{ github.event.pull_request.number || github.sha }}
+  group: yatai-deployment-lint-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 

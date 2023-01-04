@@ -62,28 +62,22 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 	Context("BentoDeployment Operator", func() {
 		It("Should run successfully", func() {
 			By("Creating a BentoDeployment CR")
-			EventuallyWithOffset(1, func() error {
-				cmd := exec.Command("kubectl", "apply", "-f", "tests/e2e/example.yaml")
-				_, err := utils.Run(cmd)
-				return err
-			}, time.Minute, time.Second).Should(Succeed())
+			cmd := exec.Command("kubectl", "apply", "-f", "tests/e2e/example.yaml")
+			out, err := utils.Run(cmd)
+			Expect(err).To(BeNil(), "Failed to create BentoDeployment CR: %s", string(out))
 
 			By("Sleeping for 5 seconds")
 			time.Sleep(5 * time.Second)
 
 			By("Waiting for the bento api-server deployment to be available")
-			EventuallyWithOffset(1, func() error {
-				cmd := exec.Command("kubectl", "-n", "yatai", "wait", "--for", "condition=available", "--timeout", "5m", "deployment/test")
-				_, err := utils.Run(cmd)
-				return err
-			}).Should(Succeed())
+			cmd = exec.Command("kubectl", "-n", "yatai", "wait", "--for", "condition=available", "--timeout", "5m", "deployment/test")
+			out, err = utils.Run(cmd)
+			Expect(err).To(BeNil(), "Failed to wait for the bento api-server deployment to be available: %s", string(out))
 
 			By("Waiting for the bento runner deployment to be available")
-			EventuallyWithOffset(1, func() error {
-				cmd := exec.Command("kubectl", "-n", "yatai", "wait", "--for", "condition=available", "--timeout", "5m", "deployment/test-runner-0")
-				_, err := utils.Run(cmd)
-				return err
-			}).Should(Succeed())
+			cmd = exec.Command("kubectl", "-n", "yatai", "wait", "--for", "condition=available", "--timeout", "5m", "deployment/test-runner-0")
+			out, err = utils.Run(cmd)
+			Expect(err).To(BeNil(), "Failed to wait for the bento runner deployment to be available: %s", string(out))
 
 			restConf := config.GetConfigOrDie()
 			cliset, err := kubernetes.NewForConfig(restConf)
@@ -93,32 +87,22 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 			Expect(err).To(BeNil(), "failed to create bentorequest clientset")
 
 			By("Checking the bento api-server deployment image name")
-			EventuallyWithOffset(1, func() error {
-				ctx := context.Background()
+			ctx := context.Background()
 
-				logrus.Infof("Getting Bento CR %s", "test-bento")
-				bento, err := bentorequestcli.Bentoes("yatai").Get(ctx, "test-bento", metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
+			logrus.Infof("Getting Bento CR %s", "test-bento")
+			bento, err := bentorequestcli.Bentoes("yatai").Get(ctx, "test-bento", metav1.GetOptions{})
+			Expect(err).To(BeNil(), "failed to get Bento CR %s", "test-bento")
 
-				logrus.Infof("Getting deployment %s", "test")
-				deployment, err := cliset.AppsV1().Deployments("yatai").Get(ctx, "test", metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
+			logrus.Infof("Getting deployment %s", "test")
+			deployment, err := cliset.AppsV1().Deployments("yatai").Get(ctx, "test", metav1.GetOptions{})
+			Expect(err).To(BeNil(), "Failed to get deployment %s", "test")
 
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(bento.Spec.Image), "bento api-server deployment image name is not correct")
-				return nil
-			}).Should(Succeed())
+			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(bento.Spec.Image), "bento api-server deployment image name is not correct")
 
 			By("Port-forwarding the bento api-server service")
-			EventuallyWithOffset(1, func() error {
-				cmd := exec.Command("kubectl", "-n", "yatai", "port-forward", "svc/test", "3000:3000")
-				var err error
-				daemonProcess, err = utils.RunAsDaemon(cmd)
-				return err
-			}).Should(Succeed())
+			cmd = exec.Command("kubectl", "-n", "yatai", "port-forward", "svc/test", "3000:3000")
+			daemonProcess, err = utils.RunAsDaemon(cmd)
+			Expect(err).To(BeNil(), "Failed to port-forward the bento api-server service")
 
 			By("Sleeping for 5 seconds")
 			time.Sleep(5 * time.Second)

@@ -215,28 +215,35 @@ if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
     --set layers.network.domainSuffix=${DOMAIN_SUFFIX}
 else
+  helm_repo_name=bentoml
+  helm_repo_url=https://bentoml.github.io/helm-charts
+
+  # check if DEVEL_HELM_REPO is true
+  if [ "${DEVEL_HELM_REPO}" = "true" ]; then
+    helm_repo_name=bentoml-devel
+    helm_repo_url=https://bentoml.github.io/helm-charts-devel
+  fi
+
+  helm_repo_name=${HELM_REPO_NAME:-${helm_repo_name}}
+  helm_repo_url=${HELM_REPO_URL:-${helm_repo_url}}
+
+  helm repo remove ${helm_repo_name} 2> /dev/null || true
+  helm repo add ${helm_repo_name} ${helm_repo_url}
+  helm repo update ${helm_repo_name}
+
   # if $VERSION is not set, use the latest version
   if [ -z "$VERSION" ]; then
     VERSION=$(helm search repo ${helm_repo_name} --devel="$DEVEL" -l | grep "${helm_repo_name}/yatai-deployment " | awk '{print $2}' | head -n 1)
   fi
 
-  helm_repo_url=https://bentoml.github.io/helm-charts
-
-  # check if DEVEL_HELM_REPO is true
-  if [ "${DEVEL_HELM_REPO}" = "true" ]; then
-    helm_repo_url=https://bentoml.github.io/helm-charts-devel
-  fi
-
-  HELM_REPO_URL=${HELM_REPO_URL:-${helm_repo_url}}
-
-  echo "🤖 installing yatai-deployment-crds from helm repo ${HELM_REPO_URL}..."
-  helm upgrade --install yatai-deployment-crds --repo ${HELM_REPO_URL} -n ${namespace}
+  echo "🤖 installing yatai-deployment-crds from helm repo ${helm_repo_url}..."
+  helm upgrade --install yatai-deployment-crds --repo ${helm_repo_url} -n ${namespace}
   echo "⏳ waiting for yatai-deployment CRDs to be established..."
   kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
   echo "✅ yatai-deployment CRDs are established"
 
-  echo "🤖 installing yatai-deployment ${VERSION} from helm repo ${HELM_REPO_URL}..."
-  helm upgrade --install yatai-deployment yatai-deployment --repo ${HELM_REPO_URL} -n ${namespace} \
+  echo "🤖 installing yatai-deployment ${VERSION} from helm repo ${helm_repo_url}..."
+  helm upgrade --install yatai-deployment yatai-deployment --repo ${helm_repo_url} -n ${namespace} \
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \

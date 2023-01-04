@@ -197,7 +197,7 @@ USE_LOCAL_HELM_CHART=${USE_LOCAL_HELM_CHART:-false}
 if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
   YATAI_DEPLOYMENT_IMG_REGISTRY=${YATAI_DEPLOYMENT_IMG_REGISTRY:-quay.io/bentoml}
   YATAI_DEPLOYMENT_IMG_REPO=${YATAI_DEPLOYMENT_IMG_REPO:-yatai-deployment}
-  YATAI_DEPLOYMENT_IMG_TAG=${YATAI_DEPLOYMENT_IMG_TAG}
+  YATAI_DEPLOYMENT_IMG_TAG=${YATAI_DEPLOYMENT_IMG_TAG:-0.0.1}
 
   echo "🤖 installing yatai-deployment-crds from local helm chart..."
   helm upgrade --install yatai-deployment-crds ./helm/yatai-deployment-crds -n ${namespace}

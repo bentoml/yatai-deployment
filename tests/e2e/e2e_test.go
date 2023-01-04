@@ -60,8 +60,8 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 	})
 
 	Context("BentoDeployment Operator", func() {
-		It("should run successfully", func() {
-			By("creating a BentoDeployment CR")
+		It("Should run successfully", func() {
+			By("Creating a BentoDeployment CR")
 			EventuallyWithOffset(1, func() error {
 				cmd := exec.Command("kubectl", "apply", "-f", "tests/e2e/example.yaml")
 				_, err := utils.Run(cmd)

@@ -213,7 +213,8 @@ if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
-    --set layers.network.domainSuffix=${DOMAIN_SUFFIX}
+    --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
+    --set enableRestrictedSecurityContext=true
 else
   helm_repo_name=bentoml
   helm_repo_url=https://bentoml.github.io/helm-charts
@@ -248,6 +249,7 @@ else
     --set layers.network.ingressClass=${INGRESS_CLASS} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
     --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
+    --set enableRestrictedSecurityContext=true \
     --version=${VERSION} \
     --devel=${DEVEL}
 fi

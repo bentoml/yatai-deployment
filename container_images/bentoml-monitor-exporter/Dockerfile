@@ -13,7 +13,7 @@ COPY --from=build-env /lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/libm
 COPY --from=build-env /lib/x86_64-linux-gnu/libcrypt.so.1 /lib/x86_64-linux-gnu/libcrypt.so.1
 
 ENV FLUENTBIT_ENTRYPOINT_HOME=/fluent-bit/entrypoint
-COPY . $FLUENTBIT_ENTRYPOINT_HOME
+COPY --chown=65534:65534 . $FLUENTBIT_ENTRYPOINT_HOME
 
 ENV FLUENTBIT_OTLP_PORT=5000
 ENV FLUENTBIT_HTTP_PORT=2020
@@ -23,6 +23,8 @@ ENV FLUENTBIT_OUTPUT_MATCH=*
 # some example option env
 #ENV FLUENTBIT_OUTPUT_OPTION_FORMAT=msgpack
 #ENV FLUENTBIT_OUTPUT_OPTION_WORKERS=3
+
+USER 65534:65534
 
 ENTRYPOINT []
 CMD ["/bin/bash", "-c", "$FLUENTBIT_ENTRYPOINT_HOME/entrypoint.sh"]

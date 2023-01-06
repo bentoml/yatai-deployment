@@ -2169,7 +2169,7 @@ monitoring.options.insecure=true`
 		})
 		containers = append(containers, corev1.Container{
 			Name:  "proxy",
-			Image: "quay.io/bentoml/envoy:1.24.1",
+			Image: "quay.io/bentoml/bentoml-proxy:0.0.1",
 			Command: []string{
 				"envoy",
 				"--config-path",
@@ -2320,7 +2320,7 @@ monitoring.options.insecure=true`
 		lastPort++
 		monitorExporterProbePort := lastPort
 
-		monitorExporterImage := "quay.io/bentoml/bentoml-fluentbit:2.0.6"
+		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.1"
 
 		var monitorOptEnvs = make([]corev1.EnvVar, 0, len(monitorExporter.Options))
 

@@ -120,6 +120,7 @@ if [ $(kubectl get pod -A -l app=cert-manager 2> /dev/null | wc -l) = 0 ]; then
   new_cert_manager=1
   echo "🤖 installing cert-manager..."
   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
+  sleep 1
 else
   echo "😀 cert-manager is already installed"
 fi

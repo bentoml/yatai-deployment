@@ -1,4 +1,4 @@
-IMG ?= quay.io/bentoml/bentoml-fluentbit:2.0.6
+IMG ?= quay.io/bentoml/bentoml-monitor-exporter:0.0.1
 
 build:
 	docker build . --tag $(IMG)

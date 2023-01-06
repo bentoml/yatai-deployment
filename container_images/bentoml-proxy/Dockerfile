@@ -11,3 +11,13 @@ COPY --from=builder /usr/local/bin/envoy /usr/local/bin/envoy
 RUN apt-get update
 RUN apt-get install -y curl
 
+ARG USERNAME=yetone
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+# Create the user
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
+
+USER $USER_UID
+

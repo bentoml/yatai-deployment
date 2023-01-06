@@ -3460,8 +3460,8 @@ spec:
     subresources:
       status: {}
   - additionalPrinterColumns:
-    - description: BentoTag
-      jsonPath: .spec.bento_tag
+    - description: Bento
+      jsonPath: .spec.bento
       name: Bento
       type: string
     - description: Available

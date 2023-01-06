@@ -124,7 +124,7 @@ type BentoDeploymentStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
-//+kubebuilder:printcolumn:name="Bento",type="string",JSONPath=".spec.bento_tag",description="BentoTag"
+//+kubebuilder:printcolumn:name="Bento",type="string",JSONPath=".spec.bento",description="Bento"
 //+kubebuilder:printcolumn:name="Available",type="string",JSONPath=".status.conditions[?(@.type=='Available')].status",description="Available"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 
 	"context"
 
@@ -1923,6 +1924,25 @@ monitoring.options.insecure=true`
 
 	imageName := opt.bento.Spec.Image
 
+	var securityContext *corev1.SecurityContext
+	var mainContainerSecurityContext *corev1.SecurityContext
+
+	enableRestrictedSecurityContext := os.Getenv("ENABLE_RESTRICTED_SECURITY_CONTEXT") == "true"
+	if enableRestrictedSecurityContext {
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: pointer.BoolPtr(false),
+			RunAsNonRoot:             pointer.BoolPtr(true),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+		}
+		mainContainerSecurityContext = securityContext.DeepCopy()
+		mainContainerSecurityContext.RunAsUser = pointer.Int64Ptr(1034)
+	}
+
 	containers := make([]corev1.Container, 0, 2)
 
 	container := corev1.Container{
@@ -1944,6 +1964,7 @@ monitoring.options.insecure=true`
 				ContainerPort: int32(containerPort), // nolint: gosec
 			},
 		},
+		SecurityContext: mainContainerSecurityContext,
 	}
 
 	if resourceAnnotations["yatai.ai/enable-container-privileged"] == consts.KubeLabelValueTrue {
@@ -2038,6 +2059,7 @@ monitoring.options.insecure=true`
 				ContainerPort: int32(metricsPort),
 			},
 		},
+		SecurityContext: securityContext,
 	})
 
 	if opt.runnerName == nil {
@@ -2147,7 +2169,7 @@ monitoring.options.insecure=true`
 		})
 		containers = append(containers, corev1.Container{
 			Name:  "proxy",
-			Image: "quay.io/bentoml/envoy:1.24.1",
+			Image: "quay.io/bentoml/bentoml-proxy:0.0.1",
 			Command: []string{
 				"envoy",
 				"--config-path",
@@ -2204,6 +2226,7 @@ monitoring.options.insecure=true`
 					corev1.ResourceMemory: proxyResourcesLimitsMemory,
 				},
 			},
+			SecurityContext: securityContext,
 		})
 	}
 
@@ -2297,7 +2320,7 @@ monitoring.options.insecure=true`
 		lastPort++
 		monitorExporterProbePort := lastPort
 
-		monitorExporterImage := "quay.io/bentoml/bentoml-fluentbit:2.0.6"
+		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.1"
 
 		var monitorOptEnvs = make([]corev1.EnvVar, 0, len(monitorExporter.Options))
 
@@ -2357,6 +2380,7 @@ monitoring.options.insecure=true`
 					},
 				},
 			},
+			SecurityContext: securityContext,
 		})
 	}
 

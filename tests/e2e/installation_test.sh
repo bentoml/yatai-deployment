@@ -2,7 +2,7 @@
 
 set -xe
 
-kubectl create ns yatai-system
+kubectl create ns yatai-system || true
 
 echo "🚀 Installing yatai-image-builder..."
 YATAI_ENDPOINT='empty' bash <(curl -s "https://raw.githubusercontent.com/bentoml/yatai-image-builder/main/scripts/quick-install-yatai-image-builder.sh")

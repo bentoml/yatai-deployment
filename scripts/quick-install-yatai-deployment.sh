@@ -120,6 +120,7 @@ if [ $(kubectl get pod -A -l app=cert-manager 2> /dev/null | wc -l) = 0 ]; then
   new_cert_manager=1
   echo "🤖 installing cert-manager..."
   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
+  sleep 1
 else
   echo "😀 cert-manager is already installed"
 fi
@@ -213,7 +214,8 @@ if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
-    --set layers.network.domainSuffix=${DOMAIN_SUFFIX}
+    --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
+    --set enableRestrictedSecurityContext=true
 else
   helm_repo_name=bentoml
   helm_repo_url=https://bentoml.github.io/helm-charts
@@ -248,6 +250,7 @@ else
     --set layers.network.ingressClass=${INGRESS_CLASS} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
     --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
+    --set enableRestrictedSecurityContext=true \
     --version=${VERSION} \
     --devel=${DEVEL}
 fi

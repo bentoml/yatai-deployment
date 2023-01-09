@@ -108,7 +108,7 @@ yataiSystem:
 bentoDeploymentNamespaces: ['yatai']
 
 internalImages:
-  metricsTransformer: quay.io/bentoml/yatai-bento-metrics-transformer:0.0.2
+  metricsTransformer: quay.io/bentoml/yatai-bento-metrics-transformer:0.0.3
   debugger: quay.io/bentoml/bento-debugger:0.0.5
 
 disableAutomateBentoImageBuilder: false

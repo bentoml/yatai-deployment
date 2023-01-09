@@ -1932,6 +1932,8 @@ monitoring.options.insecure=true`
 		securityContext = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: pointer.BoolPtr(false),
 			RunAsNonRoot:             pointer.BoolPtr(true),
+			RunAsUser:                pointer.Int64Ptr(1000),
+			RunAsGroup:               pointer.Int64Ptr(1000),
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
@@ -2320,7 +2322,7 @@ monitoring.options.insecure=true`
 		lastPort++
 		monitorExporterProbePort := lastPort
 
-		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.1"
+		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.2"
 
 		var monitorOptEnvs = make([]corev1.EnvVar, 0, len(monitorExporter.Options))
 

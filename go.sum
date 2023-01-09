@@ -92,8 +92,8 @@ github.com/banzaicloud/k8s-objectmatcher v1.8.0 h1:Nugn25elKtPMTA2br+JgHNeSQ04sc
 github.com/banzaicloud/k8s-objectmatcher v1.8.0/go.mod h1:p2LSNAjlECf07fbhDyebTkPUIYnU05G+WfGgkTmgeMg=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
-github.com/bentoml/yatai-common v0.0.0-20221228144213-097f4b9687af h1:U35Ni5PPyMVD3GQbo+jSoIkDbBdhsCQhattxqffuJDo=
-github.com/bentoml/yatai-common v0.0.0-20221228144213-097f4b9687af/go.mod h1:pox0XYk/bVUwKkadn0XwWHEbJmxSEeN3+HwGA4a8uOQ=
+github.com/bentoml/yatai-common v0.0.0-20230109034036-8618622c206f h1:Ci+KpuY110AihAXLqVSU9I+DnQKxd7YJv2YodauAl4Q=
+github.com/bentoml/yatai-common v0.0.0-20230109034036-8618622c206f/go.mod h1:pox0XYk/bVUwKkadn0XwWHEbJmxSEeN3+HwGA4a8uOQ=
 github.com/bentoml/yatai-image-builder v0.0.1-d12 h1:bPqQMpegBwVQAULHckdqAx8PjsSTSjPw5juPGQND7nE=
 github.com/bentoml/yatai-image-builder v0.0.1-d12/go.mod h1:FXWGIOMVGQHHdMthuIDX2MIFpZRvDr64UAF1sk36DTA=
 github.com/bentoml/yatai-schemas v0.0.0-20221220135425-3f48cbf72719 h1:30l4lOqutD1vdo9QOop3ISdxgqjTxLLECIMCZhRFHxU=

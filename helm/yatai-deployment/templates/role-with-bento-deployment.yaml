@@ -143,6 +143,9 @@ rules:
   - get
   - list
   - watch
+  - patch
+  - update
+  - create
 - apiGroups:
   - resources.yatai.ai
   resources:

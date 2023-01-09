@@ -338,7 +338,8 @@ func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
 
 	_, err = bentorequestcli.BentoRequests(src.Namespace).Create(context.Background(), bentoRequest, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
-		oldBentoRequest, err := bentorequestcli.BentoRequests(src.Namespace).Get(context.Background(), bentoRequest.Name, metav1.GetOptions{})
+		var oldBentoRequest *resourcesv1alpha1.BentoRequest
+		oldBentoRequest, err = bentorequestcli.BentoRequests(src.Namespace).Get(context.Background(), bentoRequest.Name, metav1.GetOptions{})
 		if err != nil {
 			err = errors.Wrap(err, "get BentoRequest")
 			return err

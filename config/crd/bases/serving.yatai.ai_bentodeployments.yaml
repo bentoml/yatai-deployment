@@ -6320,6 +6320,8 @@ spec:
                     type: object
                   schedulerName:
                     type: string
+                  serviceAccountName:
+                    type: string
                   tolerations:
                     items:
                       description: The pod this Toleration is attached to tolerates
@@ -9608,6 +9610,8 @@ spec:
                             type: string
                           type: object
                         schedulerName:
+                          type: string
+                        serviceAccountName:
                           type: string
                         tolerations:
                           items:

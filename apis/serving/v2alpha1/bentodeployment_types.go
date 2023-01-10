@@ -45,6 +45,7 @@ type ExtraPodSpec struct {
 	Tolerations               []corev1.Toleration               `json:"tolerations,omitempty"`
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 	Containers                []corev1.Container                `json:"containers,omitempty"`
+	ServiceAccountName        string                            `json:"serviceAccountName,omitempty"`
 }
 
 type Autoscaling struct {

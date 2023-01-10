@@ -59,7 +59,7 @@ import (
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 
-	"github.com/bentoml/yatai-common/consts"
+	commonconsts "github.com/bentoml/yatai-common/consts"
 	"github.com/bentoml/yatai-common/system"
 
 	commonconfig "github.com/bentoml/yatai-common/config"
@@ -71,6 +71,29 @@ import (
 	"github.com/bentoml/yatai-deployment/utils"
 	"github.com/bentoml/yatai-deployment/version"
 	yataiclient "github.com/bentoml/yatai-deployment/yatai-client"
+)
+
+const (
+	DefaultClusterName                                        = "default"
+	DefaultServiceAccountName                                 = "default"
+	KubeValueNameSharedMemory                                 = "shared-memory"
+	KubeAnnotationDeploymentStrategy                          = "yatai.ai/deployment-strategy"
+	KubeAnnotationYataiEnableStealingTrafficDebugMode         = "yatai.ai/enable-stealing-traffic-debug-mode"
+	KubeAnnotationYataiEnableDebugMode                        = "yatai.ai/enable-debug-mode"
+	KubeAnnotationYataiEnableDebugPodReceiveProductionTraffic = "yatai.ai/enable-debug-pod-receive-production-traffic"
+	KubeAnnotationYataiProxySidecarResourcesLimitsCpu         = "yatai.ai/proxy-sidecar-resources-limits-cpu"
+	KubeAnnotationYataiProxySidecarResourcesLimitsMemory      = "yatai.ai/proxy-sidecar-resources-limits-memory"
+	KubeAnnotationYataiProxySidecarResourcesRequestsCpu       = "yatai.ai/proxy-sidecar-resources-requests-cpu"
+	KubeAnnotationYataiProxySidecarResourcesRequestsMemory    = "yatai.ai/proxy-sidecar-resources-requests-memory"
+	DeploymentTargetTypeProduction                            = "production"
+	DeploymentTargetTypeDebug                                 = "debug"
+	ContainerPortNameHTTPProxy                                = "http-proxy"
+	ServicePortNameHTTPNonProxy                               = "http-non-proxy"
+	HeaderNameDebug                                           = "X-Yatai-Debug"
+)
+
+var (
+	ServicePortHTTPNonProxy = commonconsts.BentoServicePort + 1
 )
 
 // BentoDeploymentReconciler reconciles a BentoDeployment object
@@ -578,7 +601,7 @@ func getYataiClient(ctx context.Context) (yataiClient **yataiclient.YataiClient,
 		return
 	}
 
-	yataiConf, err := commonconfig.GetYataiConfig(ctx, clientset, consts.YataiDeploymentComponentName, false)
+	yataiConf, err := commonconfig.GetYataiConfig(ctx, clientset, commonconsts.YataiDeploymentComponentName, false)
 	isNotFound := k8serrors.IsNotFound(err)
 	if err != nil && !isNotFound {
 		err = errors.Wrap(err, "get yatai config")
@@ -597,9 +620,9 @@ func getYataiClient(ctx context.Context) (yataiClient **yataiclient.YataiClient,
 
 	clusterName_ := yataiConf.ClusterName
 	if clusterName_ == "" {
-		clusterName_ = "default"
+		clusterName_ = DefaultClusterName
 	}
-	yataiClient_ := yataiclient.NewYataiClient(yataiEndpoint, fmt.Sprintf("%s:%s:%s", consts.YataiDeploymentComponentName, clusterName_, yataiApiToken))
+	yataiClient_ := yataiclient.NewYataiClient(yataiEndpoint, fmt.Sprintf("%s:%s:%s", commonconsts.YataiDeploymentComponentName, clusterName_, yataiApiToken))
 	yataiClient = &yataiClient_
 	clusterName = &clusterName_
 	return
@@ -863,7 +886,7 @@ func checkIfIsDebugModeEnabled(annotations map[string]string) bool {
 		return false
 	}
 
-	return annotations[KubeAnnotationYataiEnableDebugMode] == consts.KubeLabelValueTrue
+	return annotations[KubeAnnotationYataiEnableDebugMode] == commonconsts.KubeLabelValueTrue
 }
 
 func checkIfIsStealingTrafficDebugModeEnabled(annotations map[string]string) bool {
@@ -871,7 +894,7 @@ func checkIfIsStealingTrafficDebugModeEnabled(annotations map[string]string) boo
 		return false
 	}
 
-	return annotations[KubeAnnotationYataiEnableStealingTrafficDebugMode] == consts.KubeLabelValueTrue
+	return annotations[KubeAnnotationYataiEnableStealingTrafficDebugMode] == commonconsts.KubeLabelValueTrue
 }
 
 func checkIfIsDebugPodReceiveProductionTrafficEnabled(annotations map[string]string) bool {
@@ -879,7 +902,7 @@ func checkIfIsDebugPodReceiveProductionTrafficEnabled(annotations map[string]str
 		return false
 	}
 
-	return annotations[KubeAnnotationYataiEnableDebugPodReceiveProductionTraffic] == consts.KubeLabelValueTrue
+	return annotations[KubeAnnotationYataiEnableDebugPodReceiveProductionTraffic] == commonconsts.KubeLabelValueTrue
 }
 
 func checkIfContainsStealingTrafficDebugModeEnabled(bentoDeployment *servingv2alpha1.BentoDeployment) bool {
@@ -1294,41 +1317,20 @@ func (r *BentoDeploymentReconciler) getGenericServiceName(bentoDeployment *servi
 	return kubeName
 }
 
-const (
-	KubeValueNameSharedMemory                                 = "shared-memory"
-	KubeAnnotationDeploymentStrategy                          = "yatai.ai/deployment-strategy"
-	KubeAnnotationYataiEnableStealingTrafficDebugMode         = "yatai.ai/enable-stealing-traffic-debug-mode"
-	KubeAnnotationYataiEnableDebugMode                        = "yatai.ai/enable-debug-mode"
-	KubeAnnotationYataiEnableDebugPodReceiveProductionTraffic = "yatai.ai/enable-debug-pod-receive-production-traffic"
-	KubeAnnotationYataiProxySidecarResourcesLimitsCpu         = "yatai.ai/proxy-sidecar-resources-limits-cpu"
-	KubeAnnotationYataiProxySidecarResourcesLimitsMemory      = "yatai.ai/proxy-sidecar-resources-limits-memory"
-	KubeAnnotationYataiProxySidecarResourcesRequestsCpu       = "yatai.ai/proxy-sidecar-resources-requests-cpu"
-	KubeAnnotationYataiProxySidecarResourcesRequestsMemory    = "yatai.ai/proxy-sidecar-resources-requests-memory"
-	DeploymentTargetTypeProduction                            = "production"
-	DeploymentTargetTypeDebug                                 = "debug"
-	ContainerPortNameHTTPProxy                                = "http-proxy"
-	ServicePortNameHTTPNonProxy                               = "http-non-proxy"
-	HeaderNameDebug                                           = "X-Yatai-Debug"
-)
-
-var (
-	ServicePortHTTPNonProxy = consts.BentoServicePort + 1
-)
-
 func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv2alpha1.BentoDeployment, bento *resourcesv1alpha1.Bento, runnerName *string) map[string]string {
 	bentoRepositoryName, _, bentoVersion := xstrings.Partition(bento.Spec.Tag, ":")
 	labels := map[string]string{
-		consts.KubeLabelYataiBentoDeployment:           bentoDeployment.Name,
-		consts.KubeLabelBentoRepository:                bentoRepositoryName,
-		consts.KubeLabelBentoVersion:                   bentoVersion,
-		consts.KubeLabelYataiBentoDeploymentTargetType: DeploymentTargetTypeProduction,
-		consts.KubeLabelCreator:                        "yatai-deployment",
+		commonconsts.KubeLabelYataiBentoDeployment:           bentoDeployment.Name,
+		commonconsts.KubeLabelBentoRepository:                bentoRepositoryName,
+		commonconsts.KubeLabelBentoVersion:                   bentoVersion,
+		commonconsts.KubeLabelYataiBentoDeploymentTargetType: DeploymentTargetTypeProduction,
+		commonconsts.KubeLabelCreator:                        "yatai-deployment",
 	}
 	if runnerName != nil {
-		labels[consts.KubeLabelYataiBentoDeploymentComponentType] = consts.YataiBentoDeploymentComponentRunner
-		labels[consts.KubeLabelYataiBentoDeploymentComponentName] = *runnerName
+		labels[commonconsts.KubeLabelYataiBentoDeploymentComponentType] = commonconsts.YataiBentoDeploymentComponentRunner
+		labels[commonconsts.KubeLabelYataiBentoDeploymentComponentName] = *runnerName
 	} else {
-		labels[consts.KubeLabelYataiBentoDeploymentComponentType] = consts.YataiBentoDeploymentComponentApiServer
+		labels[commonconsts.KubeLabelYataiBentoDeploymentComponentType] = commonconsts.YataiBentoDeploymentComponentApiServer
 	}
 	extraLabels := bentoDeployment.Spec.Labels
 	if runnerName != nil {
@@ -1349,8 +1351,8 @@ func (r *BentoDeploymentReconciler) getKubeLabels(bentoDeployment *servingv2alph
 func (r *BentoDeploymentReconciler) getKubeAnnotations(bentoDeployment *servingv2alpha1.BentoDeployment, bento *resourcesv1alpha1.Bento, runnerName *string) map[string]string {
 	bentoRepositoryName, bentoVersion := getBentoRepositoryNameAndBentoVersion(bento)
 	annotations := map[string]string{
-		consts.KubeAnnotationBentoRepository: bentoRepositoryName,
-		consts.KubeAnnotationBentoVersion:    bentoVersion,
+		commonconsts.KubeAnnotationBentoRepository: bentoRepositoryName,
+		commonconsts.KubeAnnotationBentoVersion:    bentoVersion,
 	}
 	var extraAnnotations map[string]string
 	if bentoDeployment.Spec.ExtraPodMetadata != nil {
@@ -1471,7 +1473,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					consts.KubeLabelYataiSelector: kubeName,
+					commonconsts.KubeLabelYataiSelector: kubeName,
 				},
 			},
 			Template: *podTemplateSpec,
@@ -1536,7 +1538,7 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv2alpha1
 	}
 
 	if len(kubeHpa.Spec.Metrics) == 0 {
-		averageUtilization := int32(consts.HPACPUDefaultAverageUtilization)
+		averageUtilization := int32(commonconsts.HPACPUDefaultAverageUtilization)
 		kubeHpa.Spec.Metrics = []autoscalingv2beta2.MetricSpec{
 			{
 				Type: autoscalingv2beta2.ResourceMetricSourceType,
@@ -1580,18 +1582,18 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	bentoRepositoryName, bentoVersion := getBentoRepositoryNameAndBentoVersion(opt.bento)
 	podLabels := r.getKubeLabels(opt.bentoDeployment, opt.bento, opt.runnerName)
 	if opt.runnerName != nil {
-		podLabels[consts.KubeLabelBentoRepository] = bentoRepositoryName
-		podLabels[consts.KubeLabelBentoVersion] = bentoVersion
+		podLabels[commonconsts.KubeLabelBentoRepository] = bentoRepositoryName
+		podLabels[commonconsts.KubeLabelBentoVersion] = bentoVersion
 	}
 	if opt.isStealingTrafficDebugModeEnabled {
-		podLabels[consts.KubeLabelYataiBentoDeploymentTargetType] = DeploymentTargetTypeDebug
+		podLabels[commonconsts.KubeLabelYataiBentoDeploymentTargetType] = DeploymentTargetTypeDebug
 	}
 
 	podAnnotations := r.getKubeAnnotations(opt.bentoDeployment, opt.bento, opt.runnerName)
 
 	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName, opt.isStealingTrafficDebugModeEnabled)
 
-	containerPort := consts.BentoServicePort
+	containerPort := commonconsts.BentoServicePort
 	var lastPort = containerPort + 1
 
 	monitorExporter := opt.bentoDeployment.Spec.MonitorExporter
@@ -1631,7 +1633,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 			if _, ok := envsSeen[env.Name]; ok {
 				continue
 			}
-			if env.Name == consts.EnvBentoServicePort {
+			if env.Name == commonconsts.EnvBentoServicePort {
 				// nolint: gosec
 				containerPort, err = strconv.Atoi(env.Value)
 				if err != nil {
@@ -1648,19 +1650,19 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 	defaultEnvs := []corev1.EnvVar{
 		{
-			Name:  consts.EnvBentoServicePort,
+			Name:  commonconsts.EnvBentoServicePort,
 			Value: fmt.Sprintf("%d", containerPort),
 		},
 		{
-			Name:  consts.EnvYataiDeploymentUID,
+			Name:  commonconsts.EnvYataiDeploymentUID,
 			Value: string(opt.bentoDeployment.UID),
 		},
 		{
-			Name:  consts.EnvYataiBentoDeploymentName,
+			Name:  commonconsts.EnvYataiBentoDeploymentName,
 			Value: opt.bentoDeployment.Name,
 		},
 		{
-			Name:  consts.EnvYataiBentoDeploymentNamespace,
+			Name:  commonconsts.EnvYataiBentoDeploymentNamespace,
 			Value: opt.bentoDeployment.Namespace,
 		},
 	}
@@ -1674,7 +1676,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 
 		var cluster *schemasv1.ClusterFullSchema
-		clusterName := "default"
+		clusterName := DefaultClusterName
 		if opt.clusterName != nil {
 			clusterName = *opt.clusterName
 		}
@@ -1691,15 +1693,15 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 
 		defaultEnvs = append(defaultEnvs, []corev1.EnvVar{
 			{
-				Name:  consts.EnvYataiVersion,
+				Name:  commonconsts.EnvYataiVersion,
 				Value: fmt.Sprintf("%s-%s", version.Version, version.GitCommit),
 			},
 			{
-				Name:  consts.EnvYataiOrgUID,
+				Name:  commonconsts.EnvYataiOrgUID,
 				Value: organization.Uid,
 			},
 			{
-				Name:  consts.EnvYataiClusterUID,
+				Name:  commonconsts.EnvYataiClusterUID,
 				Value: cluster.Uid,
 			},
 		}...)
@@ -1756,7 +1758,7 @@ monitoring.options.insecure=true`
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/livez",
-				Port: intstr.FromString(consts.BentoContainerPortName),
+				Port: intstr.FromString(commonconsts.BentoContainerPortName),
 			},
 		},
 	}
@@ -1768,7 +1770,7 @@ monitoring.options.insecure=true`
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/readyz",
-				Port: intstr.FromString(consts.BentoContainerPortName),
+				Port: intstr.FromString(commonconsts.BentoContainerPortName),
 			},
 		},
 	}
@@ -1826,9 +1828,9 @@ monitoring.options.insecure=true`
 				} else {
 					runnerServiceName = r.getRunnerGenericServiceName(opt.bentoDeployment, opt.bento, runner.Name)
 				}
-				runnerMap[runner.Name] = fmt.Sprintf("tcp://%s:%d", runnerServiceName, consts.BentoServicePort)
-				readinessProbeUrls = append(readinessProbeUrls, fmt.Sprintf("http://%s:%d/readyz", runnerServiceName, consts.BentoServicePort))
-				livenessProbeUrls = append(livenessProbeUrls, fmt.Sprintf("http://%s:%d/healthz", runnerServiceName, consts.BentoServicePort))
+				runnerMap[runner.Name] = fmt.Sprintf("tcp://%s:%d", runnerServiceName, commonconsts.BentoServicePort)
+				readinessProbeUrls = append(readinessProbeUrls, fmt.Sprintf("http://%s:%d/readyz", runnerServiceName, commonconsts.BentoServicePort))
+				livenessProbeUrls = append(livenessProbeUrls, fmt.Sprintf("http://%s:%d/healthz", runnerServiceName, commonconsts.BentoServicePort))
 			}
 
 			livenessProbePythonCommandPieces := make([]string, 0, len(opt.bento.Spec.Runners)+1)
@@ -1962,21 +1964,21 @@ monitoring.options.insecure=true`
 		Ports: []corev1.ContainerPort{
 			{
 				Protocol:      corev1.ProtocolTCP,
-				Name:          consts.BentoContainerPortName,
+				Name:          commonconsts.BentoContainerPortName,
 				ContainerPort: int32(containerPort), // nolint: gosec
 			},
 		},
 		SecurityContext: mainContainerSecurityContext,
 	}
 
-	if resourceAnnotations["yatai.ai/enable-container-privileged"] == consts.KubeLabelValueTrue {
+	if resourceAnnotations["yatai.ai/enable-container-privileged"] == commonconsts.KubeLabelValueTrue {
 		if container.SecurityContext == nil {
 			container.SecurityContext = &corev1.SecurityContext{}
 		}
 		container.SecurityContext.Privileged = &[]bool{true}[0]
 	}
 
-	if resourceAnnotations["yatai.ai/enable-container-ptrace"] == consts.KubeLabelValueTrue {
+	if resourceAnnotations["yatai.ai/enable-container-ptrace"] == commonconsts.KubeLabelValueTrue {
 		if container.SecurityContext == nil {
 			container.SecurityContext = &corev1.SecurityContext{}
 		}
@@ -1985,7 +1987,7 @@ monitoring.options.insecure=true`
 		}
 	}
 
-	if resourceAnnotations["yatai.ai/run-container-as-root"] == consts.KubeLabelValueTrue {
+	if resourceAnnotations["yatai.ai/run-container-as-root"] == commonconsts.KubeLabelValueTrue {
 		if container.SecurityContext == nil {
 			container.SecurityContext = &corev1.SecurityContext{}
 		}
@@ -2114,7 +2116,7 @@ monitoring.options.insecure=true`
 			envoyConfigContent, err = utils.GenerateEnvoyConfigurationContent(utils.CreateEnvoyConfig{
 				ListenPort:              proxyPort,
 				DebugHeaderName:         HeaderNameDebug,
-				DebugHeaderValue:        consts.KubeLabelValueTrue,
+				DebugHeaderValue:        commonconsts.KubeLabelValueTrue,
 				DebugServerAddress:      "localhost",
 				DebugServerPort:         containerPort,
 				ProductionServerAddress: fmt.Sprintf("%s.%s.svc.cluster.local", productionServiceName, opt.bentoDeployment.Namespace),
@@ -2125,7 +2127,7 @@ monitoring.options.insecure=true`
 			envoyConfigContent, err = utils.GenerateEnvoyConfigurationContent(utils.CreateEnvoyConfig{
 				ListenPort:              proxyPort,
 				DebugHeaderName:         HeaderNameDebug,
-				DebugHeaderValue:        consts.KubeLabelValueTrue,
+				DebugHeaderValue:        commonconsts.KubeLabelValueTrue,
 				DebugServerAddress:      fmt.Sprintf("%s.%s.svc.cluster.local", debugServiceName, opt.bentoDeployment.Namespace),
 				DebugServerPort:         ServicePortHTTPNonProxy,
 				ProductionServerAddress: "localhost",
@@ -2266,7 +2268,7 @@ monitoring.options.insecure=true`
 		})
 	}
 
-	podLabels[consts.KubeLabelYataiSelector] = kubeName
+	podLabels[commonconsts.KubeLabelYataiSelector] = kubeName
 
 	podSpec := corev1.PodSpec{
 		Containers: containers,
@@ -2316,6 +2318,23 @@ monitoring.options.insecure=true`
 		podSpec.Tolerations = extraPodSpec.Tolerations
 		podSpec.TopologySpreadConstraints = extraPodSpec.TopologySpreadConstraints
 		podSpec.Containers = append(podSpec.Containers, extraPodSpec.Containers...)
+		podSpec.ServiceAccountName = extraPodSpec.ServiceAccountName
+	}
+
+	if podSpec.ServiceAccountName == "" {
+		serviceAccounts := &corev1.ServiceAccountList{}
+		err = r.List(ctx, serviceAccounts, client.InNamespace(opt.bentoDeployment.Namespace), client.MatchingLabels{
+			commonconsts.KubeLabelBentoDeploymentPod: commonconsts.KubeLabelValueTrue,
+		})
+		if err != nil {
+			err = errors.Wrapf(err, "failed to list service accounts in namespace %s", opt.bentoDeployment.Namespace)
+			return
+		}
+		if len(serviceAccounts.Items) > 0 {
+			podSpec.ServiceAccountName = serviceAccounts.Items[0].Name
+		} else {
+			podSpec.ServiceAccountName = DefaultServiceAccountName
+		}
 	}
 
 	if need_monitor_container {
@@ -2386,15 +2405,15 @@ monitoring.options.insecure=true`
 		})
 	}
 
-	if resourceAnnotations["yatai.ai/enable-host-ipc"] == consts.KubeLabelValueTrue {
+	if resourceAnnotations["yatai.ai/enable-host-ipc"] == commonconsts.KubeLabelValueTrue {
 		podSpec.HostIPC = true
 	}
 
-	if resourceAnnotations["yatai.ai/enable-host-network"] == consts.KubeLabelValueTrue {
+	if resourceAnnotations["yatai.ai/enable-host-network"] == commonconsts.KubeLabelValueTrue {
 		podSpec.HostNetwork = true
 	}
 
-	if resourceAnnotations["yatai.ai/enable-host-pid"] == consts.KubeLabelValueTrue {
+	if resourceAnnotations["yatai.ai/enable-host-pid"] == commonconsts.KubeLabelValueTrue {
 		podSpec.HostPID = true
 	}
 
@@ -2458,7 +2477,7 @@ func getResourcesConfig(resources *modelschemas.DeploymentTargetResources) (core
 			if currentResources.Limits == nil {
 				currentResources.Limits = make(corev1.ResourceList)
 			}
-			currentResources.Limits[consts.KubeResourceGPUNvidia] = q
+			currentResources.Limits[commonconsts.KubeResourceGPUNvidia] = q
 		}
 		for k, v := range resources.Limits.Custom {
 			q, err := resource.ParseQuantity(v)
@@ -2533,20 +2552,20 @@ func (r *BentoDeploymentReconciler) generateService(opt generateServiceOption) (
 	}
 
 	if opt.isStealingTrafficDebugModeEnabled {
-		selector[consts.KubeLabelYataiBentoDeploymentTargetType] = DeploymentTargetTypeDebug
+		selector[commonconsts.KubeLabelYataiBentoDeploymentTargetType] = DeploymentTargetTypeDebug
 	}
 
-	targetPort := intstr.FromString(consts.BentoContainerPortName)
+	targetPort := intstr.FromString(commonconsts.BentoContainerPortName)
 	if opt.runnerName == nil {
 		if opt.isGenericService {
-			delete(selector, consts.KubeLabelYataiBentoDeploymentTargetType)
+			delete(selector, commonconsts.KubeLabelYataiBentoDeploymentTargetType)
 			if opt.containsStealingTrafficDebugModeEnabled {
 				targetPort = intstr.FromString(ContainerPortNameHTTPProxy)
 			}
 		}
 	} else {
 		if opt.isGenericService && opt.isDebugPodReceiveProductionTraffic {
-			delete(selector, consts.KubeLabelYataiBentoDeploymentTargetType)
+			delete(selector, commonconsts.KubeLabelYataiBentoDeploymentTargetType)
 		}
 	}
 
@@ -2554,15 +2573,15 @@ func (r *BentoDeploymentReconciler) generateService(opt generateServiceOption) (
 		Selector: selector,
 		Ports: []corev1.ServicePort{
 			{
-				Name:       consts.BentoServicePortName,
-				Port:       consts.BentoServicePort,
+				Name:       commonconsts.BentoServicePortName,
+				Port:       commonconsts.BentoServicePort,
 				TargetPort: targetPort,
 				Protocol:   corev1.ProtocolTCP,
 			},
 			{
 				Name:       ServicePortNameHTTPNonProxy,
 				Port:       int32(ServicePortHTTPNonProxy),
-				TargetPort: intstr.FromString(consts.BentoContainerPortName),
+				TargetPort: intstr.FromString(commonconsts.BentoContainerPortName),
 				Protocol:   corev1.ProtocolTCP,
 			},
 		},
@@ -2619,24 +2638,24 @@ type IngressConfig struct {
 func GetIngressConfig(ctx context.Context, cliset *kubernetes.Clientset) (ingressConfig *IngressConfig, err error) {
 	configMap, err := system.GetNetworkConfigConfigMap(ctx, cliset)
 	if err != nil {
-		err = errors.Wrapf(err, "failed to get configmap %s", consts.KubeConfigMapNameNetworkConfig)
+		err = errors.Wrapf(err, "failed to get configmap %s", commonconsts.KubeConfigMapNameNetworkConfig)
 		return
 	}
 
 	var className *string
 
-	className_ := strings.TrimSpace(configMap.Data[consts.KubeConfigMapKeyNetworkConfigIngressClass])
+	className_ := strings.TrimSpace(configMap.Data[commonconsts.KubeConfigMapKeyNetworkConfigIngressClass])
 	if className_ != "" {
 		className = &className_
 	}
 
 	annotations := make(map[string]string)
 
-	annotations_ := strings.TrimSpace(configMap.Data[consts.KubeConfigMapKeyNetworkConfigIngressAnnotations])
+	annotations_ := strings.TrimSpace(configMap.Data[commonconsts.KubeConfigMapKeyNetworkConfigIngressAnnotations])
 	if annotations_ != "" {
 		err = json.Unmarshal([]byte(annotations_), &annotations)
 		if err != nil {
-			err = errors.Wrapf(err, "failed to json unmarshal %s in configmap %s: %s", consts.KubeConfigMapKeyNetworkConfigIngressAnnotations, consts.KubeConfigMapNameNetworkConfig, annotations_)
+			err = errors.Wrapf(err, "failed to json unmarshal %s in configmap %s: %s", commonconsts.KubeConfigMapKeyNetworkConfigIngressAnnotations, commonconsts.KubeConfigMapNameNetworkConfig, annotations_)
 			return
 		}
 	}
@@ -2778,7 +2797,7 @@ more_set_headers "X-Yatai-Bento: %s";
 										Service: &networkingv1.IngressServiceBackend{
 											Name: serviceName,
 											Port: networkingv1.ServiceBackendPort{
-												Name: consts.BentoServicePortName,
+												Name: commonconsts.BentoServicePortName,
 											},
 										},
 									},
@@ -2824,7 +2843,7 @@ func (r *BentoDeploymentReconciler) doCleanUpAbandonedRunnerServices() error {
 	for _, bentoDeploymentNamespace := range bentoDeploymentNamespaces {
 		serviceList := &corev1.ServiceList{}
 		serviceListOpts := []client.ListOption{
-			client.HasLabels{consts.KubeLabelYataiBentoDeploymentRunner},
+			client.HasLabels{commonconsts.KubeLabelYataiBentoDeploymentRunner},
 			client.InNamespace(bentoDeploymentNamespace),
 		}
 		err := r.List(ctx, serviceList, serviceListOpts...)
@@ -2946,13 +2965,13 @@ func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logs := log.Log.WithValues("func", "SetupWithManager")
 	version.Print()
 
-	if os.Getenv("DISABLE_CLEANUP_ABANDONED_RUNNER_SERVICES") != consts.KubeLabelValueTrue {
+	if os.Getenv("DISABLE_CLEANUP_ABANDONED_RUNNER_SERVICES") != commonconsts.KubeLabelValueTrue {
 		go r.cleanUpAbandonedRunnerServices()
 	} else {
 		logs.Info("cleanup abandoned runner services is disabled")
 	}
 
-	if os.Getenv("DISABLE_YATAI_COMPONENT_REGISTRATION") != consts.KubeLabelValueTrue {
+	if os.Getenv("DISABLE_YATAI_COMPONENT_REGISTRATION") != commonconsts.KubeLabelValueTrue {
 		go r.registerYataiComponent()
 	} else {
 		logs.Info("yatai component registration is disabled")

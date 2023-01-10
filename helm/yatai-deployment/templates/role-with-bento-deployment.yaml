@@ -166,4 +166,12 @@ rules:
   - bentoes/status
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
 {{- end }}

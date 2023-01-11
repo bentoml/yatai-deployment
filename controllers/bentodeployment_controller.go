@@ -203,6 +203,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		logs.Info(fmt.Sprintf("Getting Bento %s", bentoDeployment.Spec.Bento))
 		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetBento", "Getting Bento %s", bentoDeployment.Spec.Bento)
 	}
+	bentoRequest := &resourcesv1alpha1.BentoRequest{}
 	bentoCR := &resourcesv1alpha1.Bento{}
 	err = r.Get(ctx, types.NamespacedName{
 		Namespace: bentoDeployment.Namespace,
@@ -246,7 +247,6 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if bentoRequestFoundCondition != nil && bentoRequestFoundCondition.Status == metav1.ConditionUnknown {
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetBentoRequest", "Getting BentoRequest %s", bentoDeployment.Spec.Bento)
 		}
-		bentoRequest := &resourcesv1alpha1.BentoRequest{}
 		err = r.Get(ctx, types.NamespacedName{
 			Namespace: bentoDeployment.Namespace,
 			Name:      bentoDeployment.Spec.Bento,
@@ -479,6 +479,10 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				EnableStealingTrafficDebugMode:         &[]bool{checkIfIsStealingTrafficDebugModeEnabled(runner.Annotations)}[0],
 				EnableDebugMode:                        &[]bool{checkIfIsDebugModeEnabled(runner.Annotations)}[0],
 				EnableDebugPodReceiveProductionTraffic: &[]bool{checkIfIsDebugPodReceiveProductionTrafficEnabled(runner.Annotations)}[0],
+				BentoDeploymentOverrides: &modelschemas.RunnerBentoDeploymentOverrides{
+					ExtraPodMetadata: runner.ExtraPodMetadata,
+					ExtraPodSpec:     runner.ExtraPodSpec,
+				},
 			}
 		}
 
@@ -488,7 +492,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			return
 		}
 		deploymentTargets := make([]*schemasv1.CreateDeploymentTargetSchema, 0, 1)
-		deploymentTargets = append(deploymentTargets, &schemasv1.CreateDeploymentTargetSchema{
+		deploymentTarget := &schemasv1.CreateDeploymentTargetSchema{
 			DeploymentTargetTypeSchema: schemasv1.DeploymentTargetTypeSchema{
 				Type: modelschemas.DeploymentTargetTypeStable,
 			},
@@ -505,8 +509,23 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				EnableStealingTrafficDebugMode:         &[]bool{checkIfIsStealingTrafficDebugModeEnabled(bentoDeployment.Spec.Annotations)}[0],
 				EnableDebugMode:                        &[]bool{checkIfIsDebugModeEnabled(bentoDeployment.Spec.Annotations)}[0],
 				EnableDebugPodReceiveProductionTraffic: &[]bool{checkIfIsDebugPodReceiveProductionTrafficEnabled(bentoDeployment.Spec.Annotations)}[0],
+				BentoDeploymentOverrides: &modelschemas.ApiServerBentoDeploymentOverrides{
+					MonitorExporter:  bentoDeployment.Spec.MonitorExporter,
+					ExtraPodMetadata: bentoDeployment.Spec.ExtraPodMetadata,
+					ExtraPodSpec:     bentoDeployment.Spec.ExtraPodSpec,
+				},
+				BentoRequestOverrides: &modelschemas.BentoRequestOverrides{
+					ImageBuildTimeout:              bentoRequest.Spec.ImageBuildTimeout,
+					ImageBuilderExtraPodSpec:       bentoRequest.Spec.ImageBuilderExtraPodSpec,
+					ImageBuilderExtraPodMetadata:   bentoRequest.Spec.ImageBuilderExtraPodMetadata,
+					ImageBuilderExtraContainerEnv:  bentoRequest.Spec.ImageBuilderExtraContainerEnv,
+					ImageBuilderContainerResources: bentoRequest.Spec.ImageBuilderContainerResources,
+					DockerConfigJSONSecretName:     bentoRequest.Spec.DockerConfigJSONSecretName,
+					DownloaderContainerEnvFrom:     bentoRequest.Spec.DownloaderContainerEnvFrom,
+				},
 			},
-		})
+		}
+		deploymentTargets = append(deploymentTargets, deploymentTarget)
 		updateSchema := &schemasv1.UpdateDeploymentSchema{
 			Targets:     deploymentTargets,
 			DoNotDeploy: true,
@@ -1783,7 +1802,7 @@ monitoring.options.insecure=true`
 	args := make([]string, 0)
 
 	isOldVersion := false
-	if opt.bento.Spec.Context.BentomlVersion != "" {
+	if opt.bento.Spec.Context != nil && opt.bento.Spec.Context.BentomlVersion != "" {
 		var currentVersion pep440version.Version
 		currentVersion, err = pep440version.Parse(opt.bento.Spec.Context.BentomlVersion)
 		if err != nil {

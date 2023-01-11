@@ -66,6 +66,8 @@ import (
 
 	resourcesv1alpha1 "github.com/bentoml/yatai-image-builder/apis/resources/v1alpha1"
 
+	servingcommon "github.com/bentoml/yatai-deployment/apis/serving/common"
+	servingconversion "github.com/bentoml/yatai-deployment/apis/serving/conversion"
 	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
 	servingv2alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v2alpha1"
 	"github.com/bentoml/yatai-deployment/utils"
@@ -471,7 +473,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				return
 			}
 			runners[runner.Name] = modelschemas.DeploymentTargetRunnerConfig{
-				Resources:                              runner.Resources,
+				Resources:                              servingconversion.ConvertToDeploymentTargetResources(runner.Resources),
 				HPAConf:                                hpaConf,
 				Envs:                                   &envs_,
 				EnableStealingTrafficDebugMode:         &[]bool{checkIfIsStealingTrafficDebugModeEnabled(runner.Annotations)}[0],
@@ -495,7 +497,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			Config: &modelschemas.DeploymentTargetConfig{
 				KubeResourceUid:                        string(bentoDeployment.UID),
 				KubeResourceVersion:                    bentoDeployment.ResourceVersion,
-				Resources:                              bentoDeployment.Spec.Resources,
+				Resources:                              servingconversion.ConvertToDeploymentTargetResources(bentoDeployment.Spec.Resources),
 				HPAConf:                                hpaConf,
 				Envs:                                   &envs,
 				Runners:                                runners,
@@ -2432,7 +2434,7 @@ monitoring.options.insecure=true`
 	return
 }
 
-func getResourcesConfig(resources *modelschemas.DeploymentTargetResources) (corev1.ResourceRequirements, error) {
+func getResourcesConfig(resources *servingcommon.Resources) (corev1.ResourceRequirements, error) {
 	currentResources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("300m"),

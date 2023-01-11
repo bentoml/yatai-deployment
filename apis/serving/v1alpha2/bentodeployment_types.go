@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/bentoml/yatai-deployment/apis/serving/common"
 	"github.com/bentoml/yatai-schemas/modelschemas"
 )
 
@@ -26,10 +27,10 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 type BentoDeploymentRunnerSpec struct {
-	Name        string                                  `json:"name,omitempty"`
-	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
-	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
-	Envs        *[]modelschemas.LabelItemSchema         `json:"envs,omitempty"`
+	Name        string                                `json:"name,omitempty"`
+	Resources   *common.Resources                     `json:"resources,omitempty"`
+	Autoscaling *modelschemas.DeploymentTargetHPAConf `json:"autoscaling,omitempty"`
+	Envs        *[]modelschemas.LabelItemSchema       `json:"envs,omitempty"`
 }
 
 type BentoDeploymentIngressSpec struct {
@@ -43,9 +44,9 @@ type BentoDeploymentSpec struct {
 
 	BentoTag string `json:"bento_tag"`
 
-	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
-	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
-	Envs        *[]modelschemas.LabelItemSchema         `json:"envs,omitempty"`
+	Resources   *common.Resources                     `json:"resources,omitempty"`
+	Autoscaling *modelschemas.DeploymentTargetHPAConf `json:"autoscaling,omitempty"`
+	Envs        *[]modelschemas.LabelItemSchema       `json:"envs,omitempty"`
 
 	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
 

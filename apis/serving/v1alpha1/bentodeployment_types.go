@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/bentoml/yatai-deployment/apis/serving/common"
 	"github.com/bentoml/yatai-schemas/modelschemas"
 )
 
@@ -46,9 +47,9 @@ type BentoDeploymentSpec struct {
 
 	BentoTag string `json:"bento_tag"`
 
-	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
-	Autoscaling *modelschemas.DeploymentTargetHPAConf   `json:"autoscaling,omitempty"`
-	Envs        *[]modelschemas.LabelItemSchema         `json:"envs,omitempty"`
+	Resources   *common.Resources                     `json:"resources,omitempty"`
+	Autoscaling *modelschemas.DeploymentTargetHPAConf `json:"autoscaling,omitempty"`
+	Envs        *[]modelschemas.LabelItemSchema       `json:"envs,omitempty"`
 
 	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
 }

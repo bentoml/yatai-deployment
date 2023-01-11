@@ -21,7 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/bentoml/yatai-schemas/modelschemas"
+	"github.com/bentoml/yatai-deployment/apis/serving/common"
 )
 
 const (
@@ -56,12 +56,12 @@ type Autoscaling struct {
 }
 
 type BentoDeploymentRunnerSpec struct {
-	Name        string                                  `json:"name,omitempty"`
-	Annotations map[string]string                       `json:"annotations,omitempty"`
-	Labels      map[string]string                       `json:"labels,omitempty"`
-	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
-	Autoscaling *Autoscaling                            `json:"autoscaling,omitempty"`
-	Envs        []corev1.EnvVar                         `json:"envs,omitempty"`
+	Name        string            `json:"name,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Resources   *common.Resources `json:"resources,omitempty"`
+	Autoscaling *Autoscaling      `json:"autoscaling,omitempty"`
+	Envs        []corev1.EnvVar   `json:"envs,omitempty"`
 
 	// +optional
 	ExtraPodMetadata *ExtraPodMetadata `json:"extraPodMetadata,omitempty"`
@@ -96,9 +96,9 @@ type BentoDeploymentSpec struct {
 
 	Bento string `json:"bento"`
 
-	Resources   *modelschemas.DeploymentTargetResources `json:"resources,omitempty"`
-	Autoscaling *Autoscaling                            `json:"autoscaling,omitempty"`
-	Envs        []corev1.EnvVar                         `json:"envs,omitempty"`
+	Resources   *common.Resources `json:"resources,omitempty"`
+	Autoscaling *Autoscaling      `json:"autoscaling,omitempty"`
+	Envs        []corev1.EnvVar   `json:"envs,omitempty"`
 
 	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
 

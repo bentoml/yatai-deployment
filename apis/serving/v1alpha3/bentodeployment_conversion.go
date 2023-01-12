@@ -29,7 +29,7 @@ import (
 	"github.com/bentoml/yatai-deployment/apis/serving/v2alpha1"
 )
 
-func TransformHPAToOld(hpa *v2alpha1.Autoscaling) (oldHpa *modelschemas.DeploymentTargetHPAConf, err error) {
+func TransformToOldHPA(hpa *v2alpha1.Autoscaling) (oldHpa *modelschemas.DeploymentTargetHPAConf, err error) {
 	if hpa == nil {
 		return
 	}
@@ -82,7 +82,7 @@ func TransformHPAToOld(hpa *v2alpha1.Autoscaling) (oldHpa *modelschemas.Deployme
 	return
 }
 
-func TransformOldHPA(oldHpa *modelschemas.DeploymentTargetHPAConf) (hpa *v2alpha1.Autoscaling, err error) {
+func TransformToNewHPA(oldHpa *modelschemas.DeploymentTargetHPAConf) (hpa *v2alpha1.Autoscaling, err error) {
 	if oldHpa == nil {
 		return
 	}
@@ -169,7 +169,57 @@ func TransformOldHPA(oldHpa *modelschemas.DeploymentTargetHPAConf) (hpa *v2alpha
 	return
 }
 
-func TransformEnvs(oldEnvs *[]modelschemas.LabelItemSchema) (envs []corev1.EnvVar) {
+func TransformToNewExtraPodMetadata(src *ExtraPodMetadata) (dst *v2alpha1.ExtraPodMetadata) {
+	if src == nil {
+		return nil
+	}
+	dst = &v2alpha1.ExtraPodMetadata{
+		Annotations: src.Annotations,
+		Labels:      src.Labels,
+	}
+	return
+}
+
+func TransformToOldExtraPodMetadata(src *v2alpha1.ExtraPodMetadata) (dst *ExtraPodMetadata) {
+	if src == nil {
+		return nil
+	}
+	dst = &ExtraPodMetadata{
+		Annotations: src.Annotations,
+		Labels:      src.Labels,
+	}
+	return
+}
+
+func TransformToNewExtraPodSpec(src *ExtraPodSpec) (dst *v2alpha1.ExtraPodSpec) {
+	if src == nil {
+		return
+	}
+	dst = &v2alpha1.ExtraPodSpec{
+		SchedulerName:             src.SchedulerName,
+		NodeSelector:              src.NodeSelector,
+		Affinity:                  src.Affinity,
+		Tolerations:               src.Tolerations,
+		TopologySpreadConstraints: src.TopologySpreadConstraints,
+	}
+	return
+}
+
+func TransformToOldExtraPodSpec(src *v2alpha1.ExtraPodSpec) (dst *ExtraPodSpec) {
+	if src == nil {
+		return
+	}
+	dst = &ExtraPodSpec{
+		SchedulerName:             src.SchedulerName,
+		NodeSelector:              src.NodeSelector,
+		Affinity:                  src.Affinity,
+		Tolerations:               src.Tolerations,
+		TopologySpreadConstraints: src.TopologySpreadConstraints,
+	}
+	return
+}
+
+func TransformToNewEnvs(oldEnvs *[]modelschemas.LabelItemSchema) (envs []corev1.EnvVar) {
 	if oldEnvs == nil {
 		return
 	}
@@ -183,7 +233,7 @@ func TransformEnvs(oldEnvs *[]modelschemas.LabelItemSchema) (envs []corev1.EnvVa
 	return
 }
 
-func TransformEnvsToOld(envs []corev1.EnvVar) (oldEnvs *[]modelschemas.LabelItemSchema) {
+func TransformToOldEnvs(envs []corev1.EnvVar) (oldEnvs *[]modelschemas.LabelItemSchema) {
 	if envs == nil {
 		return
 	}
@@ -262,38 +312,25 @@ func (src *BentoDeployment) ConvertToV2alpha1(dstRaw conversion.Hub, bentoName s
 	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.Bento = bentoName
 	dst.Spec.Resources = src.Spec.Resources
-	hpa, err := TransformOldHPA(src.Spec.Autoscaling)
+	hpa, err := TransformToNewHPA(src.Spec.Autoscaling)
 	if err != nil {
 		return err
 	}
 	dst.Spec.Autoscaling = hpa
-	dst.Spec.Envs = TransformEnvs(src.Spec.Envs)
+	dst.Spec.Envs = TransformToNewEnvs(src.Spec.Envs)
 	dst.Spec.Runners = make([]v2alpha1.BentoDeploymentRunnerSpec, 0, len(src.Spec.Runners))
 	for _, runner := range src.Spec.Runners {
-		hpa, err := TransformOldHPA(src.Spec.Autoscaling)
+		hpa, err := TransformToNewHPA(src.Spec.Autoscaling)
 		if err != nil {
 			return err
 		}
 		newRunner := v2alpha1.BentoDeploymentRunnerSpec{
-			Name:        runner.Name,
-			Resources:   runner.Resources,
-			Autoscaling: hpa,
-			Envs:        TransformEnvs(runner.Envs),
-		}
-		if runner.ExtraPodMetadata != nil {
-			newRunner.ExtraPodMetadata = &v2alpha1.ExtraPodMetadata{
-				Annotations: runner.ExtraPodMetadata.Annotations,
-				Labels:      runner.ExtraPodMetadata.Labels,
-			}
-		}
-		if runner.ExtraPodSpec != nil {
-			newRunner.ExtraPodSpec = &v2alpha1.ExtraPodSpec{
-				SchedulerName:             runner.ExtraPodSpec.SchedulerName,
-				NodeSelector:              runner.ExtraPodSpec.NodeSelector,
-				Affinity:                  runner.ExtraPodSpec.Affinity,
-				Tolerations:               runner.ExtraPodSpec.Tolerations,
-				TopologySpreadConstraints: runner.ExtraPodSpec.TopologySpreadConstraints,
-			}
+			Name:             runner.Name,
+			Resources:        runner.Resources,
+			Autoscaling:      hpa,
+			Envs:             TransformToNewEnvs(runner.Envs),
+			ExtraPodMetadata: TransformToNewExtraPodMetadata(runner.ExtraPodMetadata),
+			ExtraPodSpec:     TransformToNewExtraPodSpec(runner.ExtraPodSpec),
 		}
 		dst.Spec.Runners = append(dst.Spec.Runners, newRunner)
 	}
@@ -307,21 +344,8 @@ func (src *BentoDeployment) ConvertToV2alpha1(dstRaw conversion.Hub, bentoName s
 			SecretName: src.Spec.Ingress.TLS.SecretName,
 		}
 	}
-	if src.Spec.ExtraPodMetadata != nil {
-		dst.Spec.ExtraPodMetadata = &v2alpha1.ExtraPodMetadata{
-			Annotations: src.Spec.ExtraPodMetadata.Annotations,
-			Labels:      src.Spec.ExtraPodMetadata.Labels,
-		}
-	}
-	if src.Spec.ExtraPodSpec != nil {
-		dst.Spec.ExtraPodSpec = &v2alpha1.ExtraPodSpec{
-			SchedulerName:             src.Spec.ExtraPodSpec.SchedulerName,
-			NodeSelector:              src.Spec.ExtraPodSpec.NodeSelector,
-			Affinity:                  src.Spec.ExtraPodSpec.Affinity,
-			Tolerations:               src.Spec.ExtraPodSpec.Tolerations,
-			TopologySpreadConstraints: src.Spec.ExtraPodSpec.TopologySpreadConstraints,
-		}
-	}
+	dst.Spec.ExtraPodMetadata = TransformToNewExtraPodMetadata(src.Spec.ExtraPodMetadata)
+	dst.Spec.ExtraPodSpec = TransformToNewExtraPodSpec(src.Spec.ExtraPodSpec)
 
 	return nil
 }
@@ -369,15 +393,15 @@ func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 	dst.Spec.BentoTag = bentoTag
 	dst.Spec.Resources = src.Spec.Resources
-	oldHpa, err := TransformHPAToOld(src.Spec.Autoscaling)
+	oldHpa, err := TransformToOldHPA(src.Spec.Autoscaling)
 	if err != nil {
 		return err
 	}
 	dst.Spec.Autoscaling = oldHpa
-	dst.Spec.Envs = TransformEnvsToOld(src.Spec.Envs)
+	dst.Spec.Envs = TransformToOldEnvs(src.Spec.Envs)
 	dst.Spec.Runners = make([]BentoDeploymentRunnerSpec, 0, len(src.Spec.Runners))
 	for _, runner := range src.Spec.Runners {
-		oldHpa, err := TransformHPAToOld(runner.Autoscaling)
+		oldHpa, err := TransformToOldHPA(runner.Autoscaling)
 		if err != nil {
 			return err
 		}
@@ -385,7 +409,7 @@ func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error {
 			Name:        runner.Name,
 			Resources:   runner.Resources,
 			Autoscaling: oldHpa,
-			Envs:        TransformEnvsToOld(runner.Envs),
+			Envs:        TransformToOldEnvs(runner.Envs),
 		}
 		if runner.ExtraPodMetadata != nil {
 			oldRunner.ExtraPodMetadata = &ExtraPodMetadata{

@@ -468,7 +468,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				}
 			}
 			var hpaConf *modelschemas.DeploymentTargetHPAConf
-			hpaConf, err = servingv1alpha3.TransformHPAToOld(runner.Autoscaling)
+			hpaConf, err = servingv1alpha3.TransformToOldHPA(runner.Autoscaling)
 			if err != nil {
 				return
 			}
@@ -487,7 +487,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 
 		var hpaConf *modelschemas.DeploymentTargetHPAConf
-		hpaConf, err = servingv1alpha3.TransformHPAToOld(bentoDeployment.Spec.Autoscaling)
+		hpaConf, err = servingv1alpha3.TransformToOldHPA(bentoDeployment.Spec.Autoscaling)
 		if err != nil {
 			return
 		}

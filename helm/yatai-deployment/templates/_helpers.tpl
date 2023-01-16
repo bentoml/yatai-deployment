@@ -31,6 +31,26 @@ yatai-deployment-env
 yatai-deployment-shared-env
 {{- end }}
 
+{{- define "yatai-deployment.yatai-common-envname" -}}
+yatai-common-env
+{{- end }}
+
+{{- define "yatai-deployment.yatai-rolename-in-yatai-system-namespace" -}}
+yatai-role-for-yatai-deployment
+{{- end }}
+
+{{- define "yatai-deployment.yatai-image-builder-with-bento-deployment-rolename" -}}
+yatai-image-builder-with-bento-deployment
+{{- end }}
+
+{{- define "yatai-deployment.yatai-with-bento-deployment-rolename" -}}
+yatai-with-bento-deployment
+{{- end }}
+
+{{- define "yatai-deployment.yatai-with-yatai-deployment-rolename" -}}
+yatai-with-yatai-deployment
+{{- end }}
+
 {{/*
 Create chart name and version as used by the chart label.
 */}}

@@ -1,0 +1,102 @@
+{{- if .Values.yataiImageBuilder.exist -}}
+{{- range .Values.bentoDeploymentNamespaces }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "yatai-deployment.yatai-image-builder-with-bento-deployment-rolename" . }}
+  namespace: {{ . | quote }}
+rules:
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentorequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentorequests/status
+  verbs:
+  - update
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentoes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentoes/status
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - create
+  - delete
+  - update
+  - patch
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}
+{{- end }}

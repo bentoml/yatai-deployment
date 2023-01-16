@@ -1,0 +1,17 @@
+{{- if .Values.yataiImageBuilder.exist -}}
+{{- range .Values.bentoDeploymentNamespaces }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "yatai-deployment.yatai-image-builder-with-bento-deployment-rolename" . }}
+  namespace: {{ . | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "yatai-deployment.yatai-image-builder-with-bento-deployment-rolename" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $.Values.yataiImageBuilder.serviceAccountName }}
+    namespace: {{ $.Values.yataiImageBuilder.namespace }}
+{{- end }}
+{{- end }}

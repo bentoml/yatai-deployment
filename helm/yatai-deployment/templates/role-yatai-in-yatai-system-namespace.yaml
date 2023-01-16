@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "yatai-deployment.serviceAccountNameInYataiSystemNamespace" . }}
+  name: {{ include "yatai-deployment.yatai-rolename-in-yatai-system-namespace" . }}
   namespace: {{ .Values.yataiSystem.namespace }}
 rules:
 - apiGroups:

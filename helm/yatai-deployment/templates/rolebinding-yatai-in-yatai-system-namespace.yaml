@@ -1,12 +1,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "yatai-deployment.yatai-with-yatai-deployment-rolename" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "yatai-deployment.yatai-rolename-in-yatai-system-namespace" . }}
+  namespace: {{ .Values.yataiSystem.namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "yatai-deployment.yatai-with-yatai-deployment-rolename" . }}
+  name: {{ include "yatai-deployment.yatai-rolename-in-yatai-system-namespace" . }}
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.yataiSystem.serviceAccountName }}

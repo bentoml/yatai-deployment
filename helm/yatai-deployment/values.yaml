@@ -105,6 +105,11 @@ yataiSystem:
   namespace: "yatai-system"
   serviceAccountName: "yatai"
 
+yataiImageBuilder:
+  exist: true
+  namespace: "yatai-image-builder"
+  serviceAccountName: "yatai-image-builder"
+
 bentoDeploymentNamespaces: ['yatai']
 
 internalImages:

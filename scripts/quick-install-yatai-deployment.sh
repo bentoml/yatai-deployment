@@ -239,7 +239,8 @@ else
   fi
 
   echo "🤖 installing yatai-deployment-crds from helm repo ${helm_repo_url}..."
-  helm upgrade --install yatai-deployment-crds yatai-deployment-crds --repo ${helm_repo_url} -n ${namespace}
+  helm upgrade --install yatai-deployment-crds yatai-deployment-crds --repo ${helm_repo_url} -n ${namespace} --devel=${DEVEL}
+
   echo "⏳ waiting for yatai-deployment CRDs to be established..."
   kubectl wait --for condition=established --timeout=120s crd/bentodeployments.serving.yatai.ai
   echo "✅ yatai-deployment CRDs are established"

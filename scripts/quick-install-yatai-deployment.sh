@@ -8,6 +8,7 @@ DEVEL_HELM_REPO=${DEVEL_HELM_REPO:-false}
 is_minikube=false
 if kubectl config view --minify | grep 'minikube.sigs.k8s.io' > /dev/null; then
   is_minikube=true
+  MINIKUBE_PROFILE_NAME=$(kubectl config current-context)
 fi
 
 # check if jq command exists
@@ -74,7 +75,7 @@ if [ "${IGNORE_INGRESS}" = "false" ]; then
       exit 1
     else
       echo "🤖 installing ingress for minikube"
-      minikube addons enable ingress
+      minikube addons enable ingress --profile="${MINIKUBE_PROFILE_NAME}"
       echo "✅ ingress installed"
     fi
   fi

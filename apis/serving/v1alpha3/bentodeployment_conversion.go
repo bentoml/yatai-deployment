@@ -320,7 +320,7 @@ func (src *BentoDeployment) ConvertToV2alpha1(dstRaw conversion.Hub, bentoName s
 	dst.Spec.Envs = TransformToNewEnvs(src.Spec.Envs)
 	dst.Spec.Runners = make([]v2alpha1.BentoDeploymentRunnerSpec, 0, len(src.Spec.Runners))
 	for _, runner := range src.Spec.Runners {
-		hpa, err := TransformToNewHPA(src.Spec.Autoscaling)
+		hpa, err := TransformToNewHPA(runner.Autoscaling)
 		if err != nil {
 			return err
 		}

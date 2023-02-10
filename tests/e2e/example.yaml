@@ -50,6 +50,11 @@ spec:
           secretKeyRef:
             name: test-secret
             key: format
+    mounts:
+      - path: /tmp/aaa
+        readOnly: true
+        secret:
+          secretName: test-secret
   resources:
     limits:
       cpu: 1000m

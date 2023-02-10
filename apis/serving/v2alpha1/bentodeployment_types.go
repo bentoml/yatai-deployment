@@ -80,11 +80,18 @@ type BentoDeploymentIngressSpec struct {
 	TLS         *BentoDeploymentIngressTLSSpec `json:"tls,omitempty"`
 }
 
+type MonitorExporterMountSpec struct {
+	Path                string `json:"path,omitempty"`
+	ReadOnly            bool   `json:"readOnly,omitempty"`
+	corev1.VolumeSource `json:",inline"`
+}
+
 type MonitorExporterSpec struct {
-	Enabled          bool              `json:"enabled,omitempty"`
-	Output           string            `json:"output,omitempty"`
-	Options          map[string]string `json:"options,omitempty"`
-	StructureOptions []corev1.EnvVar   `json:"structureOptions,omitempty"`
+	Enabled          bool                       `json:"enabled,omitempty"`
+	Output           string                     `json:"output,omitempty"`
+	Options          map[string]string          `json:"options,omitempty"`
+	StructureOptions []corev1.EnvVar            `json:"structureOptions,omitempty"`
+	Mounts           []MonitorExporterMountSpec `json:"mounts,omitempty"`
 }
 
 // BentoDeploymentSpec defines the desired state of BentoDeployment

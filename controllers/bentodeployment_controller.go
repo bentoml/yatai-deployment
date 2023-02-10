@@ -2251,6 +2251,102 @@ monitoring.options.insecure=true`
 		})
 	}
 
+	if need_monitor_container {
+		lastPort++
+		monitorExporterProbePort := lastPort
+
+		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.2"
+
+		monitorOptEnvs := make([]corev1.EnvVar, 0, len(monitorExporter.Options)+len(monitorExporter.StructureOptions))
+		monitorOptEnvsSeen := make(map[string]struct{})
+
+		for _, env := range monitorExporter.StructureOptions {
+			monitorOptEnvsSeen[strings.ToLower(env.Name)] = struct{}{}
+			monitorOptEnvs = append(monitorOptEnvs, corev1.EnvVar{
+				Name:      "FLUENTBIT_OUTPUT_OPTION_" + strings.ToUpper(env.Name),
+				Value:     env.Value,
+				ValueFrom: env.ValueFrom,
+			})
+		}
+
+		for k, v := range monitorExporter.Options {
+			if _, exists := monitorOptEnvsSeen[strings.ToLower(k)]; exists {
+				continue
+			}
+			monitorOptEnvs = append(monitorOptEnvs, corev1.EnvVar{
+				Name:  "FLUENTBIT_OUTPUT_OPTION_" + strings.ToUpper(k),
+				Value: v,
+			})
+		}
+
+		monitorVolumeMounts := make([]corev1.VolumeMount, 0, len(monitorExporter.Mounts))
+		for idx, mount := range monitorExporter.Mounts {
+			volumeName := fmt.Sprintf("monitor-exporter-%d", idx)
+			volumes = append(volumes, corev1.Volume{
+				Name:         volumeName,
+				VolumeSource: mount.VolumeSource,
+			})
+			monitorVolumeMounts = append(monitorVolumeMounts, corev1.VolumeMount{
+				Name:      volumeName,
+				MountPath: mount.Path,
+				ReadOnly:  mount.ReadOnly,
+			})
+		}
+
+		containers = append(containers, corev1.Container{
+			Name:         "monitor-exporter",
+			Image:        monitorExporterImage,
+			VolumeMounts: monitorVolumeMounts,
+			Env: append([]corev1.EnvVar{
+				{
+					Name:  "FLUENTBIT_OTLP_PORT",
+					Value: fmt.Sprint(monitorExporterPort),
+				},
+				{
+					Name:  "FLUENTBIT_HTTP_PORT",
+					Value: fmt.Sprint(monitorExporterProbePort),
+				},
+				{
+					Name:  "FLUENTBIT_OUTPUT",
+					Value: monitorExporter.Output,
+				},
+			}, monitorOptEnvs...),
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("24Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1000m"),
+					corev1.ResourceMemory: resource.MustParse("72Mi"),
+				},
+			},
+			ReadinessProbe: &corev1.Probe{
+				InitialDelaySeconds: 5,
+				TimeoutSeconds:      5,
+				FailureThreshold:    10,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/readyz",
+						Port: intstr.FromInt(monitorExporterProbePort),
+					},
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				InitialDelaySeconds: 5,
+				TimeoutSeconds:      5,
+				FailureThreshold:    10,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/livez",
+						Port: intstr.FromInt(monitorExporterProbePort),
+					},
+				},
+			},
+			SecurityContext: securityContext,
+		})
+	}
+
 	debuggerImage := "quay.io/bentoml/bento-debugger:0.0.5"
 	debuggerImage_ := os.Getenv("INTERNAL_IMAGES_DEBUGGER")
 	if debuggerImage_ != "" {
@@ -2352,87 +2448,6 @@ monitoring.options.insecure=true`
 		} else {
 			podSpec.ServiceAccountName = DefaultServiceAccountName
 		}
-	}
-
-	if need_monitor_container {
-		lastPort++
-		monitorExporterProbePort := lastPort
-
-		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.2"
-
-		monitorOptEnvs := make([]corev1.EnvVar, 0, len(monitorExporter.Options)+len(monitorExporter.StructureOptions))
-		monitorOptEnvsSeen := make(map[string]struct{})
-
-		for _, env := range monitorExporter.StructureOptions {
-			monitorOptEnvsSeen[strings.ToLower(env.Name)] = struct{}{}
-			monitorOptEnvs = append(monitorOptEnvs, corev1.EnvVar{
-				Name:      "FLUENTBIT_OUTPUT_OPTION_" + strings.ToUpper(env.Name),
-				Value:     env.Value,
-				ValueFrom: env.ValueFrom,
-			})
-		}
-
-		for k, v := range monitorExporter.Options {
-			if _, exists := monitorOptEnvsSeen[strings.ToLower(k)]; exists {
-				continue
-			}
-			monitorOptEnvs = append(monitorOptEnvs, corev1.EnvVar{
-				Name:  "FLUENTBIT_OUTPUT_OPTION_" + strings.ToUpper(k),
-				Value: v,
-			})
-		}
-
-		podSpec.Containers = append(podSpec.Containers, corev1.Container{
-			Name:  "monitor-exporter",
-			Image: monitorExporterImage,
-			Env: append([]corev1.EnvVar{
-				{
-					Name:  "FLUENTBIT_OTLP_PORT",
-					Value: fmt.Sprint(monitorExporterPort),
-				},
-				{
-					Name:  "FLUENTBIT_HTTP_PORT",
-					Value: fmt.Sprint(monitorExporterProbePort),
-				},
-				{
-					Name:  "FLUENTBIT_OUTPUT",
-					Value: monitorExporter.Output,
-				},
-			}, monitorOptEnvs...),
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("100m"),
-					corev1.ResourceMemory: resource.MustParse("24Mi"),
-				},
-				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("1000m"),
-					corev1.ResourceMemory: resource.MustParse("72Mi"),
-				},
-			},
-			ReadinessProbe: &corev1.Probe{
-				InitialDelaySeconds: 5,
-				TimeoutSeconds:      5,
-				FailureThreshold:    10,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/readyz",
-						Port: intstr.FromInt(monitorExporterProbePort),
-					},
-				},
-			},
-			LivenessProbe: &corev1.Probe{
-				InitialDelaySeconds: 5,
-				TimeoutSeconds:      5,
-				FailureThreshold:    10,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/livez",
-						Port: intstr.FromInt(monitorExporterProbePort),
-					},
-				},
-			},
-			SecurityContext: securityContext,
-		})
 	}
 
 	if resourceAnnotations["yatai.ai/enable-host-ipc"] == commonconsts.KubeLabelValueTrue {

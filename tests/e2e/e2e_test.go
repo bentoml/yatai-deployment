@@ -78,9 +78,11 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 			err := daemonProcess.Kill()
 			Expect(err).To(BeNil())
 		}
-		By("Cleaning up BentoDeployment resources")
-		cmd = exec.Command("kubectl", "delete", "-f", "tests/e2e/example.yaml")
-		_, _ = utils.Run(cmd)
+		if os.Getenv("E2E_CHECK_NAME") != "" {
+			By("Cleaning up BentoDeployment resources")
+			cmd = exec.Command("kubectl", "delete", "-f", "tests/e2e/example.yaml")
+			_, _ = utils.Run(cmd)
+		}
 	})
 
 	Context("BentoDeployment Operator", func() {

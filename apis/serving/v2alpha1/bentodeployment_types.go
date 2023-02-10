@@ -81,9 +81,10 @@ type BentoDeploymentIngressSpec struct {
 }
 
 type MonitorExporterSpec struct {
-	Enabled bool              `json:"enabled,omitempty"`
-	Output  string            `json:"output,omitempty"`
-	Options map[string]string `json:"options,omitempty"`
+	Enabled          bool              `json:"enabled,omitempty"`
+	Output           string            `json:"output,omitempty"`
+	Options          map[string]string `json:"options,omitempty"`
+	StructureOptions []corev1.EnvVar   `json:"structureOptions,omitempty"`
 }
 
 // BentoDeploymentSpec defines the desired state of BentoDeployment

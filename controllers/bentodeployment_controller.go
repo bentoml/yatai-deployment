@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	// nolint: gosec
 	"crypto/md5"
 	"encoding/hex"
@@ -42,8 +43,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
-
-	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -94,9 +93,7 @@ const (
 	HeaderNameDebug                                           = "X-Yatai-Debug"
 )
 
-var (
-	ServicePortHTTPNonProxy = commonconsts.BentoServicePort + 1
-)
+var ServicePortHTTPNonProxy = commonconsts.BentoServicePort + 1
 
 // BentoDeploymentReconciler reconciles a BentoDeployment object
 type BentoDeploymentReconciler struct {
@@ -1614,7 +1611,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	kubeName := r.getKubeName(opt.bentoDeployment, opt.bento, opt.runnerName, opt.isStealingTrafficDebugModeEnabled)
 
 	containerPort := commonconsts.BentoServicePort
-	var lastPort = containerPort + 1
+	lastPort := containerPort + 1
 
 	monitorExporter := opt.bentoDeployment.Spec.MonitorExporter
 	need_monitor_container := monitorExporter != nil && monitorExporter.Enabled && opt.runnerName == nil
@@ -1739,7 +1736,7 @@ monitoring.type=otlp
 monitoring.options.endpoint=http://127.0.0.1:{%d}
 monitoring.options.insecure=true`
 		var bentoml_options string
-		var index = -1
+		index := -1
 		for i, env := range envs {
 			if env.Name == "BENTOML_CONFIG_OPTIONS" {
 				bentoml_options = env.Value
@@ -2363,9 +2360,22 @@ monitoring.options.insecure=true`
 
 		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.2"
 
-		var monitorOptEnvs = make([]corev1.EnvVar, 0, len(monitorExporter.Options))
+		monitorOptEnvs := make([]corev1.EnvVar, 0, len(monitorExporter.Options)+len(monitorExporter.StructureOptions))
+		monitorOptEnvsSeen := make(map[string]struct{})
+
+		for _, env := range monitorExporter.StructureOptions {
+			monitorOptEnvsSeen[strings.ToLower(env.Name)] = struct{}{}
+			monitorOptEnvs = append(monitorOptEnvs, corev1.EnvVar{
+				Name:      "FLUENTBIT_OUTPUT_OPTION_" + strings.ToUpper(env.Name),
+				Value:     env.Value,
+				ValueFrom: env.ValueFrom,
+			})
+		}
 
 		for k, v := range monitorExporter.Options {
+			if _, exists := monitorOptEnvsSeen[strings.ToLower(k)]; exists {
+				continue
+			}
 			monitorOptEnvs = append(monitorOptEnvs, corev1.EnvVar{
 				Name:  "FLUENTBIT_OUTPUT_OPTION_" + strings.ToUpper(k),
 				Value: v,

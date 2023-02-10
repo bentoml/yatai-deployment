@@ -82,9 +82,9 @@ const (
 	KubeAnnotationYataiEnableStealingTrafficDebugMode         = "yatai.ai/enable-stealing-traffic-debug-mode"
 	KubeAnnotationYataiEnableDebugMode                        = "yatai.ai/enable-debug-mode"
 	KubeAnnotationYataiEnableDebugPodReceiveProductionTraffic = "yatai.ai/enable-debug-pod-receive-production-traffic"
-	KubeAnnotationYataiProxySidecarResourcesLimitsCpu         = "yatai.ai/proxy-sidecar-resources-limits-cpu"
+	KubeAnnotationYataiProxySidecarResourcesLimitsCPU         = "yatai.ai/proxy-sidecar-resources-limits-cpu"
 	KubeAnnotationYataiProxySidecarResourcesLimitsMemory      = "yatai.ai/proxy-sidecar-resources-limits-memory"
-	KubeAnnotationYataiProxySidecarResourcesRequestsCpu       = "yatai.ai/proxy-sidecar-resources-requests-cpu"
+	KubeAnnotationYataiProxySidecarResourcesRequestsCPU       = "yatai.ai/proxy-sidecar-resources-requests-cpu"
 	KubeAnnotationYataiProxySidecarResourcesRequestsMemory    = "yatai.ai/proxy-sidecar-resources-requests-memory"
 	DeploymentTargetTypeProduction                            = "production"
 	DeploymentTargetTypeDebug                                 = "debug"
@@ -630,7 +630,7 @@ func getYataiClient(ctx context.Context) (yataiClient **yataiclient.YataiClient,
 	}
 
 	yataiEndpoint := yataiConf.Endpoint
-	yataiApiToken := yataiConf.ApiToken
+	yataiAPIToken := yataiConf.ApiToken
 	if yataiEndpoint == "" {
 		return
 	}
@@ -639,7 +639,7 @@ func getYataiClient(ctx context.Context) (yataiClient **yataiclient.YataiClient,
 	if clusterName_ == "" {
 		clusterName_ = DefaultClusterName
 	}
-	yataiClient_ := yataiclient.NewYataiClient(yataiEndpoint, fmt.Sprintf("%s:%s:%s", commonconsts.YataiDeploymentComponentName, clusterName_, yataiApiToken))
+	yataiClient_ := yataiclient.NewYataiClient(yataiEndpoint, fmt.Sprintf("%s:%s:%s", commonconsts.YataiDeploymentComponentName, clusterName_, yataiAPIToken))
 	yataiClient = &yataiClient_
 	clusterName = &clusterName_
 	return
@@ -1614,7 +1614,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	lastPort := containerPort + 1
 
 	monitorExporter := opt.bentoDeployment.Spec.MonitorExporter
-	need_monitor_container := monitorExporter != nil && monitorExporter.Enabled && opt.runnerName == nil
+	needMonitorContainer := monitorExporter != nil && monitorExporter.Enabled && opt.runnerName == nil
 
 	lastPort++
 	monitorExporterPort := lastPort
@@ -1730,38 +1730,38 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 		}
 	}
 
-	if need_monitor_container {
-		monitoring_config_template := `monitoring.enabled=true
+	if needMonitorContainer {
+		monitoringConfigTemplate := `monitoring.enabled=true
 monitoring.type=otlp
 monitoring.options.endpoint=http://127.0.0.1:{%d}
 monitoring.options.insecure=true`
-		var bentoml_options string
+		var bentomlOptions string
 		index := -1
 		for i, env := range envs {
 			if env.Name == "BENTOML_CONFIG_OPTIONS" {
-				bentoml_options = env.Value
+				bentomlOptions = env.Value
 				index = i
 				break
 			}
 		}
 		if index == -1 {
 			// BENOML_CONFIG_OPTIONS not defined
-			bentoml_options = fmt.Sprintf(monitoring_config_template, monitorExporterPort)
+			bentomlOptions = fmt.Sprintf(monitoringConfigTemplate, monitorExporterPort)
 			envs = append(envs, corev1.EnvVar{
 				Name:  "BENTOML_CONFIG_OPTIONS",
-				Value: bentoml_options,
+				Value: bentomlOptions,
 			})
-		} else if !strings.Contains(bentoml_options, "monitoring") {
+		} else if !strings.Contains(bentomlOptions, "monitoring") {
 			// monitoring config not defined
 			envs = append(envs[:index], envs[index+1:]...)
-			bentoml_options = strings.TrimSpace(bentoml_options) // ' ' -> ''
-			if bentoml_options != "" {
-				bentoml_options += "\n"
+			bentomlOptions = strings.TrimSpace(bentomlOptions) // ' ' -> ''
+			if bentomlOptions != "" {
+				bentomlOptions += "\n"
 			}
-			bentoml_options += fmt.Sprintf(monitoring_config_template, monitorExporterPort)
+			bentomlOptions += fmt.Sprintf(monitoringConfigTemplate, monitorExporterPort)
 			envs = append(envs, corev1.EnvVar{
 				Name:  "BENTOML_CONFIG_OPTIONS",
-				Value: bentoml_options,
+				Value: bentomlOptions,
 			})
 		}
 		// monitoring config already defined
@@ -2087,14 +2087,14 @@ monitoring.options.insecure=true`
 		lastPort++
 		proxyPort := lastPort
 
-		proxyResourcesRequestsCpuStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesRequestsCpu]
-		if proxyResourcesRequestsCpuStr == "" {
-			proxyResourcesRequestsCpuStr = "100m"
+		proxyResourcesRequestsCPUStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesRequestsCPU]
+		if proxyResourcesRequestsCPUStr == "" {
+			proxyResourcesRequestsCPUStr = "100m"
 		}
-		var proxyResourcesRequestsCpu resource.Quantity
-		proxyResourcesRequestsCpu, err = resource.ParseQuantity(proxyResourcesRequestsCpuStr)
+		var proxyResourcesRequestsCPU resource.Quantity
+		proxyResourcesRequestsCPU, err = resource.ParseQuantity(proxyResourcesRequestsCPUStr)
 		if err != nil {
-			err = errors.Wrapf(err, "failed to parse proxy sidecar resources requests cpu: %s", proxyResourcesRequestsCpuStr)
+			err = errors.Wrapf(err, "failed to parse proxy sidecar resources requests cpu: %s", proxyResourcesRequestsCPUStr)
 			return nil, err
 		}
 		proxyResourcesRequestsMemoryStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesRequestsMemory]
@@ -2107,14 +2107,14 @@ monitoring.options.insecure=true`
 			err = errors.Wrapf(err, "failed to parse proxy sidecar resources requests memory: %s", proxyResourcesRequestsMemoryStr)
 			return nil, err
 		}
-		proxyResourcesLimitsCpuStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesLimitsCpu]
-		if proxyResourcesLimitsCpuStr == "" {
-			proxyResourcesLimitsCpuStr = "300m"
+		proxyResourcesLimitsCPUStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesLimitsCPU]
+		if proxyResourcesLimitsCPUStr == "" {
+			proxyResourcesLimitsCPUStr = "300m"
 		}
-		var proxyResourcesLimitsCpu resource.Quantity
-		proxyResourcesLimitsCpu, err = resource.ParseQuantity(proxyResourcesLimitsCpuStr)
+		var proxyResourcesLimitsCPU resource.Quantity
+		proxyResourcesLimitsCPU, err = resource.ParseQuantity(proxyResourcesLimitsCPUStr)
 		if err != nil {
-			err = errors.Wrapf(err, "failed to parse proxy sidecar resources limits cpu: %s", proxyResourcesLimitsCpuStr)
+			err = errors.Wrapf(err, "failed to parse proxy sidecar resources limits cpu: %s", proxyResourcesLimitsCPUStr)
 			return nil, err
 		}
 		proxyResourcesLimitsMemoryStr := resourceAnnotations[KubeAnnotationYataiProxySidecarResourcesLimitsMemory]
@@ -2239,11 +2239,11 @@ monitoring.options.insecure=true`
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    proxyResourcesRequestsCpu,
+					corev1.ResourceCPU:    proxyResourcesRequestsCPU,
 					corev1.ResourceMemory: proxyResourcesRequestsMemory,
 				},
 				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    proxyResourcesLimitsCpu,
+					corev1.ResourceCPU:    proxyResourcesLimitsCPU,
 					corev1.ResourceMemory: proxyResourcesLimitsMemory,
 				},
 			},
@@ -2251,7 +2251,7 @@ monitoring.options.insecure=true`
 		})
 	}
 
-	if need_monitor_container {
+	if needMonitorContainer {
 		lastPort++
 		monitorExporterProbePort := lastPort
 

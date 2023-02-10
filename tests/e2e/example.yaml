@@ -10,6 +10,14 @@ spec:
     runnableType: SklearnRunnable
   tag: iris_classifier:r4zint4b567i4usu
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret
+  namespace: yatai
+stringData:
+  format: msgpack
+---
 apiVersion: serving.yatai.ai/v2alpha1
 kind: BentoDeployment
 metadata:
@@ -34,6 +42,14 @@ spec:
     output: stdout
     options:
       workers: "4"
+    structureOptions:
+      - name: workers
+        value: "5"
+      - name: format
+        valueFrom:
+          secretKeyRef:
+            name: test-secret
+            key: format
   resources:
     limits:
       cpu: 1000m

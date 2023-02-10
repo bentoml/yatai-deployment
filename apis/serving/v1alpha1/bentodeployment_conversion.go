@@ -16,7 +16,7 @@ func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
 	return dst.ConvertTo(dstRaw)
 }
 
-func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error {
+func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error { //nolint:stylecheck
 	src := &v1alpha3.BentoDeployment{}
 	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.BentoTag = src.Spec.BentoTag

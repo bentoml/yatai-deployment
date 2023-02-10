@@ -384,7 +384,7 @@ func (src *BentoDeployment) ConvertTo(dstRaw conversion.Hub) error {
 	return src.ConvertToV2alpha1(dstRaw, bentoRequest.Name)
 }
 
-func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error {
+func (dst *BentoDeployment) ConvertFrom(srcRaw conversion.Hub) error { //nolint:stylecheck
 	src := srcRaw.(*v2alpha1.BentoDeployment)
 	dst.ObjectMeta = src.ObjectMeta
 	bentoTag, err := getBentoTagFromBentoName(src.Namespace, src.Spec.Bento)

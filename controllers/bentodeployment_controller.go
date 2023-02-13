@@ -2255,7 +2255,7 @@ monitoring.options.insecure=true`
 		lastPort++
 		monitorExporterProbePort := lastPort
 
-		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.2"
+		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.3"
 
 		monitorOptEnvs := make([]corev1.EnvVar, 0, len(monitorExporter.Options)+len(monitorExporter.StructureOptions))
 		monitorOptEnvsSeen := make(map[string]struct{})

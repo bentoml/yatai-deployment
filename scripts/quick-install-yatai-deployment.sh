@@ -92,12 +92,16 @@ else
   INGRESS_CLASS=""
 fi
 
-echo "🧪 verifying that the yatai-image-builder is running"
-if ! kubectl -n yatai-image-builder wait --for=condition=ready --timeout=10s pod -l app.kubernetes.io/name=yatai-image-builder; then
-  echo "😱 yatai-image-builder is not ready, please wait for it to be ready!" >&2
-  exit 1
+CHECK_YATAI_IMAGE_BUILDER=${CHECK_YATAI_IMAGE_BUILDER:-true}
+
+if [ "${CHECK_YATAI_IMAGE_BUILDER}" = "true" ]; then
+  echo "🧪 verifying that the yatai-image-builder is running"
+  if ! kubectl -n yatai-image-builder wait --for=condition=ready --timeout=10s pod -l app.kubernetes.io/name=yatai-image-builder; then
+    echo "😱 yatai-image-builder is not ready, please wait for it to be ready!" >&2
+    exit 1
+  fi
+  echo "✅ yatai-image-builder is ready"
 fi
-echo "✅ yatai-image-builder is ready"
 
 namespace=yatai-deployment
 bento_deployment_namespace=yatai

@@ -9,7 +9,7 @@ YATAI_ENDPOINT='empty' bash <(curl -s "https://raw.githubusercontent.com/bentoml
 echo "yatai-image-builder helm release values:"
 helm get values yatai-image-builder -n yatai-image-builder
 echo "🚀 Installing yatai-deployment..."
-YATAI_ENDPOINT='empty' USE_LOCAL_HELM_CHART=true IGNORE_INGRESS=true SKIP_METRICS_SERVER=true DOMAIN_SUFFIX='test.com' UPGRADE_CRDS=false bash ./scripts/quick-install-yatai-deployment.sh
+CHECK_YATAI_IMAGE_BUILDER=false YATAI_ENDPOINT='empty' USE_LOCAL_HELM_CHART=true IGNORE_INGRESS=true SKIP_METRICS_SERVER=true DOMAIN_SUFFIX='test.com' UPGRADE_CRDS=false bash ./scripts/quick-install-yatai-deployment.sh
 echo "yatai-deployment helm release values:"
 helm get values yatai-deployment -n yatai-deployment
 

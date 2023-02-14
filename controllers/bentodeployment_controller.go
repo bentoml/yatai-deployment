@@ -1733,7 +1733,7 @@ func (r *BentoDeploymentReconciler) generatePodTemplateSpec(ctx context.Context,
 	if needMonitorContainer {
 		monitoringConfigTemplate := `monitoring.enabled=true
 monitoring.type=otlp
-monitoring.options.endpoint=http://127.0.0.1:{%d}
+monitoring.options.endpoint=http://127.0.0.1:%d
 monitoring.options.insecure=true`
 		var bentomlOptions string
 		index := -1
@@ -2255,7 +2255,11 @@ monitoring.options.insecure=true`
 		lastPort++
 		monitorExporterProbePort := lastPort
 
-		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.2"
+		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.3"
+		monitorExporterImage_ := os.Getenv("INTERNAL_MONITOR_EXPORTER")
+		if monitorExporterImage_ != "" {
+			monitorExporterImage = monitorExporterImage_
+		}
 
 		monitorOptEnvs := make([]corev1.EnvVar, 0, len(monitorExporter.Options)+len(monitorExporter.StructureOptions))
 		monitorOptEnvsSeen := make(map[string]struct{})

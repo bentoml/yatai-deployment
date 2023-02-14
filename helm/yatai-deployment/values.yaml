@@ -110,6 +110,7 @@ bentoDeploymentNamespaces: ['yatai']
 internalImages:
   metricsTransformer: quay.io/bentoml/yatai-bento-metrics-transformer:0.0.3
   debugger: quay.io/bentoml/bento-debugger:0.0.5
+  monitorExporter: quay.io/bentoml/bentoml-monitor-exporter:0.0.3
 
 disableAutomateBentoImageBuilder: false
 enableRestrictedSecurityContext: false

@@ -1748,7 +1748,7 @@ monitoring.options.insecure=true`
 			}
 		}
 		if index == -1 {
-			// BENOML_CONFIG_OPTIONS not defined
+			// BENTOML_CONFIG_OPTIONS not defined
 			bentoml_options = fmt.Sprintf(monitoring_config_template, monitorExporterPort)
 			envs = append(envs, corev1.EnvVar{
 				Name:  "BENTOML_CONFIG_OPTIONS",

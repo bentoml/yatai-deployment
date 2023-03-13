@@ -111,6 +111,7 @@ internalImages:
   metricsTransformer: quay.io/bentoml/yatai-bento-metrics-transformer:0.0.3
   debugger: quay.io/bentoml/bento-debugger:0.0.5
   monitorExporter: quay.io/bentoml/bentoml-monitor-exporter:0.0.3
+  proxy: quay.io/bentoml/bentoml-proxy:0.0.1
 
 disableAutomateBentoImageBuilder: false
 enableRestrictedSecurityContext: false

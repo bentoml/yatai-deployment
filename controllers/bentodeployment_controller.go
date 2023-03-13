@@ -2188,9 +2188,14 @@ monitoring.options.insecure=true`
 				},
 			},
 		})
+		proxyImage := "quay.io/bentoml/bentoml-proxy:0.0.1"
+		proxyImage_ := os.Getenv("INTERNAL_IMAGES_PROXY")
+		if proxyImage_ != "" {
+			proxyImage = proxyImage_
+		}
 		containers = append(containers, corev1.Container{
 			Name:  "proxy",
-			Image: "quay.io/bentoml/bentoml-proxy:0.0.1",
+			Image: proxyImage,
 			Command: []string{
 				"envoy",
 				"--config-path",

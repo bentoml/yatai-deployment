@@ -2066,7 +2066,7 @@ monitoring.options.insecure=true`
 			},
 			{
 				Name:  "OLD_METRICS_PREFIX",
-				Value: fmt.Sprintf("BENTOML_%s_", bentoRepositoryName),
+				Value: fmt.Sprintf("BENTOML_%s_", strings.ReplaceAll(bentoRepositoryName, "-", ":")),
 			},
 			{
 				Name:  "NEW_METRICS_PREFIX",

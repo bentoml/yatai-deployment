@@ -998,7 +998,6 @@ func (r *BentoDeploymentReconciler) createOrUpdateOrDeleteServices(ctx context.C
 			err = errors.Wrapf(err, "Failed to get service %s", productionServiceName)
 			return
 		}
-		err = nil
 		if !isNotFound {
 			modified = true
 			err = r.Delete(ctx, svc)

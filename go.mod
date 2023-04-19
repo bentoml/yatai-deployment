@@ -7,7 +7,7 @@ require (
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
 	github.com/bentoml/yatai-common v0.0.0-20230110044251-1eb442339c38
 	github.com/bentoml/yatai-image-builder v1.1.4
-	github.com/bentoml/yatai-schemas v0.0.0-20230418105153-cdcd5fd806e9
+	github.com/bentoml/yatai-schemas v0.0.0-20230418023541-71c74442a90f
 	github.com/huandu/xstrings v1.3.2
 	github.com/iancoleman/strcase v0.2.0
 	github.com/onsi/ginkgo/v2 v2.3.1

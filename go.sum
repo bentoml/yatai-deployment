@@ -102,10 +102,8 @@ github.com/bentoml/yatai-common v0.0.0-20230110044251-1eb442339c38 h1:PqfM42gfwB
 github.com/bentoml/yatai-common v0.0.0-20230110044251-1eb442339c38/go.mod h1:pox0XYk/bVUwKkadn0XwWHEbJmxSEeN3+HwGA4a8uOQ=
 github.com/bentoml/yatai-image-builder v1.1.4 h1:I3s9JApTjmvV22MNeBiDZhAtuxB169P9Tf87SE060CQ=
 github.com/bentoml/yatai-image-builder v1.1.4/go.mod h1:bq9IOzH/S5YYKhu9JQfTclibkOP0p6pdNMMPUdpyO/c=
-github.com/bentoml/yatai-schemas v0.0.0-20230418104829-80ba7c017316 h1:g5bdBjzaNsnMMcWyvgvzRggUy+TUyu4zYPeavUCMdtc=
-github.com/bentoml/yatai-schemas v0.0.0-20230418104829-80ba7c017316/go.mod h1:1H2rwz7S4HO9Yfi/2FFerd+QRzBQHmiXQm6DNWjRaz4=
-github.com/bentoml/yatai-schemas v0.0.0-20230418105153-cdcd5fd806e9 h1:yaVV2nqIs16i58/Zohkxm2o7Ylzxni4Tjf52cs1Q8iQ=
-github.com/bentoml/yatai-schemas v0.0.0-20230418105153-cdcd5fd806e9/go.mod h1:2S2EE26Yyf+a+TnE6LHpJWb93ciaCfbM2EBDWdkTOic=
+github.com/bentoml/yatai-schemas v0.0.0-20230418023541-71c74442a90f h1:G/yhoMaNIWrc4r9Sp3/wjAlLwAq4jWHzsNQ97pJ53KM=
+github.com/bentoml/yatai-schemas v0.0.0-20230418023541-71c74442a90f/go.mod h1:5pwTMTCo03tajWafBo3YmJf+gLmz7sxnA/g+AzueZvM=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=

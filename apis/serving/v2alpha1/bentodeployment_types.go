@@ -17,7 +17,7 @@ limitations under the License.
 package v2alpha1
 
 import (
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -49,10 +49,10 @@ type ExtraPodSpec struct {
 }
 
 type Autoscaling struct {
-	MinReplicas int32                                               `json:"minReplicas"`
-	MaxReplicas int32                                               `json:"maxReplicas"`
-	Metrics     []autoscalingv2beta2.MetricSpec                     `json:"metrics,omitempty"`
-	Behavior    *autoscalingv2beta2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+	MinReplicas int32                                          `json:"minReplicas"`
+	MaxReplicas int32                                          `json:"maxReplicas"`
+	Metrics     []autoscalingv2.MetricSpec                     `json:"metrics,omitempty"`
+	Behavior    *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
 type BentoDeploymentRunnerSpec struct {

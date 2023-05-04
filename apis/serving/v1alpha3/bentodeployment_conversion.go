@@ -13,7 +13,7 @@ import (
 
 	"github.com/iancoleman/strcase"
 	"github.com/pkg/errors"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -40,12 +40,12 @@ func TransformToOldHPA(hpa *v2alpha1.Autoscaling) (oldHpa *modelschemas.Deployme
 	}
 
 	for _, metric := range hpa.Metrics {
-		if metric.Type == autoscalingv2beta2.PodsMetricSourceType {
+		if metric.Type == autoscalingv2.PodsMetricSourceType {
 			if metric.Pods == nil {
 				continue
 			}
 			if metric.Pods.Metric.Name == consts.KubeHPAQPSMetric {
-				if metric.Pods.Target.Type != autoscalingv2beta2.UtilizationMetricType {
+				if metric.Pods.Target.Type != autoscalingv2.UtilizationMetricType {
 					continue
 				}
 				if metric.Pods.Target.AverageValue == nil {
@@ -54,12 +54,12 @@ func TransformToOldHPA(hpa *v2alpha1.Autoscaling) (oldHpa *modelschemas.Deployme
 				qps := metric.Pods.Target.AverageValue.Value()
 				oldHpa.QPS = &qps
 			}
-		} else if metric.Type == autoscalingv2beta2.ResourceMetricSourceType {
+		} else if metric.Type == autoscalingv2.ResourceMetricSourceType {
 			if metric.Resource == nil {
 				continue
 			}
 			if metric.Resource.Name == corev1.ResourceCPU {
-				if metric.Resource.Target.Type != autoscalingv2beta2.UtilizationMetricType {
+				if metric.Resource.Target.Type != autoscalingv2.UtilizationMetricType {
 					continue
 				}
 				if metric.Resource.Target.AverageUtilization == nil {
@@ -68,7 +68,7 @@ func TransformToOldHPA(hpa *v2alpha1.Autoscaling) (oldHpa *modelschemas.Deployme
 				cpu := *metric.Resource.Target.AverageUtilization
 				oldHpa.CPU = &cpu
 			} else if metric.Resource.Name == corev1.ResourceMemory {
-				if metric.Resource.Target.Type != autoscalingv2beta2.UtilizationMetricType {
+				if metric.Resource.Target.Type != autoscalingv2.UtilizationMetricType {
 					continue
 				}
 				if metric.Resource.Target.AverageUtilization == nil {
@@ -92,16 +92,16 @@ func TransformToNewHPA(oldHpa *modelschemas.DeploymentTargetHPAConf) (hpa *v2alp
 		maxReplicas = oldHpa.MaxReplicas
 	}
 
-	var metrics []autoscalingv2beta2.MetricSpec
+	var metrics []autoscalingv2.MetricSpec
 	if oldHpa != nil && oldHpa.QPS != nil && *oldHpa.QPS > 0 {
-		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
-			Type: autoscalingv2beta2.PodsMetricSourceType,
-			Pods: &autoscalingv2beta2.PodsMetricSource{
-				Metric: autoscalingv2beta2.MetricIdentifier{
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.PodsMetricSourceType,
+			Pods: &autoscalingv2.PodsMetricSource{
+				Metric: autoscalingv2.MetricIdentifier{
 					Name: consts.KubeHPAQPSMetric,
 				},
-				Target: autoscalingv2beta2.MetricTarget{
-					Type:         autoscalingv2beta2.UtilizationMetricType,
+				Target: autoscalingv2.MetricTarget{
+					Type:         autoscalingv2.UtilizationMetricType,
 					AverageValue: resource.NewQuantity(*oldHpa.QPS, resource.DecimalSI),
 				},
 			},
@@ -109,12 +109,12 @@ func TransformToNewHPA(oldHpa *modelschemas.DeploymentTargetHPAConf) (hpa *v2alp
 	}
 
 	if oldHpa != nil && oldHpa.CPU != nil && *oldHpa.CPU > 0 {
-		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
-			Type: autoscalingv2beta2.ResourceMetricSourceType,
-			Resource: &autoscalingv2beta2.ResourceMetricSource{
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.ResourceMetricSourceType,
+			Resource: &autoscalingv2.ResourceMetricSource{
 				Name: corev1.ResourceCPU,
-				Target: autoscalingv2beta2.MetricTarget{
-					Type:               autoscalingv2beta2.UtilizationMetricType,
+				Target: autoscalingv2.MetricTarget{
+					Type:               autoscalingv2.UtilizationMetricType,
 					AverageUtilization: oldHpa.CPU,
 				},
 			},
@@ -128,12 +128,12 @@ func TransformToNewHPA(oldHpa *modelschemas.DeploymentTargetHPAConf) (hpa *v2alp
 			err = errors.Wrapf(err, "parse memory %s", *oldHpa.Memory)
 			return
 		}
-		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
-			Type: autoscalingv2beta2.ResourceMetricSourceType,
-			Resource: &autoscalingv2beta2.ResourceMetricSource{
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.ResourceMetricSourceType,
+			Resource: &autoscalingv2.ResourceMetricSource{
 				Name: corev1.ResourceMemory,
-				Target: autoscalingv2beta2.MetricTarget{
-					Type:         autoscalingv2beta2.UtilizationMetricType,
+				Target: autoscalingv2.MetricTarget{
+					Type:         autoscalingv2.UtilizationMetricType,
 					AverageValue: &quantity,
 				},
 			},
@@ -142,13 +142,13 @@ func TransformToNewHPA(oldHpa *modelschemas.DeploymentTargetHPAConf) (hpa *v2alp
 
 	if len(metrics) == 0 {
 		averageUtilization := int32(consts.HPACPUDefaultAverageUtilization)
-		metrics = []autoscalingv2beta2.MetricSpec{
+		metrics = []autoscalingv2.MetricSpec{
 			{
-				Type: autoscalingv2beta2.ResourceMetricSourceType,
-				Resource: &autoscalingv2beta2.ResourceMetricSource{
+				Type: autoscalingv2.ResourceMetricSourceType,
+				Resource: &autoscalingv2.ResourceMetricSource{
 					Name: corev1.ResourceCPU,
-					Target: autoscalingv2beta2.MetricTarget{
-						Type:               autoscalingv2beta2.UtilizationMetricType,
+					Target: autoscalingv2.MetricTarget{
+						Type:               autoscalingv2.UtilizationMetricType,
 						AverageUtilization: &averageUtilization,
 					},
 				},

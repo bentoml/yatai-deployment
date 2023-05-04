@@ -198,6 +198,8 @@ if [ "${YATAI_ENDPOINT}" = "empty" ]; then
     YATAI_ENDPOINT=""
 fi
 
+YATAI_SERVICE_ACCOUNT=${YATAI_SERVICE_ACCOUNT:-yatai}
+
 USE_LOCAL_HELM_CHART=${USE_LOCAL_HELM_CHART:-false}
 
 if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
@@ -257,6 +259,7 @@ else
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
     --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
     --set enableRestrictedSecurityContext=true \
+    --set yataiSystem.serviceAccountName=$YATAI_SERVICE_ACCOUNT \
     --version=${VERSION} \
     --devel=${DEVEL}
 fi

@@ -133,6 +133,9 @@ jobs:
     needs: [triage, build-test-images]
     if: needs.triage.outputs.run-e2e == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+       k8s-version: ["1-23", "1-26"]
     steps:
     - name: Set status in-progress
       uses: LouisBrunner/checks-action@v1.5.0
@@ -163,7 +166,7 @@ jobs:
       run: ./tests/gh-actions/install_helm.sh
 
     - name: Create KinD Cluster
-      run: kind create cluster --config tests/gh-actions/kind-cluster-1-24.yaml
+      run: kind create cluster --config tests/gh-actions/kind-cluster-${{ matrix.k8s-version }}.yaml
 
     - name: Run e2e test
       continue-on-error: true

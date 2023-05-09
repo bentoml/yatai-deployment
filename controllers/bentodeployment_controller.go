@@ -2355,7 +2355,7 @@ monitoring.options.insecure=true`
 		})
 	}
 
-	debuggerImage := "quay.io/bentoml/bento-debugger:0.0.5"
+	debuggerImage := "quay.io/bentoml/bento-debugger:0.0.8"
 	debuggerImage_ := os.Getenv("INTERNAL_IMAGES_DEBUGGER")
 	if debuggerImage_ != "" {
 		debuggerImage = debuggerImage_

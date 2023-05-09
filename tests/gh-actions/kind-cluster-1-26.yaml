@@ -21,4 +21,5 @@ kubeadmConfigPatches:
 nodes:
 - role: control-plane
   image: kindest/node:v1.26.3
+- role: worker
   image: kindest/node:v1.26.3

@@ -3541,11 +3541,10 @@ spec:
                               - value
                               type: object
                             type: array
-                            x-kubernetes-list-type: atomic
                           selectPolicy:
                             description: selectPolicy is used to specify which policy
-                              should be used. If not set, the default value Max is
-                              used.
+                              should be used. If not set, the default value MaxPolicySelect
+                              is used.
                             type: string
                           stabilizationWindowSeconds:
                             description: 'StabilizationWindowSeconds is the number
@@ -3597,11 +3596,10 @@ spec:
                               - value
                               type: object
                             type: array
-                            x-kubernetes-list-type: atomic
                           selectPolicy:
                             description: selectPolicy is used to specify which policy
-                              should be used. If not set, the default value Max is
-                              used.
+                              should be used. If not set, the default value MaxPolicySelect
+                              is used.
                             type: string
                           stabilizationWindowSeconds:
                             description: 'StabilizationWindowSeconds is the number
@@ -3626,7 +3624,7 @@ spec:
                         set at once).
                       properties:
                         containerResource:
-                          description: containerResource refers to a resource metric
+                          description: container resource refers to a resource metric
                             (such as those specified in requests and limits) known
                             to Kubernetes describing a single container in each pod
                             of the current scale target (e.g. CPU or memory). Such
@@ -3803,8 +3801,8 @@ spec:
                             Ingress object).
                           properties:
                             describedObject:
-                              description: describedObject specifies the descriptions
-                                of a object,such as kind,name apiVersion
+                              description: CrossVersionObjectReference contains enough
+                                information to let you identify the referred resource.
                               properties:
                                 apiVersion:
                                   description: API version of the referent
@@ -8324,11 +8322,10 @@ spec:
                                     - value
                                     type: object
                                   type: array
-                                  x-kubernetes-list-type: atomic
                                 selectPolicy:
                                   description: selectPolicy is used to specify which
                                     policy should be used. If not set, the default
-                                    value Max is used.
+                                    value MaxPolicySelect is used.
                                   type: string
                                 stabilizationWindowSeconds:
                                   description: 'StabilizationWindowSeconds is the
@@ -8383,11 +8380,10 @@ spec:
                                     - value
                                     type: object
                                   type: array
-                                  x-kubernetes-list-type: atomic
                                 selectPolicy:
                                   description: selectPolicy is used to specify which
                                     policy should be used. If not set, the default
-                                    value Max is used.
+                                    value MaxPolicySelect is used.
                                   type: string
                                 stabilizationWindowSeconds:
                                   description: 'StabilizationWindowSeconds is the
@@ -8413,7 +8409,7 @@ spec:
                               field should be set at once).
                             properties:
                               containerResource:
-                                description: containerResource refers to a resource
+                                description: container resource refers to a resource
                                   metric (such as those specified in requests and
                                   limits) known to Kubernetes describing a single
                                   container in each pod of the current scale target
@@ -8597,8 +8593,9 @@ spec:
                                   on an Ingress object).
                                 properties:
                                   describedObject:
-                                    description: describedObject specifies the descriptions
-                                      of a object,such as kind,name apiVersion
+                                    description: CrossVersionObjectReference contains
+                                      enough information to let you identify the referred
+                                      resource.
                                     properties:
                                       apiVersion:
                                         description: API version of the referent

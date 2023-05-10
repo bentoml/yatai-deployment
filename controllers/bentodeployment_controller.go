@@ -30,7 +30,12 @@ import (
 	"time"
 
 	pep440version "github.com/aquasecurity/go-pep440-version"
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/huandu/xstrings"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -38,30 +43,25 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
-
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/huandu/xstrings"
-	"github.com/pkg/errors"
-
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
 
+	commonconfig "github.com/bentoml/yatai-common/config"
 	commonconsts "github.com/bentoml/yatai-common/consts"
 	"github.com/bentoml/yatai-common/system"
-
-	commonconfig "github.com/bentoml/yatai-common/config"
 
 	resourcesv1alpha1 "github.com/bentoml/yatai-image-builder/apis/resources/v1alpha1"
 
@@ -91,6 +91,9 @@ const (
 	ContainerPortNameHTTPProxy                                = "http-proxy"
 	ServicePortNameHTTPNonProxy                               = "http-non-proxy"
 	HeaderNameDebug                                           = "X-Yatai-Debug"
+
+	legacyHPAMajorVersion = "1"
+	legacyHPAMinorVersion = "23"
 )
 
 var ServicePortHTTPNonProxy = commonconsts.BentoServicePort + 1
@@ -98,8 +101,9 @@ var ServicePortHTTPNonProxy = commonconsts.BentoServicePort + 1
 // BentoDeploymentReconciler reconciles a BentoDeployment object
 type BentoDeploymentReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	ServerVersion *k8sversion.Info
+	Scheme        *runtime.Scheme
+	Recorder      record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=serving.yatai.ai,resources=bentodeployments,verbs=get;list;watch;create;update;patch;delete
@@ -802,14 +806,19 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 	if err != nil {
 		return
 	}
-
 	logs = logs.WithValues("namespace", hpa.Namespace, "hpaName", hpa.Name)
 	hpaNamespacedName := fmt.Sprintf("%s/%s", hpa.Namespace, hpa.Name)
 
+	legacyHPA, err := r.handleLegacyHPA(hpa)
+	if err != nil {
+		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "HandleHPA", "Failed to convert HPA version %s: %s", hpaNamespacedName, err)
+		logs.Error(err, "Failed to convert HPA.")
+		return
+	}
+
 	r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "GetHPA", "Getting HPA %s", hpaNamespacedName)
 
-	oldHPA := &autoscalingv2beta2.HorizontalPodAutoscaler{}
-	err = r.Get(ctx, types.NamespacedName{Name: hpa.Name, Namespace: hpa.Namespace}, oldHPA)
+	oldHPA, err := r.getHPA(ctx, hpa)
 	oldHPAIsNotFound := k8serrors.IsNotFound(err)
 	if err != nil && !oldHPAIsNotFound {
 		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetHPA", "Failed to get HPA %s: %s", hpaNamespacedName, err)
@@ -820,7 +829,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 	if oldHPAIsNotFound {
 		logs.Info("HPA not found. Creating a new one.")
 
-		err = errors.Wrapf(patch.DefaultAnnotator.SetLastAppliedAnnotation(hpa), "set last applied annotation for hpa %s", hpa.Name)
+		err = errors.Wrapf(patch.DefaultAnnotator.SetLastAppliedAnnotation(legacyHPA), "set last applied annotation for hpa %s", hpa.Name)
 		if err != nil {
 			logs.Error(err, "Failed to set last applied annotation.")
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "SetLastAppliedAnnotation", "Failed to set last applied annotation for HPA %s: %s", hpaNamespacedName, err)
@@ -828,7 +837,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 		}
 
 		r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "CreateHPA", "Creating a new HPA %s", hpaNamespacedName)
-		err = r.Create(ctx, hpa)
+		err = r.Create(ctx, legacyHPA)
 		if err != nil {
 			logs.Error(err, "Failed to create HPA.")
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "CreateHPA", "Failed to create HPA %s: %s", hpaNamespacedName, err)
@@ -840,9 +849,8 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 	} else {
 		logs.Info("HPA found.")
 
-		oldHPA.Status = hpa.Status
 		var patchResult *patch.PatchResult
-		patchResult, err = patch.DefaultPatchMaker.Calculate(oldHPA, hpa)
+		patchResult, err = patch.DefaultPatchMaker.Calculate(oldHPA, legacyHPA)
 		if err != nil {
 			logs.Error(err, "Failed to calculate patch.")
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "CalculatePatch", "Failed to calculate patch for HPA %s: %s", hpaNamespacedName, err)
@@ -852,7 +860,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 		if !patchResult.IsEmpty() {
 			logs.Info(fmt.Sprintf("HPA spec is different. Updating HPA. The patch result is: %s", patchResult.String()))
 
-			err = errors.Wrapf(patch.DefaultAnnotator.SetLastAppliedAnnotation(hpa), "set last applied annotation for hpa %s", hpa.Name)
+			err = errors.Wrapf(patch.DefaultAnnotator.SetLastAppliedAnnotation(legacyHPA), "set last applied annotation for hpa %s", hpa.Name)
 			if err != nil {
 				logs.Error(err, "Failed to set last applied annotation.")
 				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "SetLastAppliedAnnotation", "Failed to set last applied annotation for HPA %s: %s", hpaNamespacedName, err)
@@ -860,7 +868,7 @@ func (r *BentoDeploymentReconciler) createOrUpdateHPA(ctx context.Context, bento
 			}
 
 			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeNormal, "UpdateHPA", "Updating HPA %s", hpaNamespacedName)
-			err = r.Update(ctx, hpa)
+			err = r.Update(ctx, legacyHPA)
 			if err != nil {
 				logs.Error(err, "Failed to update HPA.")
 				r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "UpdateHPA", "Failed to update HPA %s: %s", hpaNamespacedName, err)
@@ -1505,7 +1513,7 @@ func (r *BentoDeploymentReconciler) generateDeployment(ctx context.Context, opt 
 	return
 }
 
-func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv2alpha1.BentoDeployment, bento *resourcesv1alpha1.Bento, runnerName *string) (hpa *autoscalingv2beta2.HorizontalPodAutoscaler, err error) {
+func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv2alpha1.BentoDeployment, bento *resourcesv1alpha1.Bento, runnerName *string) (*autoscalingv2beta2.HorizontalPodAutoscaler, error) {
 	labels := r.getKubeLabels(bentoDeployment, bento, runnerName)
 
 	annotations := r.getKubeAnnotations(bentoDeployment, bento, runnerName)
@@ -1569,13 +1577,52 @@ func (r *BentoDeploymentReconciler) generateHPA(bentoDeployment *servingv2alpha1
 		}
 	}
 
-	err = ctrl.SetControllerReference(bentoDeployment, kubeHpa, r.Scheme)
+	err := ctrl.SetControllerReference(bentoDeployment, kubeHpa, r.Scheme)
 	if err != nil {
-		err = errors.Wrapf(err, "set hpa %s controller reference", kubeHpa.Name)
-		return
+		return nil, errors.Wrapf(err, "set hpa %s controller reference", kubeName)
 	}
 
 	return kubeHpa, err
+}
+
+func (r *BentoDeploymentReconciler) getHPA(ctx context.Context, hpa *autoscalingv2beta2.HorizontalPodAutoscaler) (client.Object, error) {
+	name, ns := hpa.Name, hpa.Namespace
+	if r.requireLegacyHPA() {
+		obj := &autoscalingv2beta2.HorizontalPodAutoscaler{}
+		err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: ns}, obj)
+		if err == nil {
+			obj.Status = hpa.Status
+		}
+		return obj, err
+	}
+	obj := &autoscalingv2.HorizontalPodAutoscaler{}
+	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: ns}, obj)
+	if err == nil {
+		legacyStatus := &autoscalingv2.HorizontalPodAutoscalerStatus{}
+		if err := copier.Copy(legacyStatus, obj.Status); err != nil {
+			return nil, err
+		}
+		obj.Status = *legacyStatus
+	}
+	return obj, err
+}
+
+func (r *BentoDeploymentReconciler) handleLegacyHPA(hpa *autoscalingv2beta2.HorizontalPodAutoscaler) (client.Object, error) {
+	if r.requireLegacyHPA() {
+		return hpa, nil
+	}
+	v2hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+	if err := copier.Copy(v2hpa, hpa); err != nil {
+		return nil, err
+	}
+	return v2hpa, nil
+}
+
+func (r *BentoDeploymentReconciler) requireLegacyHPA() bool {
+	if r.ServerVersion.Major >= legacyHPAMajorVersion && r.ServerVersion.Minor > legacyHPAMinorVersion {
+		return false
+	}
+	return true
 }
 
 func getBentoRepositoryNameAndBentoVersion(bento *resourcesv1alpha1.Bento) (repositoryName string, version string) {
@@ -3031,12 +3078,16 @@ func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	pred := predicate.GenerationChangedPredicate{}
-	return ctrl.NewControllerManagedBy(mgr).
+	m := ctrl.NewControllerManagedBy(mgr).
 		For(&servingv2alpha1.BentoDeployment{}).
 		Owns(&appsv1.Deployment{}).
-		Owns(&autoscalingv2beta2.HorizontalPodAutoscaler{}).
 		Owns(&corev1.Service{}).
-		Owns(&networkingv1.Ingress{}).
-		WithEventFilter(pred).
-		Complete(r)
+		Owns(&networkingv1.Ingress{})
+
+	if r.requireLegacyHPA() {
+		m.Owns(&autoscalingv2beta2.HorizontalPodAutoscaler{})
+	} else {
+		m.Owns(&autoscalingv2.HorizontalPodAutoscaler{})
+	}
+	return m.WithEventFilter(pred).Complete(r)
 }

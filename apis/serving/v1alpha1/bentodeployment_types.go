@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/bentoml/yatai-deployment/apis/serving/common"
-	"github.com/bentoml/yatai-schemas/modelschemas"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -47,9 +46,9 @@ type BentoDeploymentSpec struct {
 
 	BentoTag string `json:"bento_tag"`
 
-	Resources   *common.Resources                     `json:"resources,omitempty"`
-	Autoscaling *modelschemas.DeploymentTargetHPAConf `json:"autoscaling,omitempty"`
-	Envs        *[]modelschemas.LabelItemSchema       `json:"envs,omitempty"`
+	Resources   *common.Resources               `json:"resources,omitempty"`
+	Autoscaling *common.DeploymentTargetHPAConf `json:"autoscaling,omitempty"`
+	Envs        *[]common.LabelItemSchema       `json:"envs,omitempty"`
 
 	Runners []BentoDeploymentRunnerSpec `json:"runners,omitempty"`
 }

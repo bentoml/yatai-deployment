@@ -24,17 +24,17 @@ import (
 	"github.com/bentoml/yatai-common/utils"
 	resourcesv1alpha1 "github.com/bentoml/yatai-image-builder/apis/resources/v1alpha1"
 	resourcesclient "github.com/bentoml/yatai-image-builder/generated/resources/clientset/versioned/typed/resources/v1alpha1"
-	"github.com/bentoml/yatai-schemas/modelschemas"
 
+	"github.com/bentoml/yatai-deployment/apis/serving/common"
 	"github.com/bentoml/yatai-deployment/apis/serving/v2alpha1"
 )
 
-func TransformToOldHPA(hpa *v2alpha1.Autoscaling) (oldHpa *modelschemas.DeploymentTargetHPAConf, err error) {
+func TransformToOldHPA(hpa *v2alpha1.Autoscaling) (oldHpa *common.DeploymentTargetHPAConf, err error) {
 	if hpa == nil {
 		return
 	}
 
-	oldHpa = &modelschemas.DeploymentTargetHPAConf{
+	oldHpa = &common.DeploymentTargetHPAConf{
 		MinReplicas: utils.Int32Ptr(hpa.MinReplicas),
 		MaxReplicas: utils.Int32Ptr(hpa.MaxReplicas),
 	}
@@ -82,7 +82,7 @@ func TransformToOldHPA(hpa *v2alpha1.Autoscaling) (oldHpa *modelschemas.Deployme
 	return
 }
 
-func TransformToNewHPA(oldHpa *modelschemas.DeploymentTargetHPAConf) (hpa *v2alpha1.Autoscaling, err error) {
+func TransformToNewHPA(oldHpa *common.DeploymentTargetHPAConf) (hpa *v2alpha1.Autoscaling, err error) {
 	if oldHpa == nil {
 		return
 	}
@@ -219,7 +219,7 @@ func TransformToOldExtraPodSpec(src *v2alpha1.ExtraPodSpec) (dst *ExtraPodSpec) 
 	return
 }
 
-func TransformToNewEnvs(oldEnvs *[]modelschemas.LabelItemSchema) (envs []corev1.EnvVar) {
+func TransformToNewEnvs(oldEnvs *[]common.LabelItemSchema) (envs []corev1.EnvVar) {
 	if oldEnvs == nil {
 		return
 	}
@@ -233,18 +233,18 @@ func TransformToNewEnvs(oldEnvs *[]modelschemas.LabelItemSchema) (envs []corev1.
 	return
 }
 
-func TransformToOldEnvs(envs []corev1.EnvVar) (oldEnvs *[]modelschemas.LabelItemSchema) {
+func TransformToOldEnvs(envs []corev1.EnvVar) (oldEnvs *[]common.LabelItemSchema) {
 	if envs == nil {
 		return
 	}
 
-	oldEnvs_ := []modelschemas.LabelItemSchema{}
+	oldEnvs_ := []common.LabelItemSchema{}
 	for _, item := range envs {
 		if item.Value == "" {
 			continue
 		}
 
-		oldEnvs_ = append(oldEnvs_, modelschemas.LabelItemSchema{
+		oldEnvs_ = append(oldEnvs_, common.LabelItemSchema{
 			Key:   item.Name,
 			Value: item.Value,
 		})

@@ -62,12 +62,12 @@ import (
 	commonconfig "github.com/bentoml/yatai-common/config"
 	commonconsts "github.com/bentoml/yatai-common/consts"
 	"github.com/bentoml/yatai-common/system"
+	commonutils "github.com/bentoml/yatai-common/utils"
 
 	resourcesv1alpha1 "github.com/bentoml/yatai-image-builder/apis/resources/v1alpha1"
 
 	servingcommon "github.com/bentoml/yatai-deployment/apis/serving/common"
 	servingconversion "github.com/bentoml/yatai-deployment/apis/serving/conversion"
-	servingv1alpha3 "github.com/bentoml/yatai-deployment/apis/serving/v1alpha3"
 	servingv2alpha1 "github.com/bentoml/yatai-deployment/apis/serving/v2alpha1"
 	"github.com/bentoml/yatai-deployment/utils"
 	"github.com/bentoml/yatai-deployment/version"
@@ -468,7 +468,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				}
 			}
 			var hpaConf *modelschemas.DeploymentTargetHPAConf
-			hpaConf, err = servingv1alpha3.TransformToOldHPA(runner.Autoscaling)
+			hpaConf, err = TransformToOldHPA(runner.Autoscaling)
 			if err != nil {
 				return
 			}
@@ -487,7 +487,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 
 		var hpaConf *modelschemas.DeploymentTargetHPAConf
-		hpaConf, err = servingv1alpha3.TransformToOldHPA(bentoDeployment.Spec.Autoscaling)
+		hpaConf, err = TransformToOldHPA(bentoDeployment.Spec.Autoscaling)
 		if err != nil {
 			return
 		}
@@ -3090,4 +3090,57 @@ func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		m.Owns(&autoscalingv2.HorizontalPodAutoscaler{})
 	}
 	return m.WithEventFilter(pred).Complete(r)
+}
+
+func TransformToOldHPA(hpa *servingv2alpha1.Autoscaling) (oldHpa *modelschemas.DeploymentTargetHPAConf, err error) {
+	if hpa == nil {
+		return
+	}
+
+	oldHpa = &modelschemas.DeploymentTargetHPAConf{
+		MinReplicas: commonutils.Int32Ptr(hpa.MinReplicas),
+		MaxReplicas: commonutils.Int32Ptr(hpa.MaxReplicas),
+	}
+
+	for _, metric := range hpa.Metrics {
+		if metric.Type == autoscalingv2beta2.PodsMetricSourceType {
+			if metric.Pods == nil {
+				continue
+			}
+			if metric.Pods.Metric.Name == commonconsts.KubeHPAQPSMetric {
+				if metric.Pods.Target.Type != autoscalingv2beta2.UtilizationMetricType {
+					continue
+				}
+				if metric.Pods.Target.AverageValue == nil {
+					continue
+				}
+				qps := metric.Pods.Target.AverageValue.Value()
+				oldHpa.QPS = &qps
+			}
+		} else if metric.Type == autoscalingv2beta2.ResourceMetricSourceType {
+			if metric.Resource == nil {
+				continue
+			}
+			if metric.Resource.Name == corev1.ResourceCPU {
+				if metric.Resource.Target.Type != autoscalingv2beta2.UtilizationMetricType {
+					continue
+				}
+				if metric.Resource.Target.AverageUtilization == nil {
+					continue
+				}
+				cpu := *metric.Resource.Target.AverageUtilization
+				oldHpa.CPU = &cpu
+			} else if metric.Resource.Name == corev1.ResourceMemory {
+				if metric.Resource.Target.Type != autoscalingv2beta2.UtilizationMetricType {
+					continue
+				}
+				if metric.Resource.Target.AverageUtilization == nil {
+					continue
+				}
+				memory := metric.Resource.Target.AverageValue.String()
+				oldHpa.Memory = &memory
+			}
+		}
+	}
+	return
 }

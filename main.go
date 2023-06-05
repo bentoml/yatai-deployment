@@ -90,24 +90,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	bentoDeploymentNamespaces, err := commonconfig.GetBentoDeploymentNamespaces(context.TODO(), cliset)
-	if err != nil {
-		err = errors.Wrapf(err, "get bento deployment namespaces")
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	setupLog.Info("starting manager", "bento deployment namespaces", bentoDeploymentNamespaces)
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	ctrlOptions := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "b292d523.yatai.ai",
-		NewCache:               cache.MultiNamespacedCacheBuilder(bentoDeploymentNamespaces),
-	})
+	}
+
+	if all := os.Getenv("BENTO_DEPLOYMENT_ALL_NAMESPACES"); all != "true" {
+		bentoDeploymentNamespaces, err := commonconfig.GetBentoDeploymentNamespaces(context.TODO(), cliset)
+		if err != nil {
+			err = errors.Wrapf(err, "get bento deployment namespaces")
+			setupLog.Error(err, "unable to start manager")
+			os.Exit(1)
+		}
+		ctrlOptions.NewCache = cache.MultiNamespacedCacheBuilder(bentoDeploymentNamespaces)
+		setupLog.Info("starting manager", "bento deployment namespaces", bentoDeploymentNamespaces)
+	} else {
+		setupLog.Info("starting manager", "bento deployment namespaces", "all")
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrlOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)

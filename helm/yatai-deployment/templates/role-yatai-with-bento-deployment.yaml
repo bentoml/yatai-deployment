@@ -1,3 +1,143 @@
+{{- if .Values.bentoDeploymentAllNamespaces }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "yatai-deployment.yatai-with-bento-deployment-rolename" . }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - replicasets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+  - update
+  - patch
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/attach
+  verbs:
+  - create
+  - update
+  - patch
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/ephemeralcontainers
+  verbs:
+  - create
+  - update
+  - patch
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.yatai.ai
+  resources:
+  - bentodeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.yatai.ai
+  resources:
+  - bentodeployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - serving.yatai.ai
+  resources:
+  - bentodeployments/status
+  verbs:
+  - get
+  - patch
+  - update
+
+{{ else }}
+
 {{- range .Values.bentoDeploymentNamespaces }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -136,4 +276,6 @@ rules:
   - get
   - patch
   - update
+{{- end }}
+
 {{- end }}

@@ -1,3 +1,170 @@
+{{- if .Values.bentoDeploymentAllNamespaces }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "yatai-deployment.serviceAccountNameWithBentoDeployment" $ }}
+  namespace: {{ . | quote }}
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.yatai.ai
+  resources:
+  - bentodeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.yatai.ai
+  resources:
+  - bentodeployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - serving.yatai.ai
+  resources:
+  - bentodeployments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentorequests
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - update
+  - create
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentorequests/status
+  verbs:
+  - get
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentoes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - resources.yatai.ai
+  resources:
+  - bentoes/status
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+
+{{ else }}
+
 {{- range .Values.bentoDeploymentNamespaces }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -162,4 +329,6 @@ rules:
   - get
   - list
   - watch
+{{- end }}
+
 {{- end }}

@@ -105,6 +105,7 @@ yataiSystem:
   namespace: "yatai-system"
   serviceAccountName: "yatai"
 
+bentoDeploymentAllNamespaces: false
 bentoDeploymentNamespaces: ['yatai']
 
 internalImages:

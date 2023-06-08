@@ -108,6 +108,8 @@ yataiSystem:
 bentoDeploymentAllNamespaces: false
 bentoDeploymentNamespaces: ['yatai']
 
+disableYataiComponentRegistration: false
+
 internalImages:
   metricsTransformer: quay.io/bentoml/yatai-bento-metrics-transformer:0.0.3
   debugger: quay.io/bentoml/bento-debugger:0.0.8

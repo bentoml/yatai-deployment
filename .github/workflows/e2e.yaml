@@ -168,14 +168,38 @@ jobs:
     - name: Create KinD Cluster
       run: kind create cluster --config tests/gh-actions/kind-cluster-${{ matrix.k8s-version }}.yaml
 
-    - name: Run e2e test
+    - name: Run e2e test - tls mode 'none'
       continue-on-error: true
       id: test
       env:
         YATAI_DEPLOYMENT_IMG_REPO: test-yatai-deployment
         YATAI_DEPLOYMENT_IMG_TAG: ${{ needs.triage.outputs.image_tag }}
+        INGRESS_TLS_MODE: none
       run: |
-        ./tests/e2e/installation_test.sh
+        ./tests/e2e/installation_test_ingress.sh
+        make test-e2e
+
+    - name: Run e2e ingress test - tls mode 'auto'
+      continue-on-error: true
+      id: ingress-test-auto
+      env:
+        YATAI_DEPLOYMENT_IMG_REPO: test-yatai-deployment
+        YATAI_DEPLOYMENT_IMG_TAG: ${{ needs.triage.outputs.image_tag }}
+        INGRESS_TLS_MODE: auto
+      run: |
+        ./tests/e2e/installation_test_ingress.sh
+        make test-e2e
+
+    - name: Run e2e ingress test - tls mode 'static'
+      continue-on-error: true
+      id: ingress-test-static
+      env:
+        YATAI_DEPLOYMENT_IMG_REPO: test-yatai-deployment
+        YATAI_DEPLOYMENT_IMG_TAG: ${{ needs.triage.outputs.image_tag }}
+        INGRESS_TLS_MODE: static
+        INGRESS_STATIC_TLS_SECRET_NAME: static-tls-secret
+      run: |
+        ./tests/e2e/installation_test_ingress.sh
         make test-e2e
 
     - name: Set status success

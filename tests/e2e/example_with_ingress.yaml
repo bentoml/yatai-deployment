@@ -1,0 +1,83 @@
+apiVersion: resources.yatai.ai/v1alpha1
+kind: Bento
+metadata:
+  name: test-bento
+  namespace: yatai
+spec:
+  image: quay.io/bentoml/iris_classifier:r4zint4b567i4usu
+  runners:
+  - name: iris_clf
+    runnableType: SklearnRunnable
+  tag: iris_classifier:r4zint4b567i4usu
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret
+  namespace: yatai
+stringData:
+  format: msgpack
+---
+apiVersion: serving.yatai.ai/v2alpha1
+kind: BentoDeployment
+metadata:
+  name: test
+  namespace: yatai
+spec:
+  autoscaling:
+    maxReplicas: 2
+    metrics:
+    - resource:
+        name: cpu
+        target:
+          averageUtilization: 80
+          type: Utilization
+      type: Resource
+    minReplicas: 1
+  bento: test-bento
+  ingress:
+    enabled: true
+  monitorExporter:
+    enabled: true
+    output: stdout
+    options:
+      workers: "4"
+    structureOptions:
+      - name: workers
+        value: "5"
+      - name: format
+        valueFrom:
+          secretKeyRef:
+            name: test-secret
+            key: format
+    mounts:
+      - path: /tmp/aaa
+        readOnly: true
+        secret:
+          secretName: test-secret
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
+  runners:
+  - autoscaling:
+      maxReplicas: 2
+      metrics:
+      - resource:
+          name: cpu
+          target:
+            averageUtilization: 80
+            type: Utilization
+        type: Resource
+      minReplicas: 1
+    name: iris_clf
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1024Mi
+      requests:
+        cpu: 100m
+        memory: 200Mi

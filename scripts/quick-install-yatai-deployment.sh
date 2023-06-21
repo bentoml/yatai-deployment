@@ -202,6 +202,16 @@ YATAI_SERVICE_ACCOUNT=${YATAI_SERVICE_ACCOUNT:-yatai}
 
 USE_LOCAL_HELM_CHART=${USE_LOCAL_HELM_CHART:-false}
 
+INGRESS_TLS_MODE=${INGRESS_TLS_MODE:-none}
+INGRESS_STATIC_TLS_SECRET_NAME=${INGRESS_STATIC_TLS_SECRET_NAME:-""}
+
+if [[ "$INGRESS_TLS_MODE" == "static" ]]; then
+    if [[ -z "$INGRESS_STATIC_TLS_SECRET_NAME" ]]; then
+        echo "😱 INGRESS_STATIC_TLS_SECRET_NAME must not be empty when INGRESS_TLS_MODE is 'static'!" >&2
+        exit 1
+    fi
+fi
+
 if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
   YATAI_DEPLOYMENT_IMG_REGISTRY=${YATAI_DEPLOYMENT_IMG_REGISTRY:-quay.io/bentoml}
   YATAI_DEPLOYMENT_IMG_REPO=${YATAI_DEPLOYMENT_IMG_REPO:-yatai-deployment}
@@ -220,6 +230,8 @@ if [ "${USE_LOCAL_HELM_CHART}" = "true" ]; then
     --set image.tag=${YATAI_DEPLOYMENT_IMG_TAG} \
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
+    --set layers.network.ingressTlsMode=${INGRESS_TLS_MODE} \
+    --set layers.network.ingressStaticTlsSecretName=${INGRESS_STATIC_TLS_SECRET_NAME} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
     --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
     --set enableRestrictedSecurityContext=true
@@ -256,6 +268,8 @@ else
   helm upgrade --install yatai-deployment yatai-deployment --repo ${helm_repo_url} -n ${namespace} \
     --set yatai.endpoint=${YATAI_ENDPOINT} \
     --set layers.network.ingressClass=${INGRESS_CLASS} \
+    --set layers.network.ingressTlsMode=${INGRESS_TLS_MODE} \
+    --set layers.network.ingressStaticTlsSecretName=${INGRESS_STATIC_TLS_SECRET_NAME} \
     --set layers.network.automaticDomainSuffixGeneration=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION} \
     --set layers.network.domainSuffix=${DOMAIN_SUFFIX} \
     --set enableRestrictedSecurityContext=true \

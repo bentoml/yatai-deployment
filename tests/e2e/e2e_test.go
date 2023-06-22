@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -80,7 +81,7 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 		}
 		if os.Getenv("E2E_CHECK_NAME") != "" {
 			By("Cleaning up BentoDeployment resources")
-			cmd = exec.Command("kubectl", "delete", "-f", "tests/e2e/example.yaml")
+			cmd = exec.Command("kubectl", "delete", "-f", "tests/e2e/example_with_ingress.yaml")
 			_, _ = utils.Run(cmd)
 		}
 	})
@@ -88,7 +89,7 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 	Context("BentoDeployment Operator", func() {
 		It("Should run successfully", func() {
 			By("Creating a BentoDeployment CR")
-			cmd := exec.Command("kubectl", "apply", "-f", "tests/e2e/example.yaml")
+			cmd := exec.Command("kubectl", "apply", "-f", "tests/e2e/example_with_ingress.yaml")
 			out, err := utils.Run(cmd)
 			Expect(err).To(BeNil(), "Failed to create BentoDeployment CR: %s", string(out))
 
@@ -129,6 +130,51 @@ var _ = Describe("yatai-deployment", Ordered, func() {
 			cmd = exec.Command("kubectl", "-n", "yatai", "port-forward", "svc/test", "3000:3000")
 			daemonProcess, err = utils.RunAsDaemon(cmd)
 			Expect(err).To(BeNil(), "Failed to port-forward the bento api-server service")
+
+			// Test ingress creation
+			By("Validating the creation of Ingress resource")
+			ingress, err := cliset.NetworkingV1().Ingresses("yatai").Get(ctx, "test", metav1.GetOptions{})
+			Expect(err).To(BeNil(), "Failed to get ingress %s", "test")
+
+			// Test ingress tls mode behavior
+			By("Getting ConfigMap and retrieving values")
+			configMap, err := cliset.CoreV1().ConfigMaps("yatai-deployment").Get(ctx, "network", metav1.GetOptions{})
+			Expect(err).To(BeNil(), "Failed to get ConfigMap %s", "network")
+
+			ingressTLSMode, ok := configMap.Data["ingress-tls-mode"]
+			Expect(ok).To(BeTrue(), "Failed to get value for key %s in ConfigMap %s", "ingress-tls-mode", "network")
+			ingressTLSMode = strings.TrimSpace(ingressTLSMode)
+
+			if ingressTLSMode == "auto" {
+				By("Validating the creation of Ingress resource with correct configuration for mode 'auto'")
+				if len(ingress.Spec.TLS) > 0 {
+					tls := ingress.Spec.TLS[0]
+					Expect(tls.Hosts[0]).To(Equal(ingress.Spec.Rules[0].Host), "TLS host configuration is not correct")
+					Expect(tls.SecretName).To(Equal("test"), "TLS secretName configuration is not correct")
+				} else {
+					Fail("No TLS configuration found in the ingress")
+				}
+			}
+			if ingressTLSMode == "static" {
+				By("Validating the creation of Ingress resource with correct configuration for mode 'static'")
+				ingressStaticTLSSecretName, ok := configMap.Data["ingress-static-tls-secret-name"]
+				Expect(ok).To(BeTrue(), "Failed to get value for key %s in ConfigMap %s", "ingress-static-tls-secret-name", "network")
+				ingressStaticTLSSecretName = strings.TrimSpace(ingressStaticTLSSecretName)
+
+				if len(ingress.Spec.TLS) > 0 {
+					tls := ingress.Spec.TLS[0]
+					Expect(tls.Hosts[0]).To(Equal(ingress.Spec.Rules[0].Host), "TLS host configuration is not correct")
+					Expect(tls.SecretName).To(Equal(ingressStaticTLSSecretName), "TLS secretName configuration is not correct")
+				} else {
+					Fail("No TLS configuration found in the ingress")
+				}
+			}
+			if ingressTLSMode == "none" {
+				By("Validating the creation of Ingress resource with correct configuration for mode 'none'")
+				// mode 'none' does not mean that there is no TLS configuration in the Ingress
+				// it could still be the case the the BentoDeployment CRD has TLS configuration and so there should be an Ingress with TLS configuration as well
+				// hence, there's nothing to validate here
+			}
 
 			By("Sleeping for 5 seconds")
 			time.Sleep(5 * time.Second)

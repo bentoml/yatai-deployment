@@ -1915,7 +1915,7 @@ monitoring.options.insecure=true`
 						Command: []string{
 							"python3",
 							"-c",
-							fmt.Sprintf(`"from urllib.request import urlopen; %s"`, strings.Join(livenessProbePythonCommandPieces, "; ")),
+							fmt.Sprintf(`from urllib.request import urlopen; %s`, strings.Join(livenessProbePythonCommandPieces, "; ")),
 						},
 					},
 				},
@@ -1930,7 +1930,7 @@ monitoring.options.insecure=true`
 						Command: []string{
 							"python3",
 							"-c",
-							fmt.Sprintf(`"from urllib.request import urlopen; %s"`, strings.Join(readinessProbePythonCommandPieces, "; ")),
+							fmt.Sprintf(`from urllib.request import urlopen; %s`, strings.Join(readinessProbePythonCommandPieces, "; ")),
 						},
 					},
 				},

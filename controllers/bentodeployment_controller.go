@@ -2307,7 +2307,7 @@ monitoring.options.insecure=true`
 		monitorExporterProbePort := lastPort
 
 		monitorExporterImage := "quay.io/bentoml/bentoml-monitor-exporter:0.0.3"
-		monitorExporterImage_ := os.Getenv("INTERNAL_MONITOR_EXPORTER")
+		monitorExporterImage_ := os.Getenv("INTERNAL_IMAGES_MONITOR_EXPORTER")
 		if monitorExporterImage_ != "" {
 			monitorExporterImage = monitorExporterImage_
 		}

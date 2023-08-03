@@ -2,6 +2,11 @@
 
 set -xe
 
+# install loadbalancer
+#
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml
+kubectl apply -f https://kind.sigs.k8s.io/examples/loadbalancer/metallb-config.yaml
+
 # install ingress, needs to happen before yatai-deployment, otherwise quick-install-yatai-deployment.sh will complain
 # INGRESS_CLASS should then be set automatically by the script if I understand correctly
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.4/deploy/static/provider/kind/deploy.yaml

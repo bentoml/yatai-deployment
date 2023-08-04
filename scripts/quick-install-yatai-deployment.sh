@@ -66,7 +66,7 @@ fi
 IGNORE_INGRESS=${IGNORE_INGRESS:-false}
 
 if [ "${IGNORE_INGRESS}" = "false" ]; then
-  AUTOMATIC_DOMAIN_SUFFIX_GENERATION=true
+  AUTOMATIC_DOMAIN_SUFFIX_GENERATION=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION:-true}
   INGRESS_CLASS=$(kubectl get ingressclass -o jsonpath='{.items[0].metadata.name}' 2> /dev/null || true)
   # check if ingress class is empty
   if [ -z "$INGRESS_CLASS" ]; then
@@ -88,7 +88,7 @@ if [ "${IGNORE_INGRESS}" = "false" ]; then
   fi
 else
   echo "🤖 ignoring ingress check"
-  AUTOMATIC_DOMAIN_SUFFIX_GENERATION=false
+  AUTOMATIC_DOMAIN_SUFFIX_GENERATION=${AUTOMATIC_DOMAIN_SUFFIX_GENERATION:-false}
   INGRESS_CLASS=""
 fi
 

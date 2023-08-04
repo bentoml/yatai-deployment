@@ -34,6 +34,7 @@ IGNORE_INGRESS=false \
 SKIP_METRICS_SERVER=true \
 DOMAIN_SUFFIX='test.com' \
 UPGRADE_CRDS=false \
+AUTOMATIC_DOMAIN_SUFFIX_GENERATION=false \
 bash ./scripts/quick-install-yatai-deployment.sh
 echo "yatai-deployment helm release values:"
 helm get values yatai-deployment -n yatai-deployment

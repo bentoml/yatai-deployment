@@ -45,6 +45,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - "batch"
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - pods
@@ -181,6 +189,14 @@ rules:
   - ""
   resources:
   - events
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "batch"
+  resources:
+  - jobs
   verbs:
   - get
   - list

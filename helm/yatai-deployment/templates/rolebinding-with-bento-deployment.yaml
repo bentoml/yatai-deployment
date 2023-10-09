@@ -27,6 +27,7 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "yatai-deployment.serviceAccountName" $ }}
     namespace: {{ $.Release.Namespace }}
+---
 {{- end }}
 
 {{- end }}

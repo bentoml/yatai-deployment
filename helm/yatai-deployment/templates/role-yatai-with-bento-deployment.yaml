@@ -292,6 +292,7 @@ rules:
   - get
   - patch
   - update
+---
 {{- end }}
 
 {{- end }}

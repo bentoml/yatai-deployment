@@ -27,6 +27,7 @@ subjects:
   - kind: ServiceAccount
     name: {{ $.Values.yataiSystem.serviceAccountName }}
     namespace: {{ $.Values.yataiSystem.namespace }}
+---
 {{- end }}
 
 {{- end }}

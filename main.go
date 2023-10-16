@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -100,7 +102,9 @@ func main() {
 	}
 
 	if all := os.Getenv("BENTO_DEPLOYMENT_ALL_NAMESPACES"); all != "true" {
-		bentoDeploymentNamespaces, err := commonconfig.GetBentoDeploymentNamespaces(context.TODO(), cliset)
+		bentoDeploymentNamespaces, err := commonconfig.GetBentoDeploymentNamespaces(context.Background(), func(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
+			return cliset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+		})
 		if err != nil {
 			err = errors.Wrapf(err, "get bento deployment namespaces")
 			setupLog.Error(err, "unable to start manager")

@@ -51,10 +51,14 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/bentoml/yatai-schemas/modelschemas"
 	"github.com/bentoml/yatai-schemas/schemasv1"
@@ -192,7 +196,7 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}()
 
-	yataiClient, clusterName, err := getYataiClient(ctx)
+	yataiClient, clusterName, err := r.getYataiClient(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "get yatai client")
 		return
@@ -286,13 +290,29 @@ func (r *BentoDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if err != nil {
 			return
 		}
-		bentoAvailableCondition := meta.FindStatusCondition(bentoRequest.Status.Conditions, resourcesv1alpha1.BentoRequestConditionTypeBentoAvailable)
-		if bentoAvailableCondition != nil && bentoAvailableCondition.Status == metav1.ConditionFalse {
-			err = errors.Errorf("BentoRequest %s/%s is not available: %s", bentoRequest.Namespace, bentoRequest.Name, bentoAvailableCondition.Message)
+		bentoRequestAvailableCondition := meta.FindStatusCondition(bentoRequest.Status.Conditions, resourcesv1alpha1.BentoRequestConditionTypeBentoAvailable)
+		if bentoRequestAvailableCondition != nil && bentoRequestAvailableCondition.Status == metav1.ConditionFalse {
+			err = errors.Errorf("BentoRequest %s/%s is not available: %s", bentoRequest.Namespace, bentoRequest.Name, bentoRequestAvailableCondition.Message)
+			r.Recorder.Eventf(bentoDeployment, corev1.EventTypeWarning, "GetBentoRequest", err.Error())
+			_, err_ := r.setStatusConditions(ctx, req,
+				metav1.Condition{
+					Type:    servingv2alpha1.BentoDeploymentConditionTypeBentoFound,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Reconciling",
+					Message: err.Error(),
+				},
+				metav1.Condition{
+					Type:    servingv2alpha1.BentoDeploymentConditionTypeAvailable,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Reconciling",
+					Message: err.Error(),
+				},
+			)
+			if err_ != nil {
+				err = err_
+				return
+			}
 			return
-		}
-		result = ctrl.Result{
-			RequeueAfter: 10 * time.Second,
 		}
 		return
 	} else {
@@ -614,15 +634,15 @@ func (r *BentoDeploymentReconciler) setStatusConditions(ctx context.Context, req
 	return
 }
 
-func getYataiClient(ctx context.Context) (yataiClient **yataiclient.YataiClient, clusterName *string, err error) {
-	restConfig := config.GetConfigOrDie()
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		err = errors.Wrap(err, "create kubernetes clientset")
-		return
-	}
-
-	yataiConf, err := commonconfig.GetYataiConfig(ctx, clientset, commonconsts.YataiDeploymentComponentName, false)
+func (r *BentoDeploymentReconciler) getYataiClient(ctx context.Context) (yataiClient **yataiclient.YataiClient, clusterName *string, err error) {
+	yataiConf, err := commonconfig.GetYataiConfig(ctx, func(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
+		secret := &corev1.Secret{}
+		err = r.Get(ctx, types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		}, secret)
+		return secret, errors.Wrap(err, "get secret")
+	}, commonconsts.YataiDeploymentComponentName, false)
 	isNotFound := k8serrors.IsNotFound(err)
 	if err != nil && !isNotFound {
 		err = errors.Wrap(err, "get yatai config")
@@ -2721,7 +2741,14 @@ func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context,
 		return "", errors.Wrapf(err, "create kubernetes clientset")
 	}
 
-	domainSuffix, err := system.GetDomainSuffix(ctx, clientset)
+	domainSuffix, err := system.GetDomainSuffix(ctx, func(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
+		configmap := &corev1.ConfigMap{}
+		err := r.Get(ctx, types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		}, configmap)
+		return configmap, errors.Wrap(err, "get configmap")
+	}, clientset)
 	if err != nil {
 		return "", errors.Wrapf(err, "get domain suffix")
 	}
@@ -2735,8 +2762,15 @@ type IngressConfig struct {
 	PathType    networkingv1.PathType
 }
 
-func GetIngressConfig(ctx context.Context, cliset *kubernetes.Clientset) (ingressConfig *IngressConfig, err error) {
-	configMap, err := system.GetNetworkConfigConfigMap(ctx, cliset)
+func (r *BentoDeploymentReconciler) GetIngressConfig(ctx context.Context) (ingressConfig *IngressConfig, err error) {
+	configMap, err := system.GetNetworkConfigConfigMap(ctx, func(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
+		configmap := &corev1.ConfigMap{}
+		err := r.Get(ctx, types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		}, configmap)
+		return configmap, errors.Wrap(err, "get network config configmap")
+	})
 	if err != nil {
 		err = errors.Wrapf(err, "failed to get configmap %s", commonconsts.KubeConfigMapNameNetworkConfig)
 		return
@@ -2832,14 +2866,7 @@ more_set_headers "X-Yatai-Bento: %s";
 
 	kubeNs := bentoDeployment.Namespace
 
-	restConfig := config.GetConfigOrDie()
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		err = errors.Wrapf(err, "create kubernetes clientset")
-		return
-	}
-
-	ingressConfig, err := GetIngressConfig(ctx, clientset)
+	ingressConfig, err := r.GetIngressConfig(ctx)
 	if err != nil {
 		err = errors.Wrapf(err, "get ingress config")
 		return
@@ -2927,14 +2954,14 @@ func (r *BentoDeploymentReconciler) doCleanUpAbandonedRunnerServices() error {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*10)
 	defer cancel()
 
-	restConf := config.GetConfigOrDie()
-	cliset, err := kubernetes.NewForConfig(restConf)
-	if err != nil {
-		err = errors.Wrapf(err, "create kubernetes client for %s", restConf.Host)
-		return err
-	}
-
-	bentoDeploymentNamespaces, err := commonconfig.GetBentoDeploymentNamespaces(ctx, cliset)
+	bentoDeploymentNamespaces, err := commonconfig.GetBentoDeploymentNamespaces(ctx, func(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
+		secret := &corev1.Secret{}
+		err := r.Get(ctx, types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		}, secret)
+		return secret, errors.Wrap(err, "get secret")
+	})
 	if err != nil {
 		err = errors.Wrapf(err, "get bento deployment namespaces")
 		return err
@@ -3001,7 +3028,7 @@ func (r *BentoDeploymentReconciler) doRegisterYataiComponent() (err error) {
 	defer cancel()
 
 	logs.Info("getting yatai client")
-	yataiClient, clusterName, err := getYataiClient(ctx)
+	yataiClient, clusterName, err := r.getYataiClient(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "get yatai client")
 		return
@@ -3014,14 +3041,14 @@ func (r *BentoDeploymentReconciler) doRegisterYataiComponent() (err error) {
 
 	yataiClient_ := *yataiClient
 
-	restConf := config.GetConfigOrDie()
-	cliset, err := kubernetes.NewForConfig(restConf)
-	if err != nil {
-		err = errors.Wrapf(err, "create kubernetes client for %s", restConf.Host)
-		return
-	}
-
-	namespace, err := commonconfig.GetYataiDeploymentNamespace(ctx, cliset)
+	namespace, err := commonconfig.GetYataiDeploymentNamespace(ctx, func(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
+		secret := &corev1.Secret{}
+		err := r.Get(ctx, types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		}, secret)
+		return secret, errors.Wrap(err, "get secret")
+	})
 	if err != nil {
 		err = errors.Wrap(err, "get yatai deployment namespace")
 		return
@@ -3077,19 +3104,72 @@ func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		logs.Info("yatai component registration is disabled")
 	}
 
-	pred := predicate.GenerationChangedPredicate{}
 	m := ctrl.NewControllerManagedBy(mgr).
-		For(&servingv2alpha1.BentoDeployment{}).
+		For(&servingv2alpha1.BentoDeployment{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
-		Owns(&networkingv1.Ingress{})
+		Owns(&networkingv1.Ingress{}).
+		Watches(&source.Kind{Type: &resourcesv1alpha1.BentoRequest{}}, handler.EnqueueRequestsFromMapFunc(func(bentoRequest client.Object) []reconcile.Request {
+			reqs := make([]reconcile.Request, 0)
+			logs := log.Log.WithValues("func", "Watches", "kind", "BentoRequest", "name", bentoRequest.GetName(), "namespace", bentoRequest.GetNamespace())
+			bento := &resourcesv1alpha1.Bento{}
+			err := r.Get(context.Background(), types.NamespacedName{
+				Name:      bentoRequest.GetName(),
+				Namespace: bentoRequest.GetNamespace(),
+			}, bento)
+			bentoIsNotFound := k8serrors.IsNotFound(err)
+			if err != nil && !bentoIsNotFound {
+				logs.Info("Failed to get bento", "name", bentoRequest.GetName(), "namespace", bentoRequest.GetNamespace())
+				return reqs
+			}
+			if !bentoIsNotFound {
+				return reqs
+			}
+			bentoDeployments := &servingv2alpha1.BentoDeploymentList{}
+			err = r.List(context.Background(), bentoDeployments, &client.ListOptions{
+				Namespace: bentoRequest.GetNamespace(),
+			})
+			if err != nil {
+				logs.Info("Failed to list bentoDeployments")
+				return reqs
+			}
+			for _, bentoDeployment := range bentoDeployments.Items {
+				bentoDeployment := bentoDeployment
+				if bentoDeployment.Spec.Bento == bentoRequest.GetName() {
+					reqs = append(reqs, reconcile.Request{
+						NamespacedName: client.ObjectKeyFromObject(&bentoDeployment),
+					})
+				}
+			}
+			return reqs
+		})).
+		Watches(&source.Kind{Type: &resourcesv1alpha1.Bento{}}, handler.EnqueueRequestsFromMapFunc(func(bento client.Object) []reconcile.Request {
+			logs := log.Log.WithValues("func", "Watches", "kind", "Bento", "name", bento.GetName(), "namespace", bento.GetNamespace())
+			bentoDeployments := &servingv2alpha1.BentoDeploymentList{}
+			err := r.List(context.Background(), bentoDeployments, &client.ListOptions{
+				Namespace: bento.GetNamespace(),
+			})
+			if err != nil {
+				logs.Info("Failed to list bentoDeployments")
+			}
+			reqs := make([]reconcile.Request, 0)
+			for _, bentoDeployment := range bentoDeployments.Items {
+				bentoDeployment := bentoDeployment
+				if bentoDeployment.Spec.Bento == bento.GetName() {
+					reqs = append(reqs, reconcile.Request{
+						NamespacedName: client.ObjectKeyFromObject(&bentoDeployment),
+					})
+				}
+			}
+			return reqs
+		}))
 
 	if r.requireLegacyHPA() {
 		m.Owns(&autoscalingv2beta2.HorizontalPodAutoscaler{})
 	} else {
 		m.Owns(&autoscalingv2.HorizontalPodAutoscaler{})
 	}
-	return m.WithEventFilter(pred).Complete(r)
+	return m.Complete(r)
 }
 
 func TransformToOldHPA(hpa *servingv2alpha1.Autoscaling) (oldHpa *modelschemas.DeploymentTargetHPAConf, err error) {

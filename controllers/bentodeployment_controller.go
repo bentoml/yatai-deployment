@@ -2745,19 +2745,29 @@ func (r *BentoDeploymentReconciler) generateIngressHost(ctx context.Context, ben
 	return r.generateDefaultHostname(ctx, bentoDeployment)
 }
 
-func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context, bentoDeployment *servingv2alpha1.BentoDeployment) (string, error) {
-	restConfig := config.GetConfigOrDie()
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return "", errors.Wrapf(err, "create kubernetes clientset")
-	}
+var cachedDomainSuffix *string
 
-	domainSuffix, err := system.GetDomainSuffix(ctx, func(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
-		configmap, err := clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
-		return configmap, errors.Wrap(err, "get configmap")
-	}, clientset)
-	if err != nil {
-		return "", errors.Wrapf(err, "get domain suffix")
+func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context, bentoDeployment *servingv2alpha1.BentoDeployment) (string, error) {
+	var domainSuffix string
+
+	if cachedDomainSuffix != nil {
+		domainSuffix = *cachedDomainSuffix
+	} else {
+		restConfig := config.GetConfigOrDie()
+		clientset, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return "", errors.Wrapf(err, "create kubernetes clientset")
+		}
+
+		domainSuffix, err = system.GetDomainSuffix(ctx, func(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
+			configmap, err := clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+			return configmap, errors.Wrap(err, "get configmap")
+		}, clientset)
+		if err != nil {
+			return "", errors.Wrapf(err, "get domain suffix")
+		}
+
+		cachedDomainSuffix = &domainSuffix
 	}
 	return fmt.Sprintf("%s-%s.%s", bentoDeployment.Name, bentoDeployment.Namespace, domainSuffix), nil
 }
@@ -2769,13 +2779,23 @@ type IngressConfig struct {
 	PathType    networkingv1.PathType
 }
 
+var cachedIngressConfig *IngressConfig
+
 func (r *BentoDeploymentReconciler) GetIngressConfig(ctx context.Context) (ingressConfig *IngressConfig, err error) {
+	if cachedIngressConfig != nil {
+		ingressConfig = cachedIngressConfig
+		return
+	}
+
+	restConfig := config.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		err = errors.Wrapf(err, "create kubernetes clientset")
+		return
+	}
+
 	configMap, err := system.GetNetworkConfigConfigMap(ctx, func(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
-		configmap := &corev1.ConfigMap{}
-		err := r.Get(ctx, types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		}, configmap)
+		configmap, err := clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 		return configmap, errors.Wrap(err, "get network config configmap")
 	})
 	if err != nil {
@@ -2819,6 +2839,8 @@ func (r *BentoDeploymentReconciler) GetIngressConfig(ctx context.Context) (ingre
 		Path:        path,
 		PathType:    pathType,
 	}
+
+	cachedIngressConfig = ingressConfig
 
 	return
 }

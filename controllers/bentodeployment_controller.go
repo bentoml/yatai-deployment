@@ -2977,23 +2977,35 @@ more_set_headers "X-Yatai-Bento: %s";
 	return ings, err
 }
 
+var cachedBentoDeploymentNamespaces *[]string
+
 func (r *BentoDeploymentReconciler) doCleanUpAbandonedRunnerServices() error {
 	logs := log.Log.WithValues("func", "doCleanUpAbandonedRunnerServices")
 	logs.Info("start cleaning up abandoned runner services")
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*10)
 	defer cancel()
 
-	bentoDeploymentNamespaces, err := commonconfig.GetBentoDeploymentNamespaces(ctx, func(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
-		secret := &corev1.Secret{}
-		err := r.Get(ctx, types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		}, secret)
-		return secret, errors.Wrap(err, "get secret")
-	})
-	if err != nil {
-		err = errors.Wrapf(err, "get bento deployment namespaces")
-		return err
+	var bentoDeploymentNamespaces []string
+
+	if cachedBentoDeploymentNamespaces != nil {
+		bentoDeploymentNamespaces = *cachedBentoDeploymentNamespaces
+	} else {
+		restConfig := config.GetConfigOrDie()
+		clientset, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return errors.Wrapf(err, "create kubernetes clientset")
+		}
+
+		bentoDeploymentNamespaces, err = commonconfig.GetBentoDeploymentNamespaces(ctx, func(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
+			secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+			return secret, errors.Wrap(err, "get secret")
+		})
+		if err != nil {
+			err = errors.Wrapf(err, "get bento deployment namespaces")
+			return err
+		}
+
+		cachedBentoDeploymentNamespaces = &bentoDeploymentNamespaces
 	}
 
 	for _, bentoDeploymentNamespace := range bentoDeploymentNamespaces {

@@ -110,21 +110,19 @@ func main() {
 			setupLog.Error(err, "unable to start manager")
 			os.Exit(1)
 		}
-		namespaces := bentoDeploymentNamespaces
-		namespaces = append(namespaces, commonconfig.GetYataiSystemNamespaceFromEnv())
-		ctrlOptions.NewCache = cache.MultiNamespacedCacheBuilder(namespaces)
-		setupLog.Info("starting manager", "cached namespaces", namespaces)
+		ctrlOptions.NewCache = cache.MultiNamespacedCacheBuilder(bentoDeploymentNamespaces)
+		setupLog.Info("starting manager", "bento deployment namespaces", bentoDeploymentNamespaces)
 	} else {
 		setupLog.Info("starting manager", "bento deployment namespaces", "all")
 	}
 
-	mgr, err := ctrl.NewManager(restConf, ctrlOptions)
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrlOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConf)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(ctrl.GetConfigOrDie())
 	if err != nil {
 		setupLog.Error(err, "unable to create discovery client")
 		os.Exit(1)

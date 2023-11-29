@@ -634,23 +634,34 @@ func (r *BentoDeploymentReconciler) setStatusConditions(ctx context.Context, req
 	return
 }
 
+var cachedYataiConf *commonconfig.YataiConfig
+
 func (r *BentoDeploymentReconciler) getYataiClient(ctx context.Context) (yataiClient **yataiclient.YataiClient, clusterName *string, err error) {
-	yataiConf, err := commonconfig.GetYataiConfig(ctx, func(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
-		secret := &corev1.Secret{}
-		err = r.Get(ctx, types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		}, secret)
-		return secret, errors.Wrap(err, "get secret")
-	}, commonconsts.YataiDeploymentComponentName, false)
-	isNotFound := k8serrors.IsNotFound(err)
-	if err != nil && !isNotFound {
-		err = errors.Wrap(err, "get yatai config")
+	restConfig := config.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		err = errors.Wrapf(err, "create kubernetes clientset")
 		return
 	}
+	var yataiConf *commonconfig.YataiConfig
 
-	if isNotFound {
-		return
+	if cachedYataiConf != nil {
+		yataiConf = cachedYataiConf
+	} else {
+		yataiConf, err = commonconfig.GetYataiConfig(ctx, func(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
+			secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+			return secret, errors.Wrap(err, "get secret")
+		}, commonconsts.YataiDeploymentComponentName, false)
+		isNotFound := k8serrors.IsNotFound(err)
+		if err != nil && !isNotFound {
+			err = errors.Wrap(err, "get yatai config")
+			return
+		}
+
+		if isNotFound {
+			return
+		}
+		cachedYataiConf = yataiConf
 	}
 
 	yataiEndpoint := yataiConf.Endpoint
@@ -3041,12 +3052,15 @@ func (r *BentoDeploymentReconciler) doRegisterYataiComponent() (err error) {
 
 	yataiClient_ := *yataiClient
 
+	restConfig := config.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		err = errors.Wrapf(err, "create kubernetes clientset")
+		return
+	}
+
 	namespace, err := commonconfig.GetYataiDeploymentNamespace(ctx, func(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
-		secret := &corev1.Secret{}
-		err := r.Get(ctx, types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		}, secret)
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 		return secret, errors.Wrap(err, "get secret")
 	})
 	if err != nil {

@@ -2753,11 +2753,7 @@ func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context,
 	}
 
 	domainSuffix, err := system.GetDomainSuffix(ctx, func(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
-		configmap := &corev1.ConfigMap{}
-		err := r.Get(ctx, types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		}, configmap)
+		configmap, err := clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 		return configmap, errors.Wrap(err, "get configmap")
 	}, clientset)
 	if err != nil {
@@ -3120,9 +3116,9 @@ func (r *BentoDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	m := ctrl.NewControllerManagedBy(mgr).
 		For(&servingv2alpha1.BentoDeployment{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&appsv1.Deployment{}).
-		Owns(&corev1.Service{}).
-		Owns(&networkingv1.Ingress{}).
+		Owns(&appsv1.Deployment{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&corev1.Service{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&networkingv1.Ingress{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&source.Kind{Type: &resourcesv1alpha1.BentoRequest{}}, handler.EnqueueRequestsFromMapFunc(func(bentoRequest client.Object) []reconcile.Request {
 			reqs := make([]reconcile.Request, 0)
 			logs := log.Log.WithValues("func", "Watches", "kind", "BentoRequest", "name", bentoRequest.GetName(), "namespace", bentoRequest.GetNamespace())

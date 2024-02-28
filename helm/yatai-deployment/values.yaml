@@ -85,6 +85,11 @@ layers:
     ingressPath: /
     ingressPathType: ImplementationSpecific
 
+    # can be one of "none", "auto", "static"
+    ingressTlsMode: "none"
+    # if ingressTlsMode is "static" ingressStaticTlsSecretName must not be empty
+    ingressStaticTlsSecretName: ""
+
     # To configure DNS for Yatai BentoDeployment, take an External IP or CNAME from setting up networking, and configure it with your DNS provider as follows:
     #   If the networking layer produced an External IP address, then configure a wildcard `A` record for the domain:
     #       ```

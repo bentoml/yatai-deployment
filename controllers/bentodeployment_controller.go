@@ -2772,11 +2772,21 @@ func (r *BentoDeploymentReconciler) generateDefaultHostname(ctx context.Context,
 	return fmt.Sprintf("%s-%s.%s", bentoDeployment.Name, bentoDeployment.Namespace, domainSuffix), nil
 }
 
+type TLSModeOpt string
+
+const (
+	TLSModeNone   TLSModeOpt = "none"
+	TLSModeAuto   TLSModeOpt = "auto"
+	TLSModeStatic TLSModeOpt = "static"
+)
+
 type IngressConfig struct {
-	ClassName   *string
-	Annotations map[string]string
-	Path        string
-	PathType    networkingv1.PathType
+	ClassName           *string
+	Annotations         map[string]string
+	Path                string
+	PathType            networkingv1.PathType
+	TLSMode             TLSModeOpt
+	StaticTLSSecretName string
 }
 
 var cachedIngressConfig *IngressConfig
@@ -2833,11 +2843,31 @@ func (r *BentoDeploymentReconciler) GetIngressConfig(ctx context.Context) (ingre
 		pathType = networkingv1.PathType(pathType_)
 	}
 
+	tlsMode := TLSModeNone
+	tlsModeStr := strings.TrimSpace(configMap.Data["ingress-tls-mode"])
+	if tlsModeStr != "" && tlsModeStr != "none" {
+		if tlsModeStr == "auto" || tlsModeStr == "static" {
+			tlsMode = TLSModeOpt(tlsModeStr)
+		} else {
+			fmt.Println("Invalid TLS mode:", tlsModeStr)
+			err = errors.Wrapf(err, "Invalid TLS mode: %s", tlsModeStr)
+			return
+		}
+	}
+
+	staticTLSSecretName := strings.TrimSpace(configMap.Data["ingress-static-tls-secret-name"])
+	if tlsMode == TLSModeStatic && staticTLSSecretName == "" {
+		err = errors.Wrapf(err, "TLS mode is static but ingress-static-tls-secret isn't set")
+		return
+	}
+
 	ingressConfig = &IngressConfig{
-		ClassName:   className,
-		Annotations: annotations,
-		Path:        path,
-		PathType:    pathType,
+		ClassName:           className,
+		Annotations:         annotations,
+		Path:                path,
+		PathType:            pathType,
+		TLSMode:             tlsMode,
+		StaticTLSSecretName: staticTLSSecretName,
 	}
 
 	cachedIngressConfig = ingressConfig
@@ -2905,6 +2935,8 @@ more_set_headers "X-Yatai-Bento: %s";
 	ingressAnnotations := ingressConfig.Annotations
 	ingressPath := ingressConfig.Path
 	ingressPathType := ingressConfig.PathType
+	ingressTLSMode := ingressConfig.TLSMode
+	ingressStaticTLSSecretName := ingressConfig.StaticTLSSecretName
 
 	for k, v := range ingressAnnotations {
 		annotations[k] = v
@@ -2920,6 +2952,28 @@ more_set_headers "X-Yatai-Bento: %s";
 
 	var tls []networkingv1.IngressTLS
 
+	// set default tls from network configmap
+	switch ingressTLSMode {
+	case TLSModeNone:
+	case TLSModeAuto:
+		tls = make([]networkingv1.IngressTLS, 0, 1)
+		tls = append(tls, networkingv1.IngressTLS{
+			Hosts:      []string{internalHost},
+			SecretName: kubeName,
+		})
+
+	case TLSModeStatic:
+		tls = make([]networkingv1.IngressTLS, 0, 1)
+		tls = append(tls, networkingv1.IngressTLS{
+			Hosts:      []string{internalHost},
+			SecretName: ingressStaticTLSSecretName,
+		})
+	default:
+		err = errors.Wrapf(err, "TLS mode is invalid: %s", ingressTLSMode)
+		return
+	}
+
+	// override default tls if BentoDeployment defines its own tls section
 	if opt.bentoDeployment.Spec.Ingress.TLS != nil && opt.bentoDeployment.Spec.Ingress.TLS.SecretName != "" {
 		tls = make([]networkingv1.IngressTLS, 0, 1)
 		tls = append(tls, networkingv1.IngressTLS{

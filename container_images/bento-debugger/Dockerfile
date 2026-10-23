@@ -11,7 +11,6 @@ FROM python:3.11.0-slim-bullseye
 
 RUN apt-get update
 RUN apt-get install -y vim jq fping curl iftop mtr dnsutils ldnsutils procps htop net-tools iproute2 ipset iptraf-ng tcpdump tcptraceroute strace sysstat iperf iperf3 ngrep zsh wget git
-# pip < 26.2.2 trusts the compromised eMudhra CAs; the hash keeps a MITM from swapping the wheel
 RUN pip install --no-cache-dir "pip @ https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl#sha256=fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
 RUN pip install --no-cache-dir ipython ipdb py-spy httpie
 
